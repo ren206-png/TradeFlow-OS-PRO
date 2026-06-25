@@ -269,3 +269,4 @@ app/
 - Stripe billing
 - Real-time websocket call monitoring
 - Redis-backed agent session store (currently in-memory)
+# TradeFlow-OS-PRO
