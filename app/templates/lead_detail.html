@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Lead — {{ lead.caller_name or lead.id }}{% endblock %}
+{% block page_title %}Lead Detail{% endblock %}
+
+{% block content %}
+
+<div class="mb-4">
+  <a href="/dashboard/leads" class="text-sm text-gray-500 hover:text-gray-300 transition-colors">← Back to Leads</a>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+  <!-- Lead info card -->
+  <div class="xl:col-span-2 space-y-6">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-semibold text-white">{{ lead.caller_name or 'Unknown Caller' }}</h2>
+          <p class="text-gray-500 text-sm font-mono mt-0.5">{{ lead.phone or 'No phone' }}</p>
+        </div>
+        <div class="flex gap-2">
+          {% if lead.priority_level == 'emergency' %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-red-900 text-red-300 border border-red-700">Emergency</span>
+          {% elif lead.priority_level == 'high' %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-orange-900 text-orange-300 border border-orange-700">High</span>
+          {% elif lead.priority_level == 'medium' %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-yellow-900 text-yellow-300 border border-yellow-700">Medium</span>
+          {% elif lead.priority_level == 'low' %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">Low</span>
+          {% endif %}
+          {% if lead.appointment_status == 'booked' %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-green-900 text-green-300 border border-green-700">Booked</span>
+          {% endif %}
+          {% if lead.life_safety_risk %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-red-950 text-red-400 border border-red-800">Life Safety Risk</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {% macro field(label, value) %}
+        <div>
+          <p class="text-xs text-gray-600 uppercase tracking-wider mb-0.5">{{ label }}</p>
+          <p class="text-sm text-gray-300">{{ value or '—' }}</p>
+        </div>
+        {% endmacro %}
+
+        {{ field('Trade', lead.trade) }}
+        {{ field('Service Category', lead.service_category) }}
+        {{ field('Property Type', lead.property_type) }}
+        {{ field('Email', lead.email) }}
+        {{ field('Business Name', lead.business_name) }}
+        {{ field('Emergency Level', lead.emergency_level) }}
+        {{ field('Customer Sentiment', lead.customer_sentiment) }}
+        {{ field('Call Direction', lead.call_direction) }}
+        {{ field('Lead Source', lead.lead_source) }}
+        {{ field('Service Area', lead.service_area_status) }}
+        {{ field('Appointment Time', lead.appointment_time.strftime('%b %d, %Y %H:%M') if lead.appointment_time else None) }}
+        {{ field('SMS Sent', 'Yes' if lead.sms_confirmation_sent else 'No') }}
+      </div>
+
+      {% if lead.service_address %}
+      <div class="mt-4 pt-4 border-t border-gray-800">
+        <p class="text-xs text-gray-600 uppercase tracking-wider mb-1">Address</p>
+        <p class="text-sm text-gray-300">
+          {{ lead.service_address }}{% if lead.city %}, {{ lead.city }}{% endif %}{% if lead.province_state %}, {{ lead.province_state }}{% endif %}{% if lead.postal_zip %} {{ lead.postal_zip }}{% endif %}
+        </p>
+      </div>
+      {% endif %}
+
+      {% if lead.problem_summary %}
+      <div class="mt-4 pt-4 border-t border-gray-800">
+        <p class="text-xs text-gray-600 uppercase tracking-wider mb-1">Problem Summary</p>
+        <p class="text-sm text-gray-300 leading-relaxed">{{ lead.problem_summary }}</p>
+      </div>
+      {% endif %}
+
+      {% if lead.notes %}
+      <div class="mt-4 pt-4 border-t border-gray-800">
+        <p class="text-xs text-gray-600 uppercase tracking-wider mb-1">Notes</p>
+        <p class="text-sm text-gray-300 leading-relaxed">{{ lead.notes }}</p>
+      </div>
+      {% endif %}
+
+      {% if lead.human_transfer_required %}
+      <div class="mt-4 pt-4 border-t border-gray-800">
+        <p class="text-xs text-orange-500 uppercase tracking-wider mb-1">Human Transfer Required</p>
+        <p class="text-sm text-orange-300">{{ lead.transfer_reason or 'No reason provided' }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Call session info -->
+    {% if call_session %}
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Call Session</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div>
+          <p class="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Call ID</p>
+          <p class="text-xs text-gray-400 font-mono truncate">{{ call_session.retell_call_id }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Status</p>
+          <p class="text-sm text-gray-300">{{ call_session.status | title }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Duration</p>
+          <p class="text-sm text-gray-300">
+            {% if call_session.duration_seconds %}
+              {{ (call_session.duration_seconds // 60) }}m {{ (call_session.duration_seconds % 60) }}s
+            {% else %}—{% endif %}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-600 uppercase tracking-wider mb-0.5">Started</p>
+          <p class="text-sm text-gray-300">{{ call_session.started_at.strftime('%b %d %H:%M') if call_session.started_at else '—' }}</p>
+        </div>
+      </div>
+      {% if lead.recording_url %}
+      <a href="{{ lead.recording_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Play Recording
+      </a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Conversation history -->
+    {% if conversation %}
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Conversation</h3>
+      <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+        {% for msg in conversation %}
+        <div class="flex gap-3 {% if msg.role == 'agent' %}flex-row{% else %}flex-row-reverse{% endif %}">
+          <div class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold
+            {% if msg.role == 'agent' %}bg-indigo-700 text-indigo-200{% else %}bg-gray-700 text-gray-300{% endif %}">
+            {{ 'A' if msg.role == 'agent' else 'C' }}
+          </div>
+          <div class="max-w-sm">
+            <div class="text-xs text-gray-600 mb-1 {% if msg.role != 'agent' %}text-right{% endif %}">
+              {{ msg.role | title }}
+            </div>
+            <div class="text-sm text-gray-300 bg-gray-800 rounded-lg px-3 py-2 leading-relaxed">
+              {{ msg.content }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Scores sidebar -->
+  <div class="space-y-6">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Scores</h3>
+
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-gray-500">Emergency Score</span>
+            <span class="text-sm font-semibold text-red-400">
+              {{ lead.emergency_score if lead.emergency_score is not none else '—' }}
+              {% if lead.emergency_score is not none %}/100{% endif %}
+            </span>
+          </div>
+          <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div class="h-full bg-red-500 rounded-full transition-all"
+                 style="width: {{ lead.emergency_score or 0 }}%"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-gray-500">Revenue Score</span>
+            <span class="text-sm font-semibold text-green-400">
+              {{ lead.revenue_score if lead.revenue_score is not none else '—' }}
+              {% if lead.revenue_score is not none %}/100{% endif %}
+            </span>
+          </div>
+          <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div class="h-full bg-green-500 rounded-full transition-all"
+                 style="width: {{ lead.revenue_score or 0 }}%"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-gray-500">Close Probability</span>
+            <span class="text-sm font-semibold text-indigo-400">
+              {{ lead.close_probability if lead.close_probability is not none else '—' }}
+              {% if lead.close_probability is not none %}%{% endif %}
+            </span>
+          </div>
+          <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div class="h-full bg-indigo-500 rounded-full transition-all"
+                 style="width: {{ lead.close_probability or 0 }}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Meta</h3>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Lead ID</span>
+          <span class="text-gray-400 font-mono text-xs">{{ lead.id | string | truncate(12, True, '') }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Created</span>
+          <span class="text-gray-400">{{ lead.created_at.strftime('%b %d, %Y') if lead.created_at else '—' }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Updated</span>
+          <span class="text-gray-400">{{ lead.updated_at.strftime('%b %d, %Y') if lead.updated_at else '—' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

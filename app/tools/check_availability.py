@@ -1,26 +1,26 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import List
 
 
 async def check_availability(tool_input: dict, context: dict) -> dict:
-    """Return available appointment slots. MVP uses generated slots; stubs for live calendar providers."""
+    """Return available appointment slots via CalendarService."""
+    from app.services.calendar import CalendarService
+
     contractor = context["contractor"]
     urgency = tool_input["urgency"]
     trade = tool_input["trade"]
 
-    if contractor.calendar_provider == "google":
-        # TODO: integrate Google Calendar API
-        slots = _generate_slots(urgency)
-    elif contractor.calendar_provider == "calendly":
-        # TODO: integrate Calendly API
-        slots = _generate_slots(urgency)
-    else:
-        slots = _generate_slots(urgency)
+    service = CalendarService(contractor)
+    slots = await service.get_available_slots(trade=trade, urgency=urgency, num_slots=3)
 
     return {"slots": slots, "trade": trade, "success": True}
 
 
-def _generate_slots(urgency: str) -> list[dict]:
+def _generate_slots(urgency: str) -> List[dict]:
+    """Legacy helper retained for backward compatibility."""
     now = datetime.now(tz=timezone.utc)
 
     if urgency == "emergency":
@@ -53,7 +53,9 @@ def _generate_slots(urgency: str) -> list[dict]:
         {
             "slot_id": str(uuid.uuid4()),
             "display": labels[i],
-            "datetime_iso": slot_times[i].isoformat(),
+            "iso_start": slot_times[i].isoformat(),
+            "iso_end": (slot_times[i] + timedelta(hours=1)).isoformat(),
+            "technician": "Available technician",
         }
         for i in range(len(slot_times))
     ]

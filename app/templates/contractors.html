@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Contractors{% endblock %}
+{% block page_title %}Contractors{% endblock %}
+
+{% block content %}
+
+<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Agent</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trades</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Active</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Agent ID</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for c in contractors %}
+        <tr class="hover:bg-gray-800/50 transition-colors">
+          <td class="px-4 py-3 text-gray-200 font-medium">{{ c.name }}</td>
+          <td class="px-4 py-3 text-gray-400">{{ c.agent_name }}</td>
+          <td class="px-4 py-3 text-gray-400 font-mono text-xs">{{ c.phone_number }}</td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-1">
+              {% for trade in (c.trades or [])[:3] %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-400 border border-gray-700">{{ trade }}</span>
+              {% endfor %}
+              {% if (c.trades or []) | length > 3 %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-500">+{{ (c.trades | length) - 3 }}</span>
+              {% endif %}
+              {% if not c.trades %}
+                <span class="text-gray-600">—</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            {% if c.is_active %}
+              <span class="inline-flex items-center gap-1 text-xs text-green-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+                Active
+              </span>
+            {% else %}
+              <span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                <span class="w-1.5 h-1.5 rounded-full bg-gray-500 inline-block"></span>
+                Inactive
+              </span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-500 font-mono text-xs">
+            {{ c.retell_agent_id | truncate(20, True, '…') if c.retell_agent_id else '—' }}
+          </td>
+          <td class="px-4 py-3">
+            <a href="/dashboard/leads?contractor={{ c.id }}"
+               class="text-indigo-400 hover:text-indigo-300 text-xs font-medium">Leads →</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="px-4 py-12 text-center text-gray-600">No contractors found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

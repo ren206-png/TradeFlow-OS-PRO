@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Leads{% endblock %}
+{% block page_title %}Leads{% endblock %}
+
+{% block content %}
+
+<!-- Stats bar -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Leads</p>
+    <p class="text-2xl font-bold text-white">{{ stats.total }}</p>
+  </div>
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Emergency</p>
+    <p class="text-2xl font-bold text-red-400">{{ stats.emergency }}</p>
+  </div>
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Booked</p>
+    <p class="text-2xl font-bold text-green-400">{{ stats.booked }}</p>
+  </div>
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Avg Close %</p>
+    <p class="text-2xl font-bold text-indigo-400">{{ stats.avg_close }}%</p>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<form method="get" class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end">
+  <div class="flex flex-col gap-1">
+    <label class="text-xs text-gray-500 uppercase tracking-wider">Priority</label>
+    <select name="priority"
+            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All Priorities</option>
+      <option value="emergency" {% if filters.priority == 'emergency' %}selected{% endif %}>Emergency</option>
+      <option value="high" {% if filters.priority == 'high' %}selected{% endif %}>High</option>
+      <option value="medium" {% if filters.priority == 'medium' %}selected{% endif %}>Medium</option>
+      <option value="low" {% if filters.priority == 'low' %}selected{% endif %}>Low</option>
+    </select>
+  </div>
+  <div class="flex flex-col gap-1">
+    <label class="text-xs text-gray-500 uppercase tracking-wider">Trade</label>
+    <select name="trade"
+            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All Trades</option>
+      {% for t in trades %}
+      <option value="{{ t }}" {% if filters.trade == t %}selected{% endif %}>{{ t | title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex flex-col gap-1">
+    <label class="text-xs text-gray-500 uppercase tracking-wider">Status</label>
+    <select name="status"
+            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All Statuses</option>
+      <option value="booked" {% if filters.status == 'booked' %}selected{% endif %}>Booked</option>
+      <option value="not_booked" {% if filters.status == 'not_booked' %}selected{% endif %}>Not Booked</option>
+      <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+    </select>
+  </div>
+  <div class="flex flex-col gap-1 flex-1 min-w-48">
+    <label class="text-xs text-gray-500 uppercase tracking-wider">Search</label>
+    <input type="text" name="q" value="{{ filters.q or '' }}" placeholder="Name or phone…"
+           class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-600" />
+  </div>
+  <button type="submit"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+    Filter
+  </button>
+  <a href="/dashboard/leads"
+     class="text-gray-400 hover:text-white text-sm px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+    Reset
+  </a>
+</form>
+
+<!-- Table -->
+<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trade</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Priority</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Score</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for lead in leads %}
+        <tr class="hover:bg-gray-800/50 transition-colors">
+          <td class="px-4 py-3 text-gray-200 font-medium">
+            {{ lead.caller_name or '—' }}
+          </td>
+          <td class="px-4 py-3 text-gray-400 font-mono text-xs">{{ lead.phone or '—' }}</td>
+          <td class="px-4 py-3 text-gray-400">{{ lead.trade or '—' }}</td>
+          <td class="px-4 py-3">
+            {% if lead.priority_level == 'emergency' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-900 text-red-300 border border-red-700">Emergency</span>
+            {% elif lead.priority_level == 'high' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-900 text-orange-300 border border-orange-700">High</span>
+            {% elif lead.priority_level == 'medium' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-900 text-yellow-300 border border-yellow-700">Medium</span>
+            {% elif lead.priority_level == 'low' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">Low</span>
+            {% else %}
+              <span class="text-gray-600">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if lead.appointment_status == 'booked' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-900 text-green-300 border border-green-700">Booked</span>
+            {% elif lead.appointment_status == 'not_booked' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-400 border border-gray-600">Not Booked</span>
+            {% else %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300 border border-blue-700">{{ lead.appointment_status | title }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-400">
+            {% if lead.close_probability is not none %}
+              <span class="text-indigo-400 font-medium">{{ lead.close_probability }}%</span>
+            {% else %}
+              <span class="text-gray-600">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+            {{ lead.created_at.strftime('%b %d, %Y') if lead.created_at else '—' }}
+          </td>
+          <td class="px-4 py-3">
+            <a href="/dashboard/leads/{{ lead.id }}"
+               class="text-indigo-400 hover:text-indigo-300 text-xs font-medium">View →</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="px-4 py-12 text-center text-gray-600">No leads found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  <div class="border-t border-gray-800 px-4 py-3 flex items-center justify-between">
+    <p class="text-xs text-gray-500">
+      Page {{ page }} of {{ total_pages }} &mdash; {{ total }} total leads
+    </p>
+    <div class="flex gap-2">
+      {% if page > 1 %}
+      <a href="?page={{ page - 1 }}&priority={{ filters.priority or '' }}&trade={{ filters.trade or '' }}&status={{ filters.status or '' }}&q={{ filters.q or '' }}"
+         class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors">← Prev</a>
+      {% endif %}
+      {% if page < total_pages %}
+      <a href="?page={{ page + 1 }}&priority={{ filters.priority or '' }}&trade={{ filters.trade or '' }}&status={{ filters.status or '' }}&q={{ filters.q or '' }}"
+         class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

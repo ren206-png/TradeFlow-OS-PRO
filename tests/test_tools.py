@@ -73,7 +73,7 @@ async def test_check_availability_returns_slots(ctx):
     slot = result["slots"][0]
     assert "slot_id" in slot
     assert "display" in slot
-    assert "datetime_iso" in slot
+    assert "iso_start" in slot
 
 
 @pytest.mark.asyncio
@@ -149,30 +149,35 @@ async def test_validate_service_area_us_zip_match(ctx):
 async def test_send_sms_calls_twilio_with_correct_params(ctx):
     from app.tools.send_sms import send_sms
 
-    mock_twilio_result = {"success": True, "message_sid": "SM_test_123"}
+    mock_twilio_result = {"success": True, "sid": "SM_test_123"}
 
     with patch("app.tools.send_sms.SMSService") as MockSMS:
         instance = MagicMock()
-        instance.send = AsyncMock(return_value=mock_twilio_result)
+        instance.send_booking_confirmation = MagicMock(return_value=mock_twilio_result)
         MockSMS.return_value = instance
 
         result = await send_sms(
             {
                 "to_number": "+15551234567",
-                "message_type": "confirmation",
-                "appointment_time": "2026-06-25T14:00:00Z",
-                "service_address": "123 Main St",
+                "message_type": "booking_confirmation",
+                "name": "John Smith",
+                "trade": "plumbing",
+                "date_str": "2026-06-25",
+                "time_str": "2:00 PM",
+                "address": "123 Main St",
             },
             ctx,
         )
 
     assert result["success"] is True
-    assert result["message_sid"] == "SM_test_123"
-    instance.send.assert_called_once_with(
-        to_number="+15551234567",
-        message_type="confirmation",
-        appointment_time="2026-06-25T14:00:00Z",
-        service_address="123 Main St",
+    assert result["sid"] == "SM_test_123"
+    instance.send_booking_confirmation.assert_called_once_with(
+        phone="+15551234567",
+        name="John Smith",
+        trade="plumbing",
+        date_str="2026-06-25",
+        time_str="2:00 PM",
+        address="123 Main St",
     )
 
 

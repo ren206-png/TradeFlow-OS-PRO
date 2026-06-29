@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import init_db
-from app.routers import contractors, leads, retell
+from app.routers import contractors, dashboard, leads, retell
 from app.services.scheduler import shutdown_scheduler, start_scheduler
 from app.utils.logging import configure_logging
 
@@ -69,6 +69,7 @@ async def request_logging_middleware(request: Request, call_next):
 app.include_router(retell.router)
 app.include_router(contractors.router)
 app.include_router(leads.router)
+app.include_router(dashboard.router)
 
 
 # ---------------------------------------------------------------------------

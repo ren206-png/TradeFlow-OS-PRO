@@ -1,6 +1,7 @@
 from __future__ import annotations
-import uuid
+
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,31 +10,51 @@ from app.models.lead import Lead
 
 
 async def book_appointment(tool_input: dict, context: dict) -> dict:
-    """Book an appointment: write to DB lead record and trigger SMS confirmation."""
+    """Book an appointment: call CalendarService, write to DB lead record, trigger SMS confirmation."""
+    from app.services.calendar import CalendarService
+
     db: AsyncSession = context["db"]
     call_session = context["call_session"]
     contractor = context["contractor"]
 
-    slot_id = tool_input["slot_id"]
-    caller_name = tool_input["caller_name"]
-    phone = tool_input["phone"]
-    service_address = tool_input["service_address"]
-    trade = tool_input["trade"]
-    problem_summary = tool_input.get("problem_summary", "")
-    property_type = tool_input.get("property_type", "residential")
-    appointment_time_str = tool_input.get("appointment_time")
+    slot_id: str = tool_input["slot_id"]
+    caller_name: str = tool_input["caller_name"]
+    phone: str = tool_input["phone"]
+    service_address: str = tool_input["service_address"]
+    trade: str = tool_input["trade"]
+    problem_summary: str = tool_input.get("problem_summary", "")
+    property_type: str = tool_input.get("property_type", "residential")
+    appointment_time_str: Optional[str] = tool_input.get("appointment_time")
 
-    appointment_time = None
+    appointment_time: Optional[datetime] = None
     if appointment_time_str:
         try:
             appointment_time = datetime.fromisoformat(appointment_time_str)
         except ValueError:
             appointment_time = datetime.now(tz=timezone.utc)
 
-    calendar_event_id = f"manual-{slot_id}"
+    # Call CalendarService to create the calendar event
+    calendar_service = CalendarService(contractor)
+    booking_result = await calendar_service.book_slot(
+        slot_id=slot_id,
+        customer_name=caller_name,
+        phone=phone,
+        address=service_address,
+        trade=trade,
+        notes=problem_summary,
+    )
+
+    if not booking_result.get("success"):
+        return {
+            "success": False,
+            "error": booking_result.get("error", "Calendar booking failed"),
+        }
+
+    calendar_event_id: str = booking_result.get("event_id", f"manual-{slot_id}")
+    confirmation_number: str = booking_result.get("confirmation_number", "")
 
     # Upsert the Lead record for this call
-    lead: Lead | None = None
+    lead: Optional[Lead] = None
     if call_session.lead_id:
         result = await db.execute(select(Lead).where(Lead.id == call_session.lead_id))
         lead = result.scalar_one_or_none()
@@ -79,6 +100,7 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     return {
         "success": True,
         "calendar_event_id": calendar_event_id,
+        "confirmation_number": confirmation_number,
         "appointment_time": appointment_time.isoformat() if appointment_time else "",
         "lead_id": str(lead.id),
     }
