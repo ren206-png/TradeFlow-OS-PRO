@@ -8,7 +8,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
@@ -246,6 +246,27 @@ async def lead_detail_page(
             "conversation": conversation,
         },
     )
+
+
+@router.post("/leads/{lead_id}/update", response_class=RedirectResponse)
+async def lead_update(
+    lead_id: str,
+    request: Request,
+    status_val: Optional[str] = Form(None, alias="status"),
+    notes: Optional[str] = Form(None),
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    result = await db.execute(select(Lead).where(Lead.id == lead_id))
+    lead = result.scalar_one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    if status_val:
+        lead.appointment_status = status_val
+    if notes is not None:
+        lead.notes = notes
+    await db.commit()
+    return RedirectResponse(url=f"/dashboard/leads/{lead_id}", status_code=302)
 
 
 @router.get("/calls", response_class=HTMLResponse)
