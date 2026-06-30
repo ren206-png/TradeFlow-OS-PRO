@@ -293,11 +293,73 @@ async def contractors_page(
     )
     contractors = result.scalars().all()
 
+    # Build per-contractor enrichment data
+    rows = []
+    for c in contractors:
+        lead_count_result = await db.execute(
+            select(func.count(Lead.id)).where(Lead.contractor_id == c.id)
+        )
+        lead_count: int = lead_count_result.scalar_one() or 0
+        active_this_month = (c.calls_this_month or 0) > 0
+        rows.append({
+            "contractor": c,
+            "lead_count": lead_count,
+            "active_this_month": active_this_month,
+            "api_key_tail": c.api_key[-8:] if c.api_key else "",
+        })
+
     return templates.TemplateResponse(
         "contractors.html",
         {
             "request": request,
             "active_nav": "contractors",
-            "contractors": contractors,
+            "rows": rows,
+        },
+    )
+
+
+@router.get("/contractors/{contractor_id}", response_class=HTMLResponse)
+async def contractor_detail_page(
+    request: Request,
+    contractor_id: str,
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> HTMLResponse:
+    import uuid as _uuid
+    try:
+        cid = _uuid.UUID(contractor_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Contractor not found")
+
+    result = await db.execute(select(Contractor).where(Contractor.id == cid))
+    contractor = result.scalar_one_or_none()
+    if contractor is None:
+        raise HTTPException(status_code=404, detail="Contractor not found")
+
+    # Most recent 10 leads
+    leads_result = await db.execute(
+        select(Lead)
+        .where(Lead.contractor_id == cid)
+        .order_by(Lead.created_at.desc())
+        .limit(10)
+    )
+    leads = leads_result.scalars().all()
+
+    # Usage stats
+    plan = contractor.plan or "starter"
+    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["starter"])
+
+    return templates.TemplateResponse(
+        "contractor_detail.html",
+        {
+            "request": request,
+            "active_nav": "contractors",
+            "contractor": contractor,
+            "leads": leads,
+            "calls_used": contractor.calls_this_month or 0,
+            "calls_limit": limits["calls"],
+            "sms_used": contractor.sms_this_month or 0,
+            "sms_limit": limits["sms"],
+            "plan": plan,
         },
     )

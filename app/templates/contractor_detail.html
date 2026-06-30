@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}{{ contractor.name }}{% endblock %}
+{% block page_title %}{{ contractor.name }}{% endblock %}
+
+{% block content %}
+
+<div class="space-y-6">
+
+  <!-- Back link -->
+  <a href="/dashboard/contractors" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300 transition-colors">
+    ← Back to Contractors
+  </a>
+
+  <!-- Info card -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+    <h2 class="text-white font-semibold text-base mb-4">Contractor Info</h2>
+    <div class="grid grid-cols-2 gap-4 text-sm">
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Name</p>
+        <p class="text-gray-200">{{ contractor.name }}</p>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Agent Name</p>
+        <p class="text-gray-200">{{ contractor.agent_name }}</p>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Phone</p>
+        <p class="text-gray-200 font-mono">{{ contractor.phone_number }}</p>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Plan</p>
+        <p class="text-gray-200 capitalize">{{ plan }}</p>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Trades</p>
+        <div class="flex flex-wrap gap-1 mt-1">
+          {% for trade in (contractor.trades or []) %}
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-400 border border-gray-700">{{ trade }}</span>
+          {% endfor %}
+          {% if not contractor.trades %}
+            <span class="text-gray-600">—</span>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Service Areas</p>
+        <div class="flex flex-wrap gap-1 mt-1">
+          {% for area in (contractor.service_areas or []) %}
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-400 border border-gray-700">{{ area }}</span>
+          {% endfor %}
+          {% if not contractor.service_areas %}
+            <span class="text-gray-600">—</span>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Status</p>
+        {% if contractor.is_active %}
+          <span class="inline-flex items-center gap-1 text-xs text-green-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+            Active
+          </span>
+        {% else %}
+          <span class="inline-flex items-center gap-1 text-xs text-gray-500">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-500 inline-block"></span>
+            Inactive
+          </span>
+        {% endif %}
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Timezone</p>
+        <p class="text-gray-200">{{ contractor.timezone }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key card -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+    <h2 class="text-white font-semibold text-base mb-4">API Key</h2>
+    <div class="flex items-center gap-3">
+      <span id="api-key-display" class="font-mono text-sm text-gray-400 bg-gray-800 px-3 py-2 rounded-lg select-all">
+        ••••••••••••••••••••••••••••••••••••••••••••••••••••••••{{ contractor.api_key[-8:] }}
+      </span>
+      <button
+        id="reveal-btn"
+        onclick="toggleReveal('{{ contractor.api_key }}')"
+        class="text-sm text-indigo-400 hover:text-indigo-300 border border-indigo-800 hover:border-indigo-600 rounded px-3 py-2 transition-colors">
+        Reveal
+      </button>
+      <button
+        onclick="navigator.clipboard.writeText('{{ contractor.api_key }}').then(() => { this.textContent = 'Copied!'; setTimeout(() => this.textContent = 'Copy', 1500); })"
+        class="text-sm text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 rounded px-3 py-2 transition-colors">
+        Copy
+      </button>
+    </div>
+  </div>
+
+  <!-- Usage stats -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+    <h2 class="text-white font-semibold text-base mb-4">Usage This Month</h2>
+    <div class="grid grid-cols-2 gap-6">
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">Calls</p>
+        <div class="flex items-end gap-2 mb-2">
+          <span class="text-2xl font-bold text-white">{{ calls_used }}</span>
+          <span class="text-gray-500 text-sm mb-0.5">/ {{ calls_limit }}</span>
+        </div>
+        <div class="w-full bg-gray-800 rounded-full h-1.5">
+          <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ [((calls_used / calls_limit) * 100) | int, 100] | min }}%"></div>
+        </div>
+      </div>
+      <div>
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">SMS</p>
+        <div class="flex items-end gap-2 mb-2">
+          <span class="text-2xl font-bold text-white">{{ sms_used }}</span>
+          <span class="text-gray-500 text-sm mb-0.5">/ {{ sms_limit }}</span>
+        </div>
+        <div class="w-full bg-gray-800 rounded-full h-1.5">
+          <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ [((sms_used / sms_limit) * 100) | int, 100] | min }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retell Agent provisioning -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+    <h2 class="text-white font-semibold text-base mb-2">Retell AI Agent</h2>
+    {% if contractor.retell_agent_id %}
+      <p class="text-gray-400 text-sm mb-4">
+        Agent provisioned: <span class="font-mono text-indigo-400">{{ contractor.retell_agent_id }}</span>
+      </p>
+    {% else %}
+      <p class="text-gray-500 text-sm mb-4">No Retell agent provisioned yet.</p>
+    {% endif %}
+    <button
+      onclick="provisionRetellAgent('{{ contractor.id }}')"
+      class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      {% if contractor.retell_agent_id %}Re-Provision{% else %}Provision{% endif %} Retell Agent
+    </button>
+    <p id="provision-status" class="mt-3 text-sm text-gray-500 hidden"></p>
+  </div>
+
+  <!-- Recent leads -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-800">
+      <h2 class="text-white font-semibold text-base">Recent Leads</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-800">
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Caller</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trade</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Problem</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Urgency</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800">
+          {% for lead in leads %}
+          <tr class="hover:bg-gray-800/50 transition-colors">
+            <td class="px-4 py-3 text-gray-200 font-medium">{{ lead.caller_name or '—' }}</td>
+            <td class="px-4 py-3 text-gray-400 font-mono text-xs">{{ lead.phone or '—' }}</td>
+            <td class="px-4 py-3">
+              {% if lead.trade %}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-400 border border-gray-700">{{ lead.trade }}</span>
+              {% else %}
+                <span class="text-gray-600">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-400 max-w-xs truncate" title="{{ lead.problem_summary or '' }}">
+              {{ (lead.problem_summary or '—') | truncate(60, True, '…') }}
+            </td>
+            <td class="px-4 py-3">
+              {% if lead.emergency_level == 'emergency' %}
+                <span class="text-xs font-medium text-red-400 bg-red-900/30 px-1.5 py-0.5 rounded">Emergency</span>
+              {% elif lead.emergency_level == 'same_day' %}
+                <span class="text-xs font-medium text-yellow-400 bg-yellow-900/30 px-1.5 py-0.5 rounded">Same Day</span>
+              {% elif lead.emergency_level %}
+                <span class="text-xs text-gray-400">{{ lead.emergency_level }}</span>
+              {% else %}
+                <span class="text-gray-600">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3">
+              {% if lead.appointment_status == 'booked' %}
+                <span class="text-xs font-medium text-green-400">Booked</span>
+              {% elif lead.appointment_status == 'pending' %}
+                <span class="text-xs font-medium text-yellow-400">Pending</span>
+              {% else %}
+                <span class="text-xs text-gray-500">Not Booked</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-500 text-xs">
+              {{ lead.created_at.strftime('%b %d, %H:%M') if lead.created_at else '—' }}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-600">No leads yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleReveal(apiKey) {
+  const display = document.getElementById('api-key-display');
+  const btn = document.getElementById('reveal-btn');
+  if (btn.textContent.trim() === 'Reveal') {
+    display.textContent = apiKey;
+    btn.textContent = 'Hide';
+  } else {
+    display.textContent = '••••••••••••••••••••••••••••••••••••••••••••••••••••••••' + apiKey.slice(-8);
+    btn.textContent = 'Reveal';
+  }
+}
+
+async function provisionRetellAgent(contractorId) {
+  const btn = event.target;
+  const status = document.getElementById('provision-status');
+  btn.disabled = true;
+  btn.textContent = 'Provisioning…';
+  status.classList.remove('hidden');
+  status.textContent = 'Sending request…';
+  try {
+    const resp = await fetch(`/contractors/${contractorId}/provision-retell-agent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      status.textContent = 'Agent provisioned: ' + (data.retell_agent_id || 'success');
+      status.className = 'mt-3 text-sm text-green-400';
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      status.textContent = 'Error: ' + (err.detail || resp.statusText);
+      status.className = 'mt-3 text-sm text-red-400';
+    }
+  } catch (e) {
+    status.textContent = 'Network error: ' + e.message;
+    status.className = 'mt-3 text-sm text-red-400';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Re-Provision Retell Agent';
+  }
+}
+</script>
+
+{% endblock %}
