@@ -81,7 +81,7 @@ async def signup_post(
     await db.commit()
 
     token = create_session_token(contractor_id)
-    response = RedirectResponse(url="/portal", status_code=302)
+    response = RedirectResponse(url="/portal/leads?welcome=1", status_code=302)
     response.set_cookie(
         SESSION_COOKIE,
         token,

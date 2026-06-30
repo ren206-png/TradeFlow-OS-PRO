@@ -80,7 +80,7 @@ async def _missed_call_recovery_job(
         await client.create_phone_call(
             to_number=to_number,
             from_number=from_number,
-            agent_id=agent_id,
+            override_agent_id=agent_id,
             metadata={
                 "contractor_id": contractor_id,
                 "lead_id": lead_id,
@@ -138,18 +138,22 @@ async def _appointment_reminder_job(
     import uuid
 
     async with async_session_factory() as db:
+        from app.models.lead import Lead
         result = await db.execute(select(Contractor).where(Contractor.id == uuid.UUID(contractor_id)))
         contractor = result.scalar_one_or_none()
         if not contractor:
             logger.warning("Reminder job: contractor %s not found", contractor_id)
             return
 
+        lead_result = await db.execute(select(Lead).where(Lead.id == uuid.UUID(lead_id)))
+        lead = lead_result.scalar_one_or_none()
+
         sms = SMSService(contractor)
-        await sms.send(
-            to_number=phone,
-            message_type="reminder",
-            appointment_time=appointment_time,
-            service_address=service_address,
+        sms.send_appointment_reminder(
+            phone=phone,
+            name=lead.caller_name or "there",
+            date_str=appointment_time[:10],
+            time_str=appointment_time[11:16],
         )
         logger.info("Reminder SMS sent | lead=%s", lead_id)
 
@@ -201,7 +205,11 @@ async def _review_request_job(contractor_id: str, lead_id: str, phone: str) -> N
             return
 
         sms = SMSService(contractor)
-        await sms.send(to_number=phone, message_type="review_request")
+        sms.send_review_request(
+            phone=phone,
+            name=lead.caller_name or "there",
+            review_link=contractor.review_link or "",
+        )
         logger.info("Review request SMS sent | lead=%s", lead_id)
 
 
@@ -249,7 +257,7 @@ async def _unbooked_followup_job(contractor_id: str, lead_id: str, phone: str) -
             return
 
         sms = SMSService(contractor)
-        await sms.send(to_number=phone, message_type="missed_call")
+        sms.send_followup(phone=phone, name="there")
         logger.info("Unbooked follow-up SMS sent | lead=%s", lead_id)
 
 
@@ -306,7 +314,7 @@ async def _lead_followup_job(lead_id: str, contractor_id: str) -> None:
                 return
 
             sms = SMSService(contractor)
-            await sms.send_followup(
+            sms.send_followup(
                 phone=lead.phone,
                 name=lead.caller_name or "there",
             )

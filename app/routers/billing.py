@@ -41,7 +41,13 @@ async def create_checkout(
     if not settings.stripe_secret_key:
         return {"checkout_url": "https://stripe.com/checkout/disabled-in-dev"}
 
-    price_id = PLAN_LIMITS[plan]["price_id"]
+    from app.config import settings as _settings
+    _price_map = {
+        "starter": _settings.stripe_starter_price_id or PLAN_LIMITS["starter"]["price_id"],
+        "pro": _settings.stripe_pro_price_id or PLAN_LIMITS["pro"]["price_id"],
+        "enterprise": PLAN_LIMITS["enterprise"]["price_id"],
+    }
+    price_id = _price_map.get(plan, PLAN_LIMITS.get(plan, {}).get("price_id", ""))
 
     # Ensure the contractor has a Stripe customer
     billing = BillingService()

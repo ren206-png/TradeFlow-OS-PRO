@@ -69,8 +69,10 @@ class ClaudeAgent:
         # Extract final text response
         text_response = _extract_text(response)
 
-        # Append final assistant turn to history
-        messages.append({"role": "assistant", "content": text_response})
+        # Append final assistant turn — use full content list to preserve tool blocks
+        # and avoid sending empty string content which the API rejects
+        final_content = _serialize_content(response.content) if response.content else [{"type": "text", "text": text_response or " "}]
+        messages.append({"role": "assistant", "content": final_content})
 
         # Persist to DB
         self.call_session.conversation_history = messages

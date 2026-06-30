@@ -551,7 +551,8 @@ async def impersonate_contractor(
 ) -> RedirectResponse:
     """Admin: log in as any contractor and view their portal."""
     from app.utils.sessions import create_session_token, SESSION_COOKIE, SESSION_MAX_AGE
-    result = await db.execute(select(Contractor).where(Contractor.id == contractor_id))
+    import uuid as _uuid
+    result = await db.execute(select(Contractor).where(Contractor.id == _uuid.UUID(contractor_id)))
     contractor = result.scalar_one_or_none()
     if not contractor:
         return RedirectResponse(url="/dashboard/contractors", status_code=302)

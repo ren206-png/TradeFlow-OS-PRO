@@ -54,7 +54,7 @@
         <span class="text-sm font-medium text-gray-800">{{ contractor.calls_this_month }} / {{ plan_limits.calls }}</span>
       </div>
       <div class="w-full bg-gray-100 rounded-full h-1.5">
-        {% set call_pct = [((contractor.calls_this_month / plan_limits.calls) * 100) | int, 100] | min %}
+        {% set call_pct = [((contractor.calls_this_month / (plan_limits.calls or 1)) * 100) | int, 100] | min %}
         <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ call_pct }}%"></div>
       </div>
     </div>
@@ -64,7 +64,7 @@
         <span class="text-sm font-medium text-gray-800">{{ contractor.sms_this_month }} / {{ plan_limits.sms }}</span>
       </div>
       <div class="w-full bg-gray-100 rounded-full h-1.5">
-        {% set sms_pct = [((contractor.sms_this_month / plan_limits.sms) * 100) | int, 100] | min %}
+        {% set sms_pct = [((contractor.sms_this_month / (plan_limits.sms or 1)) * 100) | int, 100] | min %}
         <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ sms_pct }}%"></div>
       </div>
     </div>

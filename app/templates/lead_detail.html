@@ -140,13 +140,13 @@
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Conversation</h3>
       <div class="space-y-3 max-h-96 overflow-y-auto pr-1">
         {% for msg in conversation %}
-        <div class="flex gap-3 {% if msg.role == 'agent' %}flex-row{% else %}flex-row-reverse{% endif %}">
+        <div class="flex gap-3 {% if msg.role == 'assistant' %}flex-row{% else %}flex-row-reverse{% endif %}">
           <div class="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold
-            {% if msg.role == 'agent' %}bg-indigo-700 text-indigo-200{% else %}bg-gray-700 text-gray-300{% endif %}">
-            {{ 'A' if msg.role == 'agent' else 'C' }}
+            {% if msg.role == 'assistant' %}bg-indigo-700 text-indigo-200{% else %}bg-gray-700 text-gray-300{% endif %}">
+            {{ 'A' if msg.role == 'assistant' else 'C' }}
           </div>
           <div class="max-w-sm">
-            <div class="text-xs text-gray-600 mb-1 {% if msg.role != 'agent' %}text-right{% endif %}">
+            <div class="text-xs text-gray-600 mb-1 {% if msg.role != 'assistant' %}text-right{% endif %}">
               {{ msg.role | title }}
             </div>
             <div class="text-sm text-gray-300 bg-gray-800 rounded-lg px-3 py-2 leading-relaxed">
@@ -221,12 +221,12 @@
             <span class="text-xs text-gray-500">Emergency Score</span>
             <span class="text-sm font-semibold text-red-400">
               {{ lead.emergency_score if lead.emergency_score is not none else '—' }}
-              {% if lead.emergency_score is not none %}/100{% endif %}
+              {% if lead.emergency_score is not none %}/10{% endif %}
             </span>
           </div>
           <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
             <div class="h-full bg-red-500 rounded-full transition-all"
-                 style="width: {{ lead.emergency_score or 0 }}%"></div>
+                 style="width: {{ (lead.emergency_score or 0) * 10 }}%"></div>
           </div>
         </div>
 
@@ -235,12 +235,12 @@
             <span class="text-xs text-gray-500">Revenue Score</span>
             <span class="text-sm font-semibold text-green-400">
               {{ lead.revenue_score if lead.revenue_score is not none else '—' }}
-              {% if lead.revenue_score is not none %}/100{% endif %}
+              {% if lead.revenue_score is not none %}/10{% endif %}
             </span>
           </div>
           <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
             <div class="h-full bg-green-500 rounded-full transition-all"
-                 style="width: {{ lead.revenue_score or 0 }}%"></div>
+                 style="width: {{ (lead.revenue_score or 0) * 10 }}%"></div>
           </div>
         </div>
 
@@ -254,7 +254,7 @@
           </div>
           <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
             <div class="h-full bg-indigo-500 rounded-full transition-all"
-                 style="width: {{ lead.close_probability or 0 }}%"></div>
+                 style="width: {{ (lead.close_probability or 0) * 10 }}%"></div>
           </div>
         </div>
       </div>

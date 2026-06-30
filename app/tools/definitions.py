@@ -72,7 +72,7 @@ TRADEFLOW_TOOLS = [
                 "to_number": {"type": "string"},
                 "message_type": {
                     "type": "string",
-                    "enum": ["confirmation", "reminder", "enroute", "missed_call", "review_request"],
+                    "enum": ["booking_confirmation", "appointment_reminder", "missed_call", "review_request", "followup"],
                 },
                 "appointment_time": {
                     "type": "string",

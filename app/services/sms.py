@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from twilio.rest import Client as TwilioClient
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -15,7 +13,13 @@ class SMSService:
 
     def __init__(self, contractor) -> None:
         self.contractor = contractor
-        self._client = TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            from twilio.rest import Client as TwilioClient
+            self._client = TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
+        return self._client
 
     # ------------------------------------------------------------------
     # Internal helper
@@ -23,8 +27,11 @@ class SMSService:
 
     def _send(self, to: str, body: str, message_type: str) -> dict:
         """Dispatch a single SMS and return a result dict."""
+        if not settings.twilio_account_sid or not settings.twilio_auth_token:
+            logger.warning("Twilio not configured — SMS skipped [%s]", message_type)
+            return {"success": False, "error": "Twilio not configured"}
         try:
-            message = self._client.messages.create(
+            message = self._get_client().messages.create(
                 body=body,
                 from_=settings.twilio_from_number,
                 to=to,

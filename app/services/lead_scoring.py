@@ -101,9 +101,9 @@ def _derive_priority(
     service_area_status: str,
 ) -> str:
     if life_safety or emergency_score >= 8:
-        return "Critical"
+        return "emergency"
     if emergency_score >= 6 or revenue_score >= 8 or close_probability >= 8:
-        return "High"
+        return "high"
     if service_area_status == "outside" or (emergency_score <= 3 and revenue_score <= 3):
-        return "Low"
-    return "Medium"
+        return "low"
+    return "medium"

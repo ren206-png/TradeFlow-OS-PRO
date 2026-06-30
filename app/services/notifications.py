@@ -182,7 +182,7 @@ async def notify_new_lead(contractor, lead) -> None:
 </body>
 </html>
 """
-        await asyncio.get_event_loop().run_in_executor(
+        await asyncio.get_running_loop().run_in_executor(
             None, _send_email, contractor.email, subject, html, text
         )
 
@@ -278,6 +278,6 @@ async def notify_appointment_booked(contractor, lead) -> None:
 </body>
 </html>
 """
-        await asyncio.get_event_loop().run_in_executor(
+        await asyncio.get_running_loop().run_in_executor(
             None, _send_email, contractor.email, subject, html, text
         )
