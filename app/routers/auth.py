@@ -80,6 +80,19 @@ async def signup_post(
     contractor_id = str(contractor.id)
     await db.commit()
 
+    # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
+    import asyncio as _asyncio
+    from app.services.mailchimp import subscribe_contractor as _mc_subscribe
+    _asyncio.create_task(
+        _mc_subscribe(
+            email=email,
+            first_name=business_name,
+            trade=trade,
+            phone=phone,
+            plan="starter",
+        )
+    )
+
     token = create_session_token(contractor_id)
     response = RedirectResponse(url="/portal/leads?welcome=1", status_code=302)
     response.set_cookie(

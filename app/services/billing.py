@@ -87,6 +87,13 @@ class BillingService:
             "Stripe subscription created | contractor=%s plan=%s sub=%s",
             contractor.name, plan, subscription_id,
         )
+
+        # Update Mailchimp plan tag (fire-and-forget)
+        if contractor.email:
+            import asyncio as _asyncio
+            from app.services.mailchimp import update_plan_tag as _mc_plan
+            _asyncio.create_task(_mc_plan(email=contractor.email, new_plan=plan))
+
         return subscription_id
 
     async def cancel_subscription(self, contractor) -> None:

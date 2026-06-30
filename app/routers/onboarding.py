@@ -125,6 +125,19 @@ async def onboarding_submit(
     await db.commit()
     await db.refresh(contractor)
 
+    # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
+    import asyncio
+    from app.services.mailchimp import subscribe_contractor
+    asyncio.create_task(
+        subscribe_contractor(
+            email=email.strip().lower(),
+            first_name=name.strip(),
+            trade=", ".join(selected_trades) if selected_trades else "General",
+            phone=phone_number.strip(),
+            plan="starter",
+        )
+    )
+
     # --- Set session cookie so they're logged in immediately ---
     session_token = create_session_token(str(contractor.id))
     response = RedirectResponse(url="/portal/leads?welcome=1", status_code=303)

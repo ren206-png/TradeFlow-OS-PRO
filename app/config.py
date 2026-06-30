@@ -33,5 +33,10 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "noreply@tradesflowos.com"
 
+    # Mailchimp — optional, drip emails disabled if empty
+    mailchimp_api_key: str = ""
+    mailchimp_server_prefix: str = ""   # e.g. "us1", "us14"
+    mailchimp_list_id: str = ""         # Audience ID
+
 
 settings = Settings()
