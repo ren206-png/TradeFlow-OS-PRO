@@ -3,7 +3,42 @@
 {% block title %} — Leads{% endblock %}
 
 {% block content %}
-<h2 class="text-xl font-bold text-gray-800 mb-4">Your Leads</h2>
+<div class="flex items-center justify-between mb-3">
+  <h2 class="text-xl font-bold text-gray-800">Your Leads</h2>
+  <a href="/portal/leads/export/csv"
+     class="text-xs text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 font-medium hover:bg-blue-50">
+    ⬇ Export
+  </a>
+</div>
+
+<!-- Search bar -->
+<form method="GET" action="/portal/leads" class="mb-3">
+  {% if status_filter and status_filter != 'all' %}
+  <input type="hidden" name="status_filter" value="{{ status_filter }}">
+  {% endif %}
+  <div class="relative">
+    <input type="text" name="search" value="{{ search or '' }}"
+      placeholder="Search by name, phone, trade…"
+      class="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <button type="submit" class="absolute right-3 top-2.5 text-gray-400">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+    </button>
+  </div>
+</form>
+
+<!-- Status filter tabs -->
+<div class="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+  {% set filters = [('all','All'),('pending','New'),('contacted','Called'),('booked','Booked'),('follow_up','Follow Up'),('lost','Lost')] %}
+  {% for val, label in filters %}
+  <a href="/portal/leads?status_filter={{ val }}{% if search %}&search={{ search }}{% endif %}"
+     class="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+     {% if (status_filter or 'all') == val %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-gray-600 border-gray-200{% endif %}">
+    {{ label }}
+  </a>
+  {% endfor %}
+</div>
 
 {% if leads %}
   <div class="space-y-3">

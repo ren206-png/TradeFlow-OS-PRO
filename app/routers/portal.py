@@ -5,10 +5,10 @@ import uuid
 from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import PLAN_LIMITS
@@ -54,16 +54,27 @@ async def portal_leads(
     contractor: Contractor = Depends(require_contractor),
     db: AsyncSession = Depends(get_db),
     welcome: Optional[str] = None,
+    search: Optional[str] = Query(None),
+    status_filter: Optional[str] = Query(None),
 ):
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
 
-    result = await db.execute(
-        select(Lead)
-        .where(Lead.contractor_id == contractor.id)
-        .order_by(Lead.created_at.desc())
-        .limit(50)
-    )
+    query = select(Lead).where(Lead.contractor_id == contractor.id)
+    if search:
+        term = f"%{search}%"
+        query = query.where(
+            or_(
+                Lead.caller_name.ilike(term),
+                Lead.phone.ilike(term),
+                Lead.trade.ilike(term),
+                Lead.problem_summary.ilike(term),
+            )
+        )
+    if status_filter and status_filter != "all":
+        query = query.where(Lead.appointment_status == status_filter)
+    query = query.order_by(Lead.created_at.desc()).limit(100)
+    result = await db.execute(query)
     leads = result.scalars().all()
 
     flash = "Welcome to TradeFlow! Your account is ready." if welcome == "1" else None
@@ -76,7 +87,61 @@ async def portal_leads(
             "active_nav": "leads",
             "leads": leads,
             "flash": flash,
+            "search": search,
+            "status_filter": status_filter,
         },
+    )
+
+
+@router.get("/leads/export/csv")
+async def portal_leads_export(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    result = await db.execute(
+        select(Lead)
+        .where(Lead.contractor_id == contractor.id)
+        .order_by(Lead.created_at.desc())
+    )
+    leads = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Date", "Name", "Phone", "Trade", "Problem", "Status",
+        "Priority", "Emergency Score", "Revenue Score",
+        "Address", "City", "Notes"
+    ])
+    for lead in leads:
+        writer.writerow([
+            lead.created_at.strftime("%Y-%m-%d %H:%M") if lead.created_at else "",
+            lead.caller_name or "",
+            lead.phone or "",
+            lead.trade or "",
+            lead.problem_summary or "",
+            lead.appointment_status or "",
+            lead.priority_level or "",
+            lead.emergency_score or "",
+            lead.revenue_score or "",
+            lead.service_address or "",
+            lead.city or "",
+            lead.notes or "",
+        ])
+
+    output.seek(0)
+    filename = f"tradeflow-leads-{contractor.name.replace(' ', '-').lower()}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

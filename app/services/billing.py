@@ -173,8 +173,11 @@ class BillingService:
     # Webhook
     # ------------------------------------------------------------------
 
-    async def handle_webhook(self, event: dict) -> None:
+    async def handle_webhook(self, event: dict, db: AsyncSession) -> None:
         """Handles Stripe webhook events."""
+        from sqlalchemy import select
+        from app.models.contractor import Contractor
+
         event_type: str = event.get("type", "")
         data_obj: dict = event.get("data", {}).get("object", {})
 
@@ -188,15 +191,43 @@ class BillingService:
                 # but we log here for audit purposes
 
         elif event_type == "invoice.payment_failed":
-            sub_id = data_obj.get("subscription")
-            logger.warning("Invoice payment failed | subscription=%s", sub_id)
-            # Status update handled by customer.subscription.updated from Stripe
+            customer_id = data_obj.get("customer")
+            result = await db.execute(select(Contractor).where(Contractor.stripe_customer_id == customer_id))
+            contractor = result.scalar_one_or_none()
+            if contractor:
+                contractor.subscription_status = "past_due"
+                await db.commit()
 
         elif event_type == "customer.subscription.deleted":
-            sub_id = data_obj.get("id")
-            logger.info("Subscription deleted | subscription=%s", sub_id)
+            customer_id = data_obj.get("customer")
+            result = await db.execute(select(Contractor).where(Contractor.stripe_customer_id == customer_id))
+            contractor = result.scalar_one_or_none()
+            if contractor:
+                contractor.subscription_status = "cancelled"
+                contractor.plan = "starter"
+                await db.commit()
 
-        elif event_type == "customer.subscription.updated":
-            sub_id = data_obj.get("id")
-            stripe_status = data_obj.get("status", "")
-            logger.info("Subscription updated | subscription=%s status=%s", sub_id, stripe_status)
+        elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
+            event_data = data_obj
+            customer_id = event_data.get("customer")
+            status = event_data.get("status", "active")
+            # Resolve plan from price ID
+            price_id = ""
+            try:
+                price_id = event_data["items"]["data"][0]["price"]["id"]
+            except (KeyError, IndexError):
+                pass
+            plan = None
+            if price_id and price_id == settings.stripe_starter_price_id:
+                plan = "starter"
+            elif price_id and price_id == settings.stripe_pro_price_id:
+                plan = "pro"
+
+            result = await db.execute(select(Contractor).where(Contractor.stripe_customer_id == customer_id))
+            contractor = result.scalar_one_or_none()
+            if contractor:
+                contractor.subscription_status = status
+                if plan:
+                    contractor.plan = plan
+                await db.commit()
+                logger.info("Stripe webhook: updated contractor %s plan=%s status=%s", contractor.name, plan, status)

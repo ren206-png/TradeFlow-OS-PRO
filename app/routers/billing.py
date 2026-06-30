@@ -89,6 +89,7 @@ async def create_checkout(
 async def stripe_webhook(
     request: Request,
     stripe_signature: Optional[str] = Header(None, alias="stripe-signature"),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Verify Stripe webhook signature and route to BillingService.handle_webhook."""
     raw_body = await request.body()
@@ -104,7 +105,7 @@ async def stripe_webhook(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
-    await BillingService().handle_webhook(event)
+    await BillingService().handle_webhook(event, db)
     return {"status": "ok"}
 
 
