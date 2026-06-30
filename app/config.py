@@ -26,5 +26,12 @@ class Settings(BaseSettings):
     stripe_starter_price_id: str = ""
     stripe_pro_price_id: str = ""
 
+    # Email (SMTP) — optional, notifications disabled if empty
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "noreply@tradesflowos.com"
+
 
 settings = Settings()

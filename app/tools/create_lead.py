@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead
 from app.services.lead_scoring import calculate_scores
+from app.services.notifications import notify_new_lead
 
 
 async def create_lead_record(tool_input: dict, context: dict) -> dict:
@@ -75,6 +77,9 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
             lead.close_probability = scores["close_probability"]
 
     await db.flush()
+
+    # Fire-and-forget: notify contractor of new lead
+    asyncio.ensure_future(notify_new_lead(contractor, lead))
 
     # Link back to call session
     if call_session.lead_id is None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -7,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead
+from app.services.notifications import notify_appointment_booked
 
 
 async def book_appointment(tool_input: dict, context: dict) -> dict:
@@ -84,7 +86,10 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     if call_session.lead_id is None:
         call_session.lead_id = lead.id
 
-    # Trigger SMS confirmation
+    # Notify contractor: appointment booked
+    asyncio.ensure_future(notify_appointment_booked(contractor, lead))
+
+    # Trigger SMS confirmation to customer
     if contractor.sms_enabled and phone:
         from app.tools.send_sms import send_sms
         await send_sms(
