@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}You're Live!{% endblock %}
+{% block page_title %}Onboarding Complete{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Hero -->
+  <div class="text-center mb-10">
+    <div class="inline-flex items-center justify-center w-20 h-20 bg-green-900 border-2 border-green-500 rounded-full mb-4">
+      <svg class="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      </svg>
+    </div>
+    <h1 class="text-3xl font-bold text-white mb-2">You're live!</h1>
+    <p class="text-gray-400">Your AI receptionist has been provisioned and is ready to take calls.</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6 shadow-xl">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+      </svg>
+      <h2 class="text-white font-semibold">Your API Key</h2>
+    </div>
+
+    {% if api_key %}
+    <div class="bg-yellow-950 border border-yellow-700 rounded-lg px-4 py-2.5 mb-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <p class="text-yellow-300 text-xs">This is the only time your API key will be shown. Copy it now and store it safely.</p>
+    </div>
+
+    <div class="relative group">
+      <code id="api-key-display"
+        class="block w-full bg-gray-950 border border-gray-700 text-green-400 font-mono text-sm
+               rounded-lg px-4 py-3 break-all select-all">{{ api_key }}</code>
+      <button
+        onclick="copyApiKey()"
+        class="absolute top-2 right-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white
+               px-3 py-1 rounded text-xs font-medium transition-colors"
+        id="copy-btn"
+      >
+        Copy
+      </button>
+    </div>
+    {% else %}
+    <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
+      <p class="text-gray-400 text-sm">API key has already been shown or the session expired.
+        Contact support if you need to rotate your key.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Agent Details -->
+  {% if contractor %}
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6 shadow-xl">
+    <h2 class="text-white font-semibold mb-4">Agent Details</h2>
+    <dl class="grid grid-cols-2 gap-y-3 text-sm">
+      <dt class="text-gray-400">Contractor ID</dt>
+      <dd class="text-white font-mono text-xs break-all">{{ contractor_id }}</dd>
+
+      <dt class="text-gray-400">Company</dt>
+      <dd class="text-white">{{ contractor.name }}</dd>
+
+      <dt class="text-gray-400">AI Name</dt>
+      <dd class="text-white">{{ contractor.agent_name }}</dd>
+
+      <dt class="text-gray-400">Retell Agent ID</dt>
+      <dd class="text-white font-mono text-xs">
+        {% if contractor.retell_agent_id %}{{ contractor.retell_agent_id }}{% else %}<span class="text-gray-500">Pending provisioning</span>{% endif %}
+      </dd>
+    </dl>
+  </div>
+  {% endif %}
+
+  <!-- Next Steps -->
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6 shadow-xl">
+    <h2 class="text-white font-semibold mb-4">Next Steps</h2>
+    <ul class="space-y-3">
+      <li class="flex items-start gap-3">
+        <div class="w-6 h-6 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <span class="text-xs text-gray-400 font-bold">1</span>
+        </div>
+        <div>
+          <p class="text-white text-sm font-medium">Buy a phone number</p>
+          <p class="text-gray-500 text-xs mt-0.5">Purchase a Retell phone number and link it to your agent ID above.</p>
+        </div>
+      </li>
+      <li class="flex items-start gap-3">
+        <div class="w-6 h-6 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <span class="text-xs text-gray-400 font-bold">2</span>
+        </div>
+        <div>
+          <p class="text-white text-sm font-medium">Set calendar credentials</p>
+          <p class="text-gray-500 text-xs mt-0.5">Connect your Google Calendar or booking system so your AI can schedule appointments.</p>
+        </div>
+      </li>
+      <li class="flex items-start gap-3">
+        <div class="w-6 h-6 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <span class="text-xs text-gray-400 font-bold">3</span>
+        </div>
+        <div>
+          <p class="text-white text-sm font-medium">Test a call</p>
+          <p class="text-gray-500 text-xs mt-0.5">Call your new number to verify the AI receptionist responds correctly.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Curl Example -->
+  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+    <h2 class="text-white font-semibold mb-3">Example API Request</h2>
+    <p class="text-gray-400 text-xs mb-3">Retrieve your contractor details using your API key:</p>
+    <div class="relative">
+      <pre id="curl-snippet"
+        class="bg-gray-950 border border-gray-700 text-green-400 font-mono text-xs rounded-lg px-4 py-4
+               overflow-x-auto whitespace-pre-wrap break-all">curl -s \
+  -H "X-API-Key: {{ api_key if api_key else 'YOUR_API_KEY' }}" \
+  https://api.tradeflow.example.com/contractors/{{ contractor_id }}</pre>
+      <button
+        onclick="copyCurl()"
+        class="absolute top-2 right-2 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white
+               px-3 py-1 rounded text-xs font-medium transition-colors"
+        id="curl-copy-btn"
+      >
+        Copy
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function copyApiKey() {
+    const el = document.getElementById('api-key-display');
+    const btn = document.getElementById('copy-btn');
+    if (el) {
+      navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('text-green-400');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('text-green-400');
+        }, 2000);
+      });
+    }
+  }
+
+  function copyCurl() {
+    const el = document.getElementById('curl-snippet');
+    const btn = document.getElementById('curl-copy-btn');
+    if (el) {
+      navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('text-green-400');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('text-green-400');
+        }, 2000);
+      });
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Contractor Onboarding{% endblock %}
+{% block page_title %}Launch Your AI Receptionist{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Step indicator -->
+  <div class="mb-8">
+    <div class="flex items-center justify-between relative">
+      <div class="absolute left-0 right-0 top-4 h-0.5 bg-gray-800 z-0"></div>
+      {% set steps = ["Company Info", "Services", "Settings", "Confirm"] %}
+      {% for label in steps %}
+      <div class="relative z-10 flex flex-col items-center gap-1" id="step-indicator-{{ loop.index }}">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                    step-circle-{{ loop.index }}
+                    bg-gray-800 text-gray-400 border-2 border-gray-700
+                    transition-all duration-300">
+          {{ loop.index }}
+        </div>
+        <span class="text-xs text-gray-500 hidden sm:block">{{ label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <form method="post" action="/onboarding" id="onboarding-form">
+
+    <!-- ================================================================
+         STEP 1 — Company Info
+    ================================================================ -->
+    <div class="step-panel" id="panel-1">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl">
+        <h2 class="text-white text-xl font-semibold mb-1">Company Info</h2>
+        <p class="text-gray-400 text-sm mb-6">Tell us about your business.</p>
+
+        <!-- Company Name -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="company_name">
+            Company name <span class="text-green-400">*</span>
+          </label>
+          <input
+            id="company_name" name="company_name" type="text" required
+            value="{{ form.company_name[0] if form.company_name else '' }}"
+            placeholder="e.g. Prairie Plumbing Co."
+            class="w-full bg-gray-800 border {% if errors.company_name %}border-red-500{% else %}border-gray-700{% endif %}
+                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          />
+          {% if errors.company_name %}
+          <p class="mt-1.5 text-xs text-red-400">{{ errors.company_name }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Agent Name -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="agent_name">
+            AI receptionist name <span class="text-green-400">*</span>
+          </label>
+          <p class="text-gray-500 text-xs mb-2">What should your AI receptionist be called?</p>
+          <input
+            id="agent_name" name="agent_name" type="text" required
+            value="{{ form.agent_name[0] if form.agent_name else 'Alex' }}"
+            placeholder="Alex"
+            class="w-full bg-gray-800 border {% if errors.agent_name %}border-red-500{% else %}border-gray-700{% endif %}
+                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          />
+          {% if errors.agent_name %}
+          <p class="mt-1.5 text-xs text-red-400">{{ errors.agent_name }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Phone Number -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="phone_number">
+            Business phone number <span class="text-green-400">*</span>
+          </label>
+          <p class="text-gray-500 text-xs mb-2">The number customers will call — format: +1XXXXXXXXXX</p>
+          <input
+            id="phone_number" name="phone_number" type="tel" required
+            value="{{ form.phone_number[0] if form.phone_number else '' }}"
+            placeholder="+15875550100"
+            class="w-full bg-gray-800 border {% if errors.phone_number %}border-red-500{% else %}border-gray-700{% endif %}
+                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
+                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          />
+          {% if errors.phone_number %}
+          <p class="mt-1.5 text-xs text-red-400">{{ errors.phone_number }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Timezone -->
+        <div class="mb-2">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="timezone">
+            Timezone
+          </label>
+          <select
+            id="timezone" name="timezone"
+            class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          >
+            {% for tz in timezones %}
+            <option value="{{ tz }}" {% if (form.timezone[0] if form.timezone else 'America/Edmonton') == tz %}selected{% endif %}>
+              {{ tz }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mt-8 flex justify-end">
+          <button type="button" onclick="nextStep(1)"
+            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+            Next: Services →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         STEP 2 — Services
+    ================================================================ -->
+    <div class="step-panel hidden" id="panel-2">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl">
+        <h2 class="text-white text-xl font-semibold mb-1">Services</h2>
+        <p class="text-gray-400 text-sm mb-6">What trades do you offer and where do you operate?</p>
+
+        <!-- Trades -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-300 mb-3">Trades</label>
+          <div class="grid grid-cols-2 gap-2">
+            {% for trade in trades %}
+            <label class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 cursor-pointer
+                          hover:border-green-600 transition-colors group">
+              <input
+                type="checkbox" name="trades" value="{{ trade }}"
+                {% if form.trades is defined and trade in form.trades %}checked{% endif %}
+                class="w-4 h-4 rounded accent-green-500"
+              />
+              <span class="text-sm text-gray-300 group-hover:text-white transition-colors">{{ trade }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Service Areas -->
+        <div class="mb-2">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="service_areas">
+            Service areas
+          </label>
+          <p class="text-gray-500 text-xs mb-2">e.g. T2N, T2P, Calgary</p>
+          <input
+            id="service_areas" name="service_areas" type="text"
+            value="{{ form.service_areas[0] if form.service_areas else '' }}"
+            placeholder="T2N, T2P, Calgary"
+            class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm
+                   placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          />
+        </div>
+
+        <div class="mt-8 flex justify-between">
+          <button type="button" onclick="prevStep(2)"
+            class="text-gray-400 hover:text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors">
+            ← Back
+          </button>
+          <button type="button" onclick="nextStep(2)"
+            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+            Next: Settings →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         STEP 3 — Settings
+    ================================================================ -->
+    <div class="step-panel hidden" id="panel-3">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl">
+        <h2 class="text-white text-xl font-semibold mb-1">Settings</h2>
+        <p class="text-gray-400 text-sm mb-6">Customise how your AI receptionist operates.</p>
+
+        <!-- Diagnostic Fee -->
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="diagnostic_fee">
+            Diagnostic fee (optional)
+          </label>
+          <input
+            id="diagnostic_fee" name="diagnostic_fee" type="number" min="0" step="0.01"
+            value="{{ form.diagnostic_fee[0] if form.diagnostic_fee else '' }}"
+            placeholder="99"
+            class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm
+                   placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          />
+        </div>
+
+        <!-- Free Estimates -->
+        <div class="mb-5">
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <div class="relative">
+              <input
+                type="checkbox" name="free_estimate" value="on"
+                {% if form.free_estimate is defined and form.free_estimate %}checked{% endif %}
+                class="sr-only peer"
+                id="free_estimate"
+              />
+              <div class="w-10 h-6 bg-gray-700 peer-checked:bg-green-600 rounded-full transition-colors"></div>
+              <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform
+                          peer-checked:translate-x-4"></div>
+            </div>
+            <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
+              Free estimates
+            </span>
+          </label>
+        </div>
+
+        <!-- SMS Enabled -->
+        <div class="mb-5">
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <div class="relative">
+              <input
+                type="checkbox" name="sms_enabled" value="on"
+                {% if not form.sms_enabled is defined or form.sms_enabled %}checked{% endif %}
+                class="sr-only peer"
+                id="sms_enabled"
+              />
+              <div class="w-10 h-6 bg-gray-700 peer-checked:bg-green-600 rounded-full transition-colors"></div>
+              <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform
+                          peer-checked:translate-x-4"></div>
+            </div>
+            <span class="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
+              SMS follow-ups enabled
+            </span>
+          </label>
+        </div>
+
+        <!-- Review Link -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="review_link">
+            Review link (optional)
+          </label>
+          <input
+            id="review_link" name="review_link" type="url"
+            value="{{ form.review_link[0] if form.review_link else '' }}"
+            placeholder="https://g.page/your-business"
+            class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm
+                   placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          />
+        </div>
+
+        <!-- Voice Selection -->
+        <div class="mb-2">
+          <label class="block text-sm font-medium text-gray-300 mb-3">Voice</label>
+          <div class="space-y-3">
+            {% for voice_id_val, voice_label in voice_map.items() %}
+            <label class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 cursor-pointer
+                          hover:border-green-600 transition-colors group has-[:checked]:border-green-500 has-[:checked]:bg-green-950">
+              <input
+                type="radio" name="voice_id" value="{{ voice_id_val }}"
+                {% if (form.voice_id[0] if form.voice_id else '11labs-Adrian') == voice_id_val %}checked{% endif %}
+                class="w-4 h-4 accent-green-500"
+              />
+              <div>
+                <p class="text-sm font-medium text-gray-200">{{ voice_label }}</p>
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="mt-8 flex justify-between">
+          <button type="button" onclick="prevStep(3)"
+            class="text-gray-400 hover:text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors">
+            ← Back
+          </button>
+          <button type="button" onclick="nextStep(3)"
+            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+            Review →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         STEP 4 — Confirm
+    ================================================================ -->
+    <div class="step-panel hidden" id="panel-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl">
+        <h2 class="text-white text-xl font-semibold mb-1">Confirm &amp; Launch</h2>
+        <p class="text-gray-400 text-sm mb-6">Review your details before going live.</p>
+
+        <!-- Summary card -->
+        <div class="bg-gray-800 rounded-xl p-6 space-y-4 mb-8" id="summary-card">
+          <div class="grid grid-cols-2 gap-y-3 text-sm">
+            <span class="text-gray-400">Company</span>
+            <span class="text-white font-medium" id="s-company">—</span>
+
+            <span class="text-gray-400">AI Name</span>
+            <span class="text-white font-medium" id="s-agent">—</span>
+
+            <span class="text-gray-400">Phone</span>
+            <span class="text-white font-medium" id="s-phone">—</span>
+
+            <span class="text-gray-400">Timezone</span>
+            <span class="text-white font-medium" id="s-tz">—</span>
+
+            <span class="text-gray-400">Trades</span>
+            <span class="text-white font-medium" id="s-trades">—</span>
+
+            <span class="text-gray-400">Service areas</span>
+            <span class="text-white font-medium" id="s-areas">—</span>
+
+            <span class="text-gray-400">Diagnostic fee</span>
+            <span class="text-white font-medium" id="s-fee">—</span>
+
+            <span class="text-gray-400">Voice</span>
+            <span class="text-white font-medium" id="s-voice">—</span>
+
+            <span class="text-gray-400">SMS</span>
+            <span class="text-white font-medium" id="s-sms">—</span>
+          </div>
+        </div>
+
+        <div class="mt-2 flex justify-between items-center">
+          <button type="button" onclick="prevStep(4)"
+            class="text-gray-400 hover:text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors">
+            ← Back
+          </button>
+          <button type="submit"
+            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-lg text-sm
+                   transition-colors flex items-center gap-2 shadow-lg shadow-green-900/50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Launch My AI Receptionist
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  let currentStep = 1;
+  const totalSteps = 4;
+
+  // If there were validation errors, jump to the relevant step
+  {% if errors %}
+  {% if errors.company_name or errors.agent_name or errors.phone_number %}
+  currentStep = 1;
+  {% else %}
+  currentStep = 1;
+  {% endif %}
+  {% endif %}
+
+  function showStep(n) {
+    for (let i = 1; i <= totalSteps; i++) {
+      const panel = document.getElementById('panel-' + i);
+      if (panel) panel.classList.toggle('hidden', i !== n);
+
+      const circle = document.querySelector('.step-circle-' + i);
+      if (circle) {
+        if (i < n) {
+          circle.className = circle.className.replace(/bg-\S+|text-\S+|border-\S+/g, '');
+          circle.classList.add('bg-green-600', 'text-white', 'border-green-600');
+          circle.innerHTML = '✓';
+        } else if (i === n) {
+          circle.className = circle.className.replace(/bg-\S+|text-\S+|border-\S+/g, '');
+          circle.classList.add('bg-green-600', 'text-white', 'border-green-600');
+          circle.innerHTML = String(i);
+        } else {
+          circle.className = circle.className.replace(/bg-\S+|text-\S+|border-\S+/g, '');
+          circle.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
+          circle.innerHTML = String(i);
+        }
+      }
+    }
+    currentStep = n;
+    if (n === 4) populateSummary();
+  }
+
+  function nextStep(from) {
+    if (from < totalSteps) showStep(from + 1);
+  }
+
+  function prevStep(from) {
+    if (from > 1) showStep(from - 1);
+  }
+
+  function populateSummary() {
+    const get = (id) => (document.getElementById(id) || {}).value || '';
+    const getChecked = (name) => [...document.querySelectorAll(`[name="${name}"]:checked`)].map(e => e.value);
+
+    document.getElementById('s-company').textContent = get('company_name') || '—';
+    document.getElementById('s-agent').textContent = get('agent_name') || '—';
+    document.getElementById('s-phone').textContent = get('phone_number') || '—';
+    document.getElementById('s-tz').textContent = get('timezone') || '—';
+
+    const trades = getChecked('trades');
+    document.getElementById('s-trades').textContent = trades.length ? trades.join(', ') : 'None selected';
+
+    document.getElementById('s-areas').textContent = get('service_areas') || '—';
+
+    const fee = get('diagnostic_fee');
+    document.getElementById('s-fee').textContent = fee ? '$' + fee : 'None';
+
+    const voiceEl = document.querySelector('[name="voice_id"]:checked');
+    document.getElementById('s-voice').textContent = voiceEl ? voiceEl.value.replace('11labs-', '') : '—';
+
+    const sms = document.getElementById('sms_enabled');
+    document.getElementById('s-sms').textContent = sms && sms.checked ? 'Enabled' : 'Disabled';
+  }
+
+  // Initialise
+  showStep(currentStep);
+</script>
+{% endblock %}
