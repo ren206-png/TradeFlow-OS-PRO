@@ -90,9 +90,12 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
         await send_sms(
             {
                 "to_number": phone,
-                "message_type": "confirmation",
-                "appointment_time": appointment_time.isoformat() if appointment_time else "",
-                "service_address": service_address,
+                "message_type": "booking_confirmation",
+                "name": caller_name,
+                "trade": trade,
+                "date_str": appointment_time.strftime("%B %-d, %Y") if appointment_time else "",
+                "time_str": appointment_time.strftime("%-I:%M %p") if appointment_time else "",
+                "address": service_address,
             },
             context,
         )

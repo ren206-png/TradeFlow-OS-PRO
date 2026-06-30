@@ -368,7 +368,9 @@ async def missed_call(request: Request, db: AsyncSession = Depends(get_db)):
 
     if contractor.sms_enabled and from_number:
         sms = SMSService(contractor)
-        await sms.send(to_number=from_number, message_type="missed_call")
+        result = sms.send_missed_call_recovery(phone=from_number)
+        if result.get("success"):
+            await BillingService().increment_usage(contractor, "sms", db)
         lead.sms_confirmation_sent = True
 
     try:

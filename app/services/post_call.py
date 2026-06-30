@@ -81,7 +81,7 @@ class PostCallAnalyser:
                 lead.sentiment = sentiment
                 if follow_up_recommended:
                     lead.follow_up_recommended = True
-                await db.commit()
+                await db.flush()
 
                 # ----------------------------------------------------------
                 # 3a. Optionally send review-request SMS
@@ -99,7 +99,7 @@ class PostCallAnalyser:
                             review_link=contractor.review_link,
                         )
                         lead.review_requested = True
-                        await db.commit()
+                        await db.flush()
                         sms_sent = True
                         logger.info(
                             "Review request SMS sent | lead_id=%s phone=%s",
@@ -113,7 +113,7 @@ class PostCallAnalyser:
                 # ----------------------------------------------------------
                 if follow_up_recommended and lead.appointment_status != "booked":
                     lead.follow_up_recommended = True
-                    await db.commit()
+                    await db.flush()
 
         except Exception as db_exc:
             logger.exception("PostCallAnalyser: DB update failed: %s", db_exc)

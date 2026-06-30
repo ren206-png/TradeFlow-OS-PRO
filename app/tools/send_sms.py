@@ -65,6 +65,10 @@ async def send_sms(tool_input: dict, context: dict) -> dict:
     else:
         return {"success": False, "error": f"Unknown message_type: {message_type!r}"}
 
+    # Increment SMS usage counter when the send succeeded
+    if result.get("success"):
+        await BillingService().increment_usage(contractor, "sms", db)
+
     # Mark lead record when a booking confirmation is sent
     if call_session.lead_id and message_type == "booking_confirmation" and result.get("success"):
         lead_result = await db.execute(select(Lead).where(Lead.id == call_session.lead_id))

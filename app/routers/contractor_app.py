@@ -26,22 +26,30 @@ templates = Jinja2Templates(directory="app/templates")
 # ---------------------------------------------------------------------------
 
 
+class _AuthError(Exception):
+    """Internal sentinel used to carry a JSONResponse out of the auth helper."""
+
+    def __init__(self, response: JSONResponse) -> None:
+        self.response = response
+
+
 async def get_contractor_from_request(request: Request, db: AsyncSession) -> Contractor:
     api_key: Optional[str] = request.headers.get("X-API-Key") or request.query_params.get("api_key")
     if not api_key:
-        raise JSONResponse(status_code=401, content={"error": "Missing API key"})
+        raise _AuthError(JSONResponse(status_code=401, content={"error": "Missing API key"}))
 
     result = await db.execute(select(Contractor).where(Contractor.api_key == api_key))
     contractor = result.scalar_one_or_none()
     if contractor is None:
-        raise JSONResponse(status_code=401, content={"error": "Invalid API key"})
+        raise _AuthError(JSONResponse(status_code=401, content={"error": "Invalid API key"}))
     return contractor
 
 
-# We wrap the above in a FastAPI dependency that raises HTTPException-compatible responses.
-# Because Jinja2 routes return HTML we raise directly via Response objects but FastAPI
-# dependency injection only works cleanly with exceptions.  Use a simple approach:
-# call the helper manually inside each route (pattern used elsewhere in this codebase).
+# Auth errors are wrapped in _AuthError (a proper BaseException subclass) so they can be
+# raised inside async functions and caught in each route with `except _AuthError as err:
+# return err.response`.  We call the helper manually inside each route rather than using
+# FastAPI's dependency injection so that HTML routes can return a JSON error response
+# instead of an HTTPException-driven 403 page.
 
 # ---------------------------------------------------------------------------
 # PWA assets
@@ -90,8 +98,8 @@ async def app_root(request: Request):
 async def leads_list(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         contractor = await get_contractor_from_request(request, db)
-    except JSONResponse as resp:
-        return resp
+    except _AuthError as err:
+        return err.response
 
     result = await db.execute(
         select(Lead)
@@ -119,8 +127,8 @@ async def leads_list(request: Request, db: AsyncSession = Depends(get_db)):
 async def lead_detail(lead_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     try:
         contractor = await get_contractor_from_request(request, db)
-    except JSONResponse as resp:
-        return resp
+    except _AuthError as err:
+        return err.response
 
     result = await db.execute(
         select(Lead).where(Lead.id == lead_id, Lead.contractor_id == contractor.id)
@@ -152,8 +160,8 @@ async def lead_detail(lead_id: str, request: Request, db: AsyncSession = Depends
 async def live_calls(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         contractor = await get_contractor_from_request(request, db)
-    except JSONResponse as resp:
-        return resp
+    except _AuthError as err:
+        return err.response
 
     api_key = request.query_params.get("api_key") or request.headers.get("X-API-Key", "")
 
@@ -173,8 +181,8 @@ async def active_calls_json(request: Request, db: AsyncSession = Depends(get_db)
     """Polling endpoint — returns JSON list of active calls for this contractor."""
     try:
         contractor = await get_contractor_from_request(request, db)
-    except JSONResponse as resp:
-        return resp
+    except _AuthError as err:
+        return err.response
 
     result = await db.execute(
         select(CallSession, Lead)
