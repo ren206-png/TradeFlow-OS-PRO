@@ -28,11 +28,17 @@ def _send_email(to: str, subject: str, html: str, text: str) -> bool:
         msg["To"] = to
         msg.attach(MIMEText(text, "plain"))
         msg.attach(MIMEText(html, "html"))
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(settings.smtp_user, settings.smtp_password)
-            server.sendmail(settings.smtp_from, [to], msg.as_string())
+        # Port 465 = SSL, Port 587 = STARTTLS
+        if settings.smtp_port == 465:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_from, [to], msg.as_string())
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_from, [to], msg.as_string())
         logger.info("Email sent | to=%s subject=%s", to, subject)
         return True
     except Exception as exc:
