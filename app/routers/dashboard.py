@@ -560,3 +560,28 @@ async def impersonate_contractor(
     response = RedirectResponse(url="/portal/leads", status_code=302)
     response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_MAX_AGE, httponly=True, samesite="lax")
     return response
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def admin_settings(
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    from app.config import settings as app_settings
+    configured = {
+        "retell": bool(app_settings.retell_api_key),
+        "twilio": bool(app_settings.twilio_account_sid and app_settings.twilio_auth_token),
+        "stripe": bool(app_settings.stripe_secret_key),
+        "mailchimp": bool(app_settings.mailchimp_api_key),
+        "openai": bool(app_settings.openai_api_key if hasattr(app_settings, "openai_api_key") else False),
+        "anthropic": bool(app_settings.anthropic_api_key if hasattr(app_settings, "anthropic_api_key") else False),
+    }
+    return templates.TemplateResponse(
+        "dashboard_settings.html",
+        {
+            "request": request,
+            "active_nav": "settings",
+            "configured": configured,
+            "app_settings": app_settings,
+        },
+    )

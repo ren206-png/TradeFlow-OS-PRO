@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %} — Settings{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-3xl">
+  <h1 class="text-2xl font-bold text-gray-100 mb-1">Platform Settings</h1>
+  <p class="text-gray-400 text-sm mb-6">Integration status and environment configuration</p>
+
+  <!-- Integration Status -->
+  <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-gray-700">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide">Integration Status</h2>
+    </div>
+    <div class="divide-y divide-gray-700">
+      {% set integrations = [
+        ("retell", "Retell AI", "Voice call handling"),
+        ("twilio", "Twilio", "SMS follow-ups"),
+        ("stripe", "Stripe", "Billing & subscriptions"),
+        ("mailchimp", "Mailchimp", "Email drip automation"),
+        ("anthropic", "Anthropic (Claude)", "AI lead scoring"),
+      ] %}
+      {% for key, label, desc in integrations %}
+      <div class="px-5 py-4 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-200">{{ label }}</p>
+          <p class="text-xs text-gray-500">{{ desc }}</p>
+        </div>
+        {% if configured.get(key) %}
+        <span class="flex items-center gap-1.5 text-xs font-medium text-green-400">
+          <span class="w-2 h-2 bg-green-400 rounded-full"></span> Connected
+        </span>
+        {% else %}
+        <span class="flex items-center gap-1.5 text-xs font-medium text-red-400">
+          <span class="w-2 h-2 bg-red-400 rounded-full"></span> Not configured
+        </span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Environment Variables Guide -->
+  <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-gray-700">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide">Required Environment Variables</h2>
+    </div>
+    <div class="p-5 space-y-3">
+      {% set env_vars = [
+        ("RETELL_API_KEY", "Retell AI dashboard → API Keys", configured.get("retell")),
+        ("TWILIO_ACCOUNT_SID", "Twilio Console → Account SID", configured.get("twilio")),
+        ("TWILIO_AUTH_TOKEN", "Twilio Console → Auth Token", configured.get("twilio")),
+        ("TWILIO_FROM_NUMBER", "Twilio Console → Phone Numbers", configured.get("twilio")),
+        ("STRIPE_SECRET_KEY", "Stripe Dashboard → Developers → API Keys", configured.get("stripe")),
+        ("STRIPE_WEBHOOK_SECRET", "Stripe Dashboard → Webhooks", configured.get("stripe")),
+        ("STRIPE_STARTER_PRICE_ID", "Stripe Dashboard → Products → Starter Plan", configured.get("stripe")),
+        ("STRIPE_PRO_PRICE_ID", "Stripe Dashboard → Products → Pro Plan", configured.get("stripe")),
+        ("MAILCHIMP_API_KEY", "Mailchimp → Account → API Keys", configured.get("mailchimp")),
+        ("MAILCHIMP_SERVER_PREFIX", "e.g. us12 (from API key suffix)", configured.get("mailchimp")),
+        ("MAILCHIMP_LIST_ID", "Mailchimp → Audience → Settings → Audience ID", configured.get("mailchimp")),
+        ("ANTHROPIC_API_KEY", "console.anthropic.com → API Keys", configured.get("anthropic")),
+        ("SECRET_KEY", "Random 32+ char string for session signing", True),
+      ] %}
+      {% for var, source, ok in env_vars %}
+      <div class="flex items-start gap-3">
+        <span class="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 {% if ok %}bg-green-400{% else %}bg-red-400{% endif %}"></span>
+        <div class="min-w-0">
+          <code class="text-xs font-mono text-indigo-300">{{ var }}</code>
+          <p class="text-xs text-gray-500 mt-0.5">{{ source }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Quick Links -->
+  <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-700">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide">Quick Links</h2>
+    </div>
+    <div class="p-5 grid grid-cols-2 gap-3">
+      <a href="https://railway.app" target="_blank"
+         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
+        🚂 Railway Dashboard
+      </a>
+      <a href="https://beta.retellai.com" target="_blank"
+         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
+        🎙️ Retell AI
+      </a>
+      <a href="https://dashboard.stripe.com" target="_blank"
+         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
+        💳 Stripe Dashboard
+      </a>
+      <a href="https://login.mailchimp.com" target="_blank"
+         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
+        🐵 Mailchimp
+      </a>
+      <a href="https://console.twilio.com" target="_blank"
+         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
+        📱 Twilio Console
+      </a>
+      <a href="https://console.anthropic.com" target="_blank"
+         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
+        🤖 Anthropic Console
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
