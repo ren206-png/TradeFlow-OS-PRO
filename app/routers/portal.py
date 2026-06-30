@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import uuid
+from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -106,6 +107,34 @@ async def portal_lead_detail(
             "sentiment_emoji": sentiment_emoji,
         },
     )
+
+
+@router.post("/leads/{lead_id}/update", response_class=RedirectResponse)
+async def portal_lead_update(
+    lead_id: str,
+    request: Request,
+    status: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    result = await db.execute(
+        select(Lead).where(Lead.id == lead_id, Lead.contractor_id == contractor.id)
+    )
+    lead = result.scalar_one_or_none()
+    if lead is None:
+        return RedirectResponse(url="/portal/leads", status_code=302)
+
+    if status:
+        lead.appointment_status = status
+    if notes is not None:
+        lead.notes = notes
+
+    await db.commit()
+    return RedirectResponse(url=f"/portal/leads/{lead_id}", status_code=302)
 
 
 @router.get("/live", response_class=HTMLResponse)
