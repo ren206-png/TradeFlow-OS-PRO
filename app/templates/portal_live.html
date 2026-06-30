@@ -1,0 +1,115 @@
+{% extends "portal_base.html" %}
+
+{% block title %} — Live Calls{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h2 class="text-xl font-bold text-gray-800">Live Calls</h2>
+  <span class="flex items-center gap-1.5 text-xs text-gray-400">
+    <span id="status-dot" class="w-2 h-2 rounded-full bg-gray-300"></span>
+    <span id="status-text">Connecting…</span>
+  </span>
+</div>
+
+<div id="calls-container" class="space-y-3"></div>
+
+<div id="empty-state" class="hidden flex-col items-center justify-center py-20 text-center text-gray-400">
+  <svg class="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M8.464 15.536a5 5 0 010-7.072m7.072 0a5 5 0 010 7.072M12 12h.01"/>
+  </svg>
+  <p class="text-lg font-medium">No active calls right now</p>
+  <p class="text-sm mt-1">This page refreshes automatically.</p>
+</div>
+
+<script>
+  const eventsUrl = '/portal/events';
+  const callTimers = {};
+
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function renderCalls(calls) {
+    const container = document.getElementById('calls-container');
+    const empty = document.getElementById('empty-state');
+
+    if (!calls || calls.length === 0) {
+      container.innerHTML = '';
+      empty.classList.remove('hidden');
+      empty.classList.add('flex');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    empty.classList.remove('flex');
+
+    const incoming = new Set(calls.map(c => c.call_id));
+    Array.from(container.children).forEach(card => {
+      if (!incoming.has(card.dataset.callId)) {
+        card.remove();
+        delete callTimers[card.dataset.callId];
+      }
+    });
+
+    calls.forEach(call => {
+      let card = container.querySelector(`[data-call-id="${call.call_id}"]`);
+      if (!card) {
+        card = document.createElement('div');
+        card.dataset.callId = call.call_id;
+        card.className = 'bg-white rounded-xl shadow-sm border border-green-100 p-4';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-semibold text-gray-900">${call.caller_name || 'Unknown'}</p>
+              ${call.trade ? `<p class="text-sm text-gray-500 mt-0.5">${call.trade}</p>` : ''}
+            </div>
+            <div class="text-right">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                Live
+              </span>
+              <p class="timer text-lg font-mono font-bold text-gray-800 mt-1">${formatTime(call.elapsed_seconds)}</p>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+        callTimers[call.call_id] = call.elapsed_seconds;
+      } else {
+        callTimers[call.call_id] = call.elapsed_seconds;
+      }
+    });
+  }
+
+  setInterval(() => {
+    Object.keys(callTimers).forEach(callId => {
+      callTimers[callId]++;
+      const card = document.querySelector(`[data-call-id="${callId}"]`);
+      if (card) {
+        const timerEl = card.querySelector('.timer');
+        if (timerEl) timerEl.textContent = formatTime(callTimers[callId]);
+      }
+    });
+  }, 1000);
+
+  async function poll() {
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    try {
+      const res = await fetch(eventsUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderCalls(data.calls);
+      dot.className = 'w-2 h-2 rounded-full bg-green-400';
+      statusText.textContent = 'Live';
+    } catch (e) {
+      dot.className = 'w-2 h-2 rounded-full bg-red-400';
+      statusText.textContent = 'Offline';
+    }
+  }
+
+  poll();
+  setInterval(poll, 5000);
+</script>
+{% endblock %}

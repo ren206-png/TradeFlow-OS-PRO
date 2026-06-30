@@ -34,15 +34,37 @@ class _AuthError(Exception):
 
 
 async def get_contractor_from_request(request: Request, db: AsyncSession) -> Contractor:
-    api_key: Optional[str] = request.headers.get("X-API-Key") or request.query_params.get("api_key")
-    if not api_key:
-        raise _AuthError(JSONResponse(status_code=401, content={"error": "Missing API key"}))
+    import uuid as _uuid
+    from app.utils.sessions import SESSION_COOKIE, decode_session_token
 
-    result = await db.execute(select(Contractor).where(Contractor.api_key == api_key))
-    contractor = result.scalar_one_or_none()
-    if contractor is None:
+    # 1. X-API-Key header
+    api_key: Optional[str] = request.headers.get("X-API-Key")
+    # 2. ?api_key= query param
+    if not api_key:
+        api_key = request.query_params.get("api_key")
+
+    if api_key:
+        result = await db.execute(select(Contractor).where(Contractor.api_key == api_key))
+        contractor = result.scalar_one_or_none()
+        if contractor is not None:
+            return contractor
         raise _AuthError(JSONResponse(status_code=401, content={"error": "Invalid API key"}))
-    return contractor
+
+    # 3. Session cookie fallback
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        contractor_id = decode_session_token(token)
+        if contractor_id:
+            try:
+                uid = _uuid.UUID(contractor_id)
+            except (ValueError, AttributeError):
+                raise _AuthError(JSONResponse(status_code=401, content={"error": "Invalid session"}))
+            result = await db.execute(select(Contractor).where(Contractor.id == uid))
+            contractor = result.scalar_one_or_none()
+            if contractor is not None:
+                return contractor
+
+    raise _AuthError(JSONResponse(status_code=401, content={"error": "Missing API key"}))
 
 
 # Auth errors are wrapped in _AuthError (a proper BaseException subclass) so they can be

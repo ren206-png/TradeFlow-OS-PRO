@@ -37,6 +37,9 @@ class Contractor(Base):
     calls_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     sms_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     plan: Mapped[str] = mapped_column(String(30), nullable=False, default="starter")
+    email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

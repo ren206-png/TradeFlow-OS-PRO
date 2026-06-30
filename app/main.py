@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.config import settings
 from app.database import init_db
-from app.routers import billing, contractor_app, contractors, dashboard, leads, onboarding, retell
+from app.routers import auth, billing, contractor_app, contractors, dashboard, leads, onboarding, portal, retell
 from app.services.scheduler import shutdown_scheduler, start_scheduler
 from app.utils.logging import configure_logging
 
@@ -66,6 +66,8 @@ async def request_logging_middleware(request: Request, call_next):
 # Routers
 # ---------------------------------------------------------------------------
 
+app.include_router(auth.router)
+app.include_router(portal.router)
 app.include_router(contractor_app.router)
 app.include_router(retell.router)
 app.include_router(contractors.router)
@@ -82,6 +84,16 @@ app.include_router(billing.router)
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/dashboard/leads")
+
+
+@app.get("/signup", include_in_schema=False)
+async def signup_redirect():
+    return RedirectResponse(url="/auth/signup")
+
+
+@app.get("/login", include_in_schema=False)
+async def login_redirect():
+    return RedirectResponse(url="/auth/login")
 
 
 @app.get("/health", tags=["health"])
