@@ -81,7 +81,7 @@ async def dashboard_overview(
 
     # --- Recent Leads ---
     recent_leads_result = await db.execute(
-        select(Lead).order_by(Lead.created_at.desc()).limit(8)
+        select(Lead).order_by(Lead.created_at.desc()).limit(5)
     )
     recent_leads = recent_leads_result.scalars().all()
 
