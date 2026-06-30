@@ -47,9 +47,80 @@ def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> None:
 # Routes
 # ---------------------------------------------------------------------------
 
-@router.get("", include_in_schema=False)
-async def dashboard_root(_: None = Depends(verify_admin)) -> RedirectResponse:
-    return RedirectResponse(url="/dashboard/leads")
+@router.get("", response_class=HTMLResponse)
+async def dashboard_overview(
+    request: Request,
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> HTMLResponse:
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # --- Stats ---
+    total_leads = (await db.execute(select(func.count(Lead.id)))).scalar_one() or 0
+    total_contractors = (await db.execute(select(func.count(Contractor.id)))).scalar_one() or 0
+
+    active_contractors = (await db.execute(
+        select(func.count(Contractor.id)).where(Contractor.calls_this_month > 0)
+    )).scalar_one() or 0
+
+    calls_today = (await db.execute(
+        select(func.count(CallSession.id)).where(CallSession.started_at >= today_start)
+    )).scalar_one() or 0
+
+    leads_this_month = (await db.execute(
+        select(func.count(Lead.id)).where(Lead.created_at >= month_start)
+    )).scalar_one() or 0
+
+    booked_total = (await db.execute(
+        select(func.count(Lead.id)).where(Lead.appointment_status == "booked")
+    )).scalar_one() or 0
+
+    # --- Recent Leads ---
+    recent_leads_result = await db.execute(
+        select(Lead).order_by(Lead.created_at.desc()).limit(8)
+    )
+    recent_leads = recent_leads_result.scalars().all()
+
+    # --- Recent Calls ---
+    recent_calls_result = await db.execute(
+        select(CallSession)
+        .options(selectinload(CallSession.contractor))
+        .order_by(CallSession.started_at.desc())
+        .limit(6)
+    )
+    recent_calls = recent_calls_result.scalars().all()
+
+    # --- Leads by trade breakdown ---
+    trade_counts_result = await db.execute(
+        select(Lead.trade, func.count(Lead.id))
+        .where(Lead.trade.isnot(None))
+        .group_by(Lead.trade)
+        .order_by(func.count(Lead.id).desc())
+    )
+    trade_counts = [{"trade": row[0], "count": row[1]} for row in trade_counts_result.fetchall()]
+
+    return templates.TemplateResponse(
+        "dashboard_overview.html",
+        {
+            "request": request,
+            "active_nav": "overview",
+            "stats": {
+                "total_leads": total_leads,
+                "total_contractors": total_contractors,
+                "active_contractors": active_contractors,
+                "calls_today": calls_today,
+                "leads_this_month": leads_this_month,
+                "booked_total": booked_total,
+            },
+            "recent_leads": recent_leads,
+            "recent_calls": recent_calls,
+            "trade_counts": trade_counts,
+        },
+    )
 
 
 @router.get("/leads", response_class=HTMLResponse)
