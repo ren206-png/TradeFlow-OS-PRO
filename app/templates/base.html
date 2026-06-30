@@ -5,11 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}TradeFlow Pro{% endblock %} — Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    [x-cloak] { display: none !important; }
-    .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors; }
-    .sidebar-link.active { @apply bg-indigo-600 text-white; }
-  </style>
 </head>
 <body class="h-full flex">
 
@@ -36,29 +31,65 @@
 
       <!-- Main -->
       <div>
-        <p class="px-4 mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Main</p>
-        <a href="/dashboard/leads" class="sidebar-link {% if active_nav == 'leads' %}active{% endif %}">Dashboard</a>
-        <a href="/dashboard/live" class="sidebar-link {% if active_nav == 'live' %}active{% endif %}">Live Calls</a>
-        <a href="/dashboard/calls" class="sidebar-link {% if active_nav == 'calls' %}active{% endif %}">Call History</a>
+        <p class="px-4 mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">Main</p>
+        <a href="/dashboard/leads"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_nav == 'leads' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Dashboard
+        </a>
+        <a href="/dashboard/live"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_nav == 'live' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Live Calls
+        </a>
+        <a href="/dashboard/calls"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_nav == 'calls' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Call History
+        </a>
       </div>
 
       <!-- Leads by Trade -->
       <div>
-        <p class="px-4 mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Leads by Trade</p>
-        <a href="/dashboard/leads" class="sidebar-link {% if active_nav == 'leads' and not active_trade %}active{% endif %}">All Leads</a>
-        <a href="/dashboard/leads?trade=plumbing" class="sidebar-link {% if active_trade == 'plumbing' %}active{% endif %}">Plumbing</a>
-        <a href="/dashboard/leads?trade=hvac" class="sidebar-link {% if active_trade == 'hvac' %}active{% endif %}">HVAC</a>
-        <a href="/dashboard/leads?trade=electrical" class="sidebar-link {% if active_trade == 'electrical' %}active{% endif %}">Electrical</a>
-        <a href="/dashboard/leads?trade=heating" class="sidebar-link {% if active_trade == 'heating' %}active{% endif %}">Heating</a>
-        <a href="/dashboard/leads?trade=general" class="sidebar-link {% if active_trade == 'general' %}active{% endif %}">General</a>
+        <p class="px-4 mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">Leads by Trade</p>
+        <a href="/dashboard/leads"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_nav == 'leads' and not active_trade %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          All Leads
+        </a>
+        <a href="/dashboard/leads?trade=plumbing"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_trade == 'plumbing' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Plumbing
+        </a>
+        <a href="/dashboard/leads?trade=hvac"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_trade == 'hvac' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          HVAC
+        </a>
+        <a href="/dashboard/leads?trade=electrical"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_trade == 'electrical' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Electrical
+        </a>
+        <a href="/dashboard/leads?trade=heating"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_trade == 'heating' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Heating
+        </a>
+        <a href="/dashboard/leads?trade=general"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_trade == 'general' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          General
+        </a>
       </div>
 
       <!-- Manage -->
       <div>
-        <p class="px-4 mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Manage</p>
-        <a href="/dashboard/contractors" class="sidebar-link {% if active_nav == 'contractors' %}active{% endif %}">Contractors</a>
-        <a href="/dashboard/billing" class="sidebar-link {% if active_nav == 'billing' %}active{% endif %}">Billing</a>
-        <a href="/onboarding" class="sidebar-link">Add Contractor</a>
+        <p class="px-4 mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">Manage</p>
+        <a href="/dashboard/contractors"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_nav == 'contractors' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Contractors
+        </a>
+        <a href="/dashboard/billing"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_nav == 'billing' %}bg-indigo-600 text-white{% else %}text-gray-400 hover:bg-gray-800 hover:text-white{% endif %}">
+          Billing
+        </a>
+        <a href="/onboarding"
+           class="flex items-center px-4 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
+          Add Contractor
+        </a>
       </div>
 
     </nav>
