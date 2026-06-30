@@ -44,6 +44,7 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
         address=service_address,
         trade=trade,
         notes=problem_summary,
+        iso_start=appointment_time_str or "",
     )
 
     if not booking_result.get("success"):

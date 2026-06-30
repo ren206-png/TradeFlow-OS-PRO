@@ -1,244 +1,253 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contractor Onboarding — TradeFlow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-white flex flex-col items-center justify-start py-12 px-4">
 
-{% block title %}Contractor Onboarding{% endblock %}
-{% block page_title %}Create Your Account{% endblock %}
-
-{% block content %}
-<div class="max-w-xl mx-auto">
-
-  <!-- Step indicator -->
-  <div class="mb-8">
-    <div class="flex items-center justify-between relative">
-      <div class="absolute left-0 right-0 top-4 h-0.5 bg-gray-800 z-0"></div>
-      {% set step_labels = ["Company Info", "Services", "Done"] %}
-      {% for label in step_labels %}
-      <div class="relative z-10 flex flex-col items-center gap-1">
-        <div id="step-circle-{{ loop.index }}"
-             class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
-                    bg-gray-800 text-gray-400 border-2 border-gray-700 transition-all duration-300">
-          {{ loop.index }}
-        </div>
-        <span class="text-xs text-gray-500 hidden sm:block">{{ label }}</span>
-      </div>
-      {% endfor %}
-    </div>
+  <!-- Brand header -->
+  <div class="mb-8 text-center">
+    <span class="text-2xl font-bold text-gray-900 tracking-tight">TradeFlow</span>
+    <p class="text-sm text-gray-500 mt-1">Contractor signup</p>
   </div>
 
-  <form method="post" action="/onboarding" id="onboarding-form" novalidate>
+  <div class="w-full max-w-xl">
 
-    <!-- ================================================================
-         STEP 1 — Company Info
-    ================================================================ -->
-    <div class="step-panel" id="panel-1">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl">
-        <h2 class="text-white text-xl font-semibold mb-1">Company Info</h2>
-        <p class="text-gray-400 text-sm mb-6">Tell us about your business and create your login.</p>
-
-        <!-- Business Name -->
-        <div class="mb-5">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="company_name">
-            Business name <span class="text-green-400">*</span>
-          </label>
-          <input
-            id="company_name" name="company_name" type="text" autocomplete="organization"
-            value="{{ form.company_name[0] if form.company_name else '' }}"
-            placeholder="e.g. Prairie Plumbing Co."
-            class="w-full bg-gray-800 border {% if errors.company_name %}border-red-500{% else %}border-gray-700{% endif %}
-                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          {% if errors.company_name %}
-          <p class="mt-1.5 text-xs text-red-400">{{ errors.company_name }}</p>
-          {% endif %}
+    <!-- Step indicator -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between relative">
+        <div class="absolute left-0 right-0 top-4 h-0.5 bg-gray-200 z-0"></div>
+        {% set step_labels = ["Company Info", "Services", "Done"] %}
+        {% for label in step_labels %}
+        <div class="relative z-10 flex flex-col items-center gap-1">
+          <div id="step-circle-{{ loop.index }}"
+               class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                      bg-gray-100 text-gray-400 border-2 border-gray-300 transition-all duration-300">
+            {{ loop.index }}
+          </div>
+          <span class="text-xs text-gray-400 hidden sm:block">{{ label }}</span>
         </div>
-
-        <!-- Owner / Contact Name (agent_name) -->
-        <div class="mb-5">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="agent_name">
-            Owner / contact name <span class="text-green-400">*</span>
-          </label>
-          <input
-            id="agent_name" name="agent_name" type="text" autocomplete="name"
-            value="{{ form.agent_name[0] if form.agent_name else '' }}"
-            placeholder="e.g. Jordan Smith"
-            class="w-full bg-gray-800 border {% if errors.agent_name %}border-red-500{% else %}border-gray-700{% endif %}
-                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          {% if errors.agent_name %}
-          <p class="mt-1.5 text-xs text-red-400">{{ errors.agent_name }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Email -->
-        <div class="mb-5">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="email">
-            Email address <span class="text-green-400">*</span>
-          </label>
-          <input
-            id="email" name="email" type="email" autocomplete="email"
-            value="{{ form.email[0] if form.email else '' }}"
-            placeholder="you@company.com"
-            class="w-full bg-gray-800 border {% if errors.email %}border-red-500{% else %}border-gray-700{% endif %}
-                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          {% if errors.email %}
-          <p class="mt-1.5 text-xs text-red-400">{{ errors.email }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Password -->
-        <div class="mb-5">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="password">
-            Password <span class="text-green-400">*</span>
-          </label>
-          <input
-            id="password" name="password" type="password" autocomplete="new-password"
-            placeholder="Min. 8 characters"
-            class="w-full bg-gray-800 border {% if errors.password %}border-red-500{% else %}border-gray-700{% endif %}
-                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          {% if errors.password %}
-          <p class="mt-1.5 text-xs text-red-400">{{ errors.password }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Confirm Password -->
-        <div class="mb-5">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="confirm_password">
-            Confirm password <span class="text-green-400">*</span>
-          </label>
-          <input
-            id="confirm_password" name="confirm_password" type="password" autocomplete="new-password"
-            placeholder="Re-enter your password"
-            class="w-full bg-gray-800 border {% if errors.confirm_password %}border-red-500{% else %}border-gray-700{% endif %}
-                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          {% if errors.confirm_password %}
-          <p class="mt-1.5 text-xs text-red-400">{{ errors.confirm_password }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Phone Number -->
-        <div class="mb-2">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="phone_number">
-            Business phone number <span class="text-green-400">*</span>
-          </label>
-          <p class="text-gray-500 text-xs mb-2">Format: +1XXXXXXXXXX</p>
-          <input
-            id="phone_number" name="phone_number" type="tel" autocomplete="tel"
-            value="{{ form.phone_number[0] if form.phone_number else '' }}"
-            placeholder="+15875550100"
-            class="w-full bg-gray-800 border {% if errors.phone_number %}border-red-500{% else %}border-gray-700{% endif %}
-                   text-white rounded-lg px-4 py-2.5 text-sm placeholder-gray-500
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          {% if errors.phone_number %}
-          <p class="mt-1.5 text-xs text-red-400">{{ errors.phone_number }}</p>
-          {% endif %}
-        </div>
-
-        <div class="mt-8 flex justify-end">
-          <button type="button" onclick="goToStep2()"
-            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
-            Next: Services →
-          </button>
-        </div>
+        {% endfor %}
       </div>
     </div>
 
-    <!-- ================================================================
-         STEP 2 — Services
-    ================================================================ -->
-    <div class="step-panel hidden" id="panel-2">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl">
-        <h2 class="text-white text-xl font-semibold mb-1">Services</h2>
-        <p class="text-gray-400 text-sm mb-6">What trades do you offer and where do you operate?</p>
+    <form method="post" action="/onboarding" id="onboarding-form" novalidate>
 
-        <!-- Trades -->
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-300 mb-3">
-            Trades <span class="text-gray-500 font-normal">(select all that apply)</span>
-          </label>
-          <div id="trades-error" class="{% if not errors.trades %}hidden{% endif %} mb-2">
-            <p class="text-xs text-red-400">{% if errors.trades %}{{ errors.trades }}{% endif %}</p>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            {% set trade_options = ["Plumbing", "HVAC", "Electrical", "Heating", "Cooling", "General"] %}
-            {% for trade in trade_options %}
-            <label class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 cursor-pointer
-                          hover:border-green-600 transition-colors group has-[:checked]:border-green-500 has-[:checked]:bg-green-950/30">
-              <input
-                type="checkbox" name="trades" value="{{ trade }}"
-                {% if form.trades is defined and trade in form.trades %}checked{% endif %}
-                class="w-4 h-4 rounded accent-green-500"
-              />
-              <span class="text-sm text-gray-300 group-hover:text-white transition-colors">{{ trade }}</span>
+      <!-- ================================================================
+           STEP 1 — Company Info
+      ================================================================ -->
+      <div class="step-panel" id="panel-1">
+        <div class="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+          <h2 class="text-gray-900 text-xl font-semibold mb-1">Company Info</h2>
+          <p class="text-gray-500 text-sm mb-6">Tell us about your business and create your login.</p>
+
+          <!-- Business Name -->
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="company_name">
+              Business name <span class="text-green-600">*</span>
             </label>
-            {% endfor %}
+            <input
+              id="company_name" name="company_name" type="text" autocomplete="organization"
+              value="{{ form.company_name[0] if form.company_name else '' }}"
+              placeholder="e.g. Prairie Plumbing Co."
+              class="w-full bg-white border {% if errors.company_name %}border-red-500{% else %}border-gray-300{% endif %}
+                     text-gray-900 rounded-lg px-4 py-2.5 text-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {% if errors.company_name %}
+            <p class="mt-1.5 text-xs text-red-500">{{ errors.company_name }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Owner / Contact Name -->
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="agent_name">
+              Owner / contact name <span class="text-green-600">*</span>
+            </label>
+            <input
+              id="agent_name" name="agent_name" type="text" autocomplete="name"
+              value="{{ form.agent_name[0] if form.agent_name else '' }}"
+              placeholder="e.g. Jordan Smith"
+              class="w-full bg-white border {% if errors.agent_name %}border-red-500{% else %}border-gray-300{% endif %}
+                     text-gray-900 rounded-lg px-4 py-2.5 text-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {% if errors.agent_name %}
+            <p class="mt-1.5 text-xs text-red-500">{{ errors.agent_name }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Email -->
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="email">
+              Email address <span class="text-green-600">*</span>
+            </label>
+            <input
+              id="email" name="email" type="email" autocomplete="email"
+              value="{{ form.email[0] if form.email else '' }}"
+              placeholder="you@company.com"
+              class="w-full bg-white border {% if errors.email %}border-red-500{% else %}border-gray-300{% endif %}
+                     text-gray-900 rounded-lg px-4 py-2.5 text-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {% if errors.email %}
+            <p class="mt-1.5 text-xs text-red-500">{{ errors.email }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Password -->
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="password">
+              Password <span class="text-green-600">*</span>
+            </label>
+            <input
+              id="password" name="password" type="password" autocomplete="new-password"
+              placeholder="Min. 8 characters"
+              class="w-full bg-white border {% if errors.password %}border-red-500{% else %}border-gray-300{% endif %}
+                     text-gray-900 rounded-lg px-4 py-2.5 text-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {% if errors.password %}
+            <p class="mt-1.5 text-xs text-red-500">{{ errors.password }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="confirm_password">
+              Confirm password <span class="text-green-600">*</span>
+            </label>
+            <input
+              id="confirm_password" name="confirm_password" type="password" autocomplete="new-password"
+              placeholder="Re-enter your password"
+              class="w-full bg-white border {% if errors.confirm_password %}border-red-500{% else %}border-gray-300{% endif %}
+                     text-gray-900 rounded-lg px-4 py-2.5 text-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {% if errors.confirm_password %}
+            <p class="mt-1.5 text-xs text-red-500">{{ errors.confirm_password }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Phone Number -->
+          <div class="mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="phone_number">
+              Business phone number <span class="text-green-600">*</span>
+            </label>
+            <p class="text-gray-400 text-xs mb-2">Format: +1XXXXXXXXXX</p>
+            <input
+              id="phone_number" name="phone_number" type="tel" autocomplete="tel"
+              value="{{ form.phone_number[0] if form.phone_number else '' }}"
+              placeholder="+15875550100"
+              class="w-full bg-white border {% if errors.phone_number %}border-red-500{% else %}border-gray-300{% endif %}
+                     text-gray-900 rounded-lg px-4 py-2.5 text-sm placeholder-gray-400
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+            {% if errors.phone_number %}
+            <p class="mt-1.5 text-xs text-red-500">{{ errors.phone_number }}</p>
+            {% endif %}
+          </div>
+
+          <div class="mt-8 flex justify-end">
+            <button type="button" onclick="goToStep2()"
+              class="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+              Next: Services →
+            </button>
           </div>
         </div>
+      </div>
 
-        <!-- Service Areas -->
-        <div class="mb-2">
-          <label class="block text-sm font-medium text-gray-300 mb-1.5" for="service_areas">
-            Service areas
-          </label>
-          <p class="text-gray-500 text-xs mb-2">Comma-separated cities or postal codes, e.g. Calgary, Airdrie, Okotoks</p>
-          <input
-            id="service_areas" name="service_areas" type="text"
-            value="{{ form.service_areas[0] if form.service_areas else '' }}"
-            placeholder="Calgary, Airdrie, Okotoks"
-            class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 text-sm
-                   placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
+      <!-- ================================================================
+           STEP 2 — Services
+      ================================================================ -->
+      <div class="step-panel hidden" id="panel-2">
+        <div class="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+          <h2 class="text-gray-900 text-xl font-semibold mb-1">Services</h2>
+          <p class="text-gray-500 text-sm mb-6">What trades do you offer and where do you operate?</p>
+
+          <!-- Trades -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              Trades <span class="text-gray-400 font-normal">(select all that apply)</span>
+            </label>
+            <div id="trades-error" class="{% if not errors.trades %}hidden{% endif %} mb-2">
+              <p class="text-xs text-red-500">{% if errors.trades %}{{ errors.trades }}{% endif %}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              {% set trade_options = ["Plumbing", "HVAC", "Electrical", "Heating", "Cooling", "General"] %}
+              {% for trade in trade_options %}
+              <label class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 cursor-pointer
+                            hover:border-green-500 transition-colors group has-[:checked]:border-green-500 has-[:checked]:bg-green-50">
+                <input
+                  type="checkbox" name="trades" value="{{ trade }}"
+                  {% if form.trades is defined and trade in form.trades %}checked{% endif %}
+                  class="w-4 h-4 rounded accent-green-600"
+                />
+                <span class="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{{ trade }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Service Areas -->
+          <div class="mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1.5" for="service_areas">
+              Service areas
+            </label>
+            <p class="text-gray-400 text-xs mb-2">Comma-separated cities or postal codes, e.g. Calgary, Airdrie, Okotoks</p>
+            <input
+              id="service_areas" name="service_areas" type="text"
+              value="{{ form.service_areas[0] if form.service_areas else '' }}"
+              placeholder="Calgary, Airdrie, Okotoks"
+              class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2.5 text-sm
+                     placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
+
+          <div class="mt-8 flex justify-between">
+            <button type="button" onclick="showStep(1)"
+              class="text-gray-500 hover:text-gray-900 font-medium px-4 py-2.5 rounded-lg text-sm transition-colors">
+              ← Back
+            </button>
+            <button type="submit" id="submit-btn"
+              class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-2.5 rounded-lg text-sm
+                     transition-colors flex items-center gap-2 shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              Create Account
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div class="mt-8 flex justify-between">
-          <button type="button" onclick="showStep(1)"
-            class="text-gray-400 hover:text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors">
-            ← Back
-          </button>
-          <button type="submit" id="submit-btn"
-            class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-2.5 rounded-lg text-sm
-                   transition-colors flex items-center gap-2 shadow-lg shadow-green-900/40">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      <!-- ================================================================
+           STEP 3 — Done
+      ================================================================ -->
+      {% if success %}
+      <div class="step-panel" id="panel-3">
+        <div class="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm text-center">
+          <div class="w-16 h-16 bg-green-100 border border-green-300 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
             </svg>
-            Create Account
-          </button>
+          </div>
+          <h2 class="text-gray-900 text-2xl font-bold mb-2">Welcome to TradeFlow!</h2>
+          <p class="text-gray-500 text-sm mb-8">Your account is ready. Head to your portal to view leads.</p>
+          <a href="/portal/leads"
+             class="inline-block bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-lg text-sm transition-colors">
+            Go to My Portal →
+          </a>
         </div>
       </div>
-    </div>
+      {% endif %}
 
-    <!-- ================================================================
-         STEP 3 — Done (shown after successful POST redirect, not rendered here)
-         This panel exists only if the server sends back a success=true context
-    ================================================================ -->
-    {% if success %}
-    <div class="step-panel" id="panel-3">
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-xl text-center">
-        <div class="w-16 h-16 bg-green-900/50 border border-green-700 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-        </div>
-        <h2 class="text-white text-2xl font-bold mb-2">Welcome to TradeFlow!</h2>
-        <p class="text-gray-400 text-sm mb-8">Your account is ready. Head to your portal to view leads.</p>
-        <a href="/portal/leads"
-           class="inline-block bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-lg text-sm transition-colors">
-          Go to My Portal →
-        </a>
-      </div>
-    </div>
-    {% endif %}
-
-  </form>
-</div>
+    </form>
+  </div>
 
 <script>
   const TOTAL_STEPS = 2;
@@ -269,7 +278,7 @@
           circle.classList.add('bg-green-600', 'text-white', 'border-green-600');
           circle.textContent = String(i);
         } else {
-          circle.classList.add('bg-gray-800', 'text-gray-400', 'border-gray-700');
+          circle.classList.add('bg-gray-100', 'text-gray-400', 'border-gray-300');
           circle.textContent = String(i);
         }
       }
@@ -278,7 +287,6 @@
   }
 
   function goToStep2() {
-    // Basic client-side validation for step 1
     const fields = [
       { id: 'company_name', msg: 'Business name is required.' },
       { id: 'agent_name',   msg: 'Owner / contact name is required.' },
@@ -293,7 +301,6 @@
     fields.forEach(({ id, msg }) => {
       const el = document.getElementById(id);
       if (!el) return;
-      // Remove existing inline error
       const prev = el.parentNode.querySelector('.inline-err');
       if (prev) prev.remove();
       el.classList.remove('border-red-500');
@@ -301,7 +308,7 @@
       if (!el.value.trim()) {
         el.classList.add('border-red-500');
         const err = document.createElement('p');
-        err.className = 'mt-1.5 text-xs text-red-400 inline-err';
+        err.className = 'mt-1.5 text-xs text-red-500 inline-err';
         err.textContent = msg;
         el.parentNode.appendChild(err);
         valid = false;
@@ -316,7 +323,7 @@
       const prev = cpw.parentNode.querySelector('.inline-err');
       if (!prev) {
         const err = document.createElement('p');
-        err.className = 'mt-1.5 text-xs text-red-400 inline-err';
+        err.className = 'mt-1.5 text-xs text-red-500 inline-err';
         err.textContent = 'Passwords do not match.';
         cpw.parentNode.appendChild(err);
       }
@@ -330,7 +337,7 @@
       const prev = emailEl.parentNode.querySelector('.inline-err');
       if (!prev) {
         const err = document.createElement('p');
-        err.className = 'mt-1.5 text-xs text-red-400 inline-err';
+        err.className = 'mt-1.5 text-xs text-red-500 inline-err';
         err.textContent = 'Enter a valid email address.';
         emailEl.parentNode.appendChild(err);
       }
@@ -352,4 +359,5 @@
   // Init
   showStep(currentStep);
 </script>
-{% endblock %}
+</body>
+</html>

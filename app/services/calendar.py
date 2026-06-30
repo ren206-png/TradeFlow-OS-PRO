@@ -51,12 +51,13 @@ class CalendarService:
         address: str,
         trade: str,
         notes: str,
+        iso_start: str = "",
     ) -> Dict:
         """Books the slot. Returns {success, event_id, confirmation_number, display}"""
         if self.provider == "google":
             try:
                 return await self._google_book_slot(
-                    slot_id, customer_name, phone, address, trade, notes
+                    slot_id, customer_name, phone, address, trade, notes, iso_start
                 )
             except Exception as exc:
                 logger.warning("Google Calendar book_slot failed, falling back to manual: %s", exc)
@@ -284,20 +285,22 @@ class CalendarService:
         address: str,
         trade: str,
         notes: str,
+        iso_start: str = "",
     ) -> Dict:
         calendar_id: str = self.config["google_calendar_id"]
         slot_duration = self._get_config_int("slot_duration_minutes", 60)
 
-        # slot_id is a UUID we generated; we don't store the exact time in the ID
-        # so we schedule from now + 1 hour as a safe default when called standalone.
-        # In practice, book_appointment passes appointment_time_str which is used
-        # by the caller for the lead record. We create the calendar event using
-        # the current time + 1 hour as placeholder; the slot ISO times come from
-        # the prior get_available_slots call and are stored in the lead.
-        # A production version would accept iso_start explicitly.
         now = datetime.now(tz=timezone.utc)
-        iso_start = now + timedelta(hours=1)
-        iso_end = iso_start + timedelta(minutes=slot_duration)
+        if iso_start:
+            try:
+                start_dt = datetime.fromisoformat(iso_start)
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
+            except ValueError:
+                start_dt = now + timedelta(hours=1)
+        else:
+            start_dt = now + timedelta(hours=1)
+        end_dt = start_dt + timedelta(minutes=slot_duration)
 
         description = (
             f"Customer: {customer_name}\n"
@@ -310,8 +313,8 @@ class CalendarService:
         event_body = {
             "summary": f"[TradeFlow] {trade} - {customer_name}",
             "description": description,
-            "start": {"dateTime": iso_start.isoformat(), "timeZone": "UTC"},
-            "end": {"dateTime": iso_end.isoformat(), "timeZone": "UTC"},
+            "start": {"dateTime": start_dt.isoformat(), "timeZone": "UTC"},
+            "end": {"dateTime": end_dt.isoformat(), "timeZone": "UTC"},
         }
 
         service = await self._run_sync(self._build_google_service)

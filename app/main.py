@@ -1,6 +1,7 @@
 import logging
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -98,7 +99,11 @@ async def login_redirect():
 
 @app.get("/health", tags=["health"])
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {
+        "status": "ok",
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "version": "1.0.0",
+    }
 
 
 # ---------------------------------------------------------------------------
