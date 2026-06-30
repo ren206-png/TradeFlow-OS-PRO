@@ -271,6 +271,60 @@ async def llm_websocket(
 
 
 # ---------------------------------------------------------------------------
+# Inbound call routing — Retell calls this when phone receives an inbound call
+# Must return {"agent_id": "..."} to tell Retell which agent to use
+# ---------------------------------------------------------------------------
+
+@router.post("/retell/inbound")
+async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Called by Retell when an inbound call arrives on the phone number.
+    Looks up the contractor by their assigned phone number and returns
+    the correct agent_id so Retell routes to the right AI agent.
+    """
+    from app.models.contractor import Contractor
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    to_number: str = payload.get("to_number", "")
+    from_number: str = payload.get("from_number", "")
+    logger.info("Retell inbound | to=%s from=%s", to_number, from_number)
+
+    # Look up contractor by their Retell phone number
+    result = await db.execute(
+        select(Contractor).where(
+            Contractor.phone_number == to_number,
+            Contractor.is_active == True,  # noqa: E712
+        )
+    )
+    contractor = result.scalar_one_or_none()
+
+    if contractor and contractor.retell_agent_id:
+        logger.info(
+            "Routing inbound call to agent %s for contractor %s",
+            contractor.retell_agent_id, contractor.name,
+        )
+        return {"agent_id": contractor.retell_agent_id}
+
+    # Fallback: use the first active agent found
+    logger.warning("No contractor found for number %s — using fallback agent", to_number)
+    fallback_result = await db.execute(
+        select(Contractor).where(
+            Contractor.retell_agent_id.isnot(None),
+            Contractor.is_active == True,  # noqa: E712
+        ).limit(1)
+    )
+    fallback = fallback_result.scalar_one_or_none()
+    if fallback and fallback.retell_agent_id:
+        return {"agent_id": fallback.retell_agent_id}
+
+    raise HTTPException(status_code=404, detail="No agent configured for this number")
+
+
+# ---------------------------------------------------------------------------
 # HTTP Webhook — Retell lifecycle events
 # ---------------------------------------------------------------------------
 
