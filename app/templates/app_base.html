@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1e40af">
+  <link rel="manifest" href="/app/manifest.json">
+  <title>TradeFlow{% block title %}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Safe area insets for notched phones */
+    body { padding-bottom: env(safe-area-inset-bottom); }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Top bar -->
+  <header class="bg-blue-700 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow">
+    <span class="font-bold text-lg">TradeFlow</span>
+    <span class="text-sm opacity-75">{{ contractor_name }}</span>
+  </header>
+
+  <!-- Content -->
+  <main class="px-4 py-4 pb-24">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex" style="padding-bottom: env(safe-area-inset-bottom)">
+    <a href="/app/leads?api_key={{ api_key }}" class="flex-1 flex flex-col items-center py-2 text-xs {% if active_nav == 'leads' %}text-blue-600{% else %}text-gray-500{% endif %}">
+      <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      Leads
+    </a>
+    <a href="/app/live?api_key={{ api_key }}" class="flex-1 flex flex-col items-center py-2 text-xs {% if active_nav == 'live' %}text-blue-600{% else %}text-gray-500{% endif %}">
+      <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M8.464 15.536a5 5 0 010-7.072m7.072 0a5 5 0 010 7.072M12 12h.01"/></svg>
+      Live
+    </a>
+  </nav>
+</body>
+</html>

@@ -12,10 +12,10 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str
     retell_api_key: str
-    retell_webhook_secret: str
-    twilio_account_sid: str
-    twilio_auth_token: str
-    twilio_from_number: str
+    retell_webhook_secret: str = ""
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""
     database_url: str
     secret_key: str
     debug: bool = False
