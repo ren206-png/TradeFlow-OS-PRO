@@ -363,3 +363,22 @@ async def contractor_detail_page(
             "plan": plan,
         },
     )
+
+
+@router.get("/impersonate/{contractor_id}", response_class=RedirectResponse)
+async def impersonate_contractor(
+    contractor_id: str,
+    request: Request,
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    """Admin: log in as any contractor and view their portal."""
+    from app.utils.sessions import create_session_token, SESSION_COOKIE, SESSION_MAX_AGE
+    result = await db.execute(select(Contractor).where(Contractor.id == contractor_id))
+    contractor = result.scalar_one_or_none()
+    if not contractor:
+        return RedirectResponse(url="/dashboard/contractors", status_code=302)
+    token = create_session_token(contractor_id)
+    response = RedirectResponse(url="/portal/leads", status_code=302)
+    response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_MAX_AGE, httponly=True, samesite="lax")
+    return response
