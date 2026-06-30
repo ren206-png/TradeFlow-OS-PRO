@@ -32,47 +32,92 @@
     </div>
 
     <!-- Nav -->
-    <nav class="flex-1 px-3 py-4 space-y-1">
-      <a href="/dashboard/leads"
-         class="sidebar-link {% if active_nav == 'leads' %}active{% endif %}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        Leads
-      </a>
-      <a href="/dashboard/calls"
-         class="sidebar-link {% if active_nav == 'calls' %}active{% endif %}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-        </svg>
-        Calls
-      </a>
-      <a href="/dashboard/contractors"
-         class="sidebar-link {% if active_nav == 'contractors' %}active{% endif %}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-        Contractors
-      </a>
-      <a href="/dashboard/live"
-         class="sidebar-link {% if active_nav == 'live' %}active{% endif %}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M8.464 15.536a5 5 0 010-7.072m7.072 0a5 5 0 010 7.072M12 12h.01" />
-        </svg>
-        Live
-      </a>
-      <a href="/dashboard/billing"
-         class="sidebar-link {% if active_nav == 'billing' %}active{% endif %}">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-        </svg>
-        Billing
-      </a>
+    <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-5">
+
+      <!-- Main -->
+      <div>
+        <p class="px-4 mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Main</p>
+        <a href="/dashboard/leads"
+           class="sidebar-link {% if active_nav == 'leads' %}active{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+        <a href="/dashboard/live"
+           class="sidebar-link {% if active_nav == 'live' %}active{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M8.464 15.536a5 5 0 010-7.072m7.072 0a5 5 0 010 7.072M12 12h.01" />
+          </svg>
+          Live Calls
+        </a>
+        <a href="/dashboard/calls"
+           class="sidebar-link {% if active_nav == 'calls' %}active{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+          </svg>
+          Call History
+        </a>
+      </div>
+
+      <!-- Leads by Trade -->
+      <div>
+        <p class="px-4 mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Leads by Trade</p>
+        <a href="/dashboard/leads" class="sidebar-link {% if active_nav == 'leads' and not active_trade %}active{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+          </svg>
+          All Leads
+        </a>
+        <a href="/dashboard/leads?trade=plumbing" class="sidebar-link {% if active_trade == 'plumbing' %}active{% endif %}">
+          <span class="text-base">🔧</span> Plumbing
+        </a>
+        <a href="/dashboard/leads?trade=hvac" class="sidebar-link {% if active_trade == 'hvac' %}active{% endif %}">
+          <span class="text-base">❄️</span> HVAC
+        </a>
+        <a href="/dashboard/leads?trade=electrical" class="sidebar-link {% if active_trade == 'electrical' %}active{% endif %}">
+          <span class="text-base">⚡</span> Electrical
+        </a>
+        <a href="/dashboard/leads?trade=heating" class="sidebar-link {% if active_trade == 'heating' %}active{% endif %}">
+          <span class="text-base">🔥</span> Heating
+        </a>
+        <a href="/dashboard/leads?trade=general" class="sidebar-link {% if active_trade == 'general' %}active{% endif %}">
+          <span class="text-base">🏠</span> General
+        </a>
+      </div>
+
+      <!-- Manage -->
+      <div>
+        <p class="px-4 mb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Manage</p>
+        <a href="/dashboard/contractors"
+           class="sidebar-link {% if active_nav == 'contractors' %}active{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          Contractors
+        </a>
+        <a href="/dashboard/billing"
+           class="sidebar-link {% if active_nav == 'billing' %}active{% endif %}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          Billing
+        </a>
+        <a href="/onboarding"
+           class="sidebar-link">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 4v16m8-8H4" />
+          </svg>
+          Add Contractor
+        </a>
+      </div>
+
     </nav>
 
     <!-- Footer -->
