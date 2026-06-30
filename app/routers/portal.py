@@ -109,6 +109,7 @@ async def portal_lead_detail(
             "active_nav": "leads",
             "lead": lead,
             "sentiment_emoji": sentiment_emoji,
+            "back_url": "/portal/leads",
         },
     )
 
@@ -155,6 +156,7 @@ async def portal_live(
             "request": request,
             "contractor_name": contractor.name,
             "active_nav": "live",
+            "back_url": "/portal/leads",
         },
     )
 
@@ -177,6 +179,7 @@ async def portal_settings(
             "active_nav": "settings",
             "contractor": contractor,
             "plan_limits": limits,
+            "back_url": "/portal/leads",
         },
     )
 

@@ -15,9 +15,19 @@
 <body class="bg-gray-50 min-h-screen">
   <!-- Top bar -->
   <header class="bg-blue-700 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow">
-    <a href="/portal/leads" class="font-bold text-lg text-white hover:text-blue-200">TradeFlow</a>
     <div class="flex items-center gap-3">
-      <span class="text-sm opacity-75">{{ contractor_name }}</span>
+      {% if back_url %}
+      <a href="{{ back_url }}" class="flex items-center gap-1 text-blue-200 hover:text-white transition mr-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span class="text-sm font-medium">Back</span>
+      </a>
+      {% endif %}
+      <a href="/portal/leads" class="font-bold text-lg text-white hover:text-blue-200 leading-none">TradeFlow</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-sm opacity-75 truncate max-w-[120px]">{{ contractor_name }}</span>
       <a href="/auth/logout" class="text-xs text-blue-200 hover:text-white transition">Sign out</a>
     </div>
   </header>
