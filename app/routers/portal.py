@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import PLAN_LIMITS
@@ -205,6 +205,101 @@ async def portal_lead_update(
 
     await db.commit()
     return RedirectResponse(url=f"/portal/leads/{lead_id}", status_code=302)
+
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def portal_analytics(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    now = datetime.now(tz=timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # All leads for this contractor this month
+    result = await db.execute(
+        select(Lead).where(
+            Lead.contractor_id == contractor.id,
+            Lead.created_at >= month_start,
+        )
+    )
+    leads_month = result.scalars().all()
+
+    # All-time leads
+    result_all = await db.execute(
+        select(Lead).where(Lead.contractor_id == contractor.id)
+    )
+    leads_all = result_all.scalars().all()
+
+    total_month = len(leads_month)
+    booked_month = sum(1 for l in leads_month if l.appointment_status == "booked")
+    called_month = sum(1 for l in leads_month if l.appointment_status in ("called", "booked", "lost", "follow_up"))
+    emergency_month = sum(1 for l in leads_month if l.priority_level == "emergency")
+
+    booking_rate = round((booked_month / total_month * 100) if total_month else 0)
+    answer_rate = round((called_month / total_month * 100) if total_month else 0)
+
+    # Revenue pipeline (revenue_score * avg_job_value proxy $450)
+    avg_job = 450
+    pipeline_value = sum((l.revenue_score or 0) * avg_job / 10 for l in leads_month)
+
+    # Leads by status breakdown
+    status_counts = {}
+    for l in leads_all:
+        s = l.appointment_status or "new"
+        status_counts[s] = status_counts.get(s, 0) + 1
+
+    # Trade breakdown this month
+    trade_counts = {}
+    for l in leads_month:
+        t = l.trade or "Unknown"
+        trade_counts[t] = trade_counts.get(t, 0) + 1
+
+    # Last 7 days daily lead counts
+    from datetime import timedelta
+    daily_labels = []
+    daily_counts = []
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
+        count = sum(
+            1 for l in leads_all
+            if l.created_at and (
+                l.created_at.replace(tzinfo=timezone.utc) if l.created_at.tzinfo is None else l.created_at
+            ) >= day_start and (
+                l.created_at.replace(tzinfo=timezone.utc) if l.created_at.tzinfo is None else l.created_at
+            ) <= day_end
+        )
+        daily_labels.append(day.strftime("%a"))
+        daily_counts.append(count)
+
+    # Top leads by revenue score
+    top_leads = sorted(leads_month, key=lambda l: l.revenue_score or 0, reverse=True)[:5]
+
+    return templates.TemplateResponse(
+        "portal_analytics.html",
+        {
+            "request": request,
+            "contractor_name": contractor.name,
+            "active_nav": "analytics",
+            "total_month": total_month,
+            "booked_month": booked_month,
+            "emergency_month": emergency_month,
+            "booking_rate": booking_rate,
+            "answer_rate": answer_rate,
+            "pipeline_value": int(pipeline_value),
+            "calls_this_month": contractor.calls_this_month or 0,
+            "status_counts": status_counts,
+            "trade_counts": trade_counts,
+            "daily_labels": daily_labels,
+            "daily_counts": daily_counts,
+            "top_leads": top_leads,
+        },
+    )
 
 
 @router.get("/live", response_class=HTMLResponse)

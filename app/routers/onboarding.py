@@ -131,7 +131,7 @@ async def onboarding_submit(
     asyncio.create_task(
         subscribe_contractor(
             email=email.strip().lower(),
-            first_name=name.strip(),
+            first_name=company_name.strip(),
             trade=", ".join(selected_trades) if selected_trades else "General",
             phone=phone_number.strip(),
             plan="starter",
