@@ -1,5 +1,11 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+PLAN_LIMITS = {
+    "starter":    {"calls": 100,  "sms": 200,  "price_id": "price_starter"},
+    "pro":        {"calls": 500,  "sms": 1000, "price_id": "price_pro"},
+    "enterprise": {"calls": 9999, "sms": 9999, "price_id": "price_enterprise"},
+}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -15,6 +21,10 @@ class Settings(BaseSettings):
     debug: bool = False
     claude_model: str = "claude-sonnet-4-6"
     claude_max_tokens: int = 1024
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_starter_price_id: str = ""
+    stripe_pro_price_id: str = ""
 
 
 settings = Settings()

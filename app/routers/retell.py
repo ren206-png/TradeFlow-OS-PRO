@@ -30,6 +30,7 @@ from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.models.lead import Lead
+from app.services.billing import BillingService
 from app.services.call_events import broadcast_call_event
 from app.services.claude_agent import ClaudeAgent
 from app.services.sms import SMSService
@@ -126,6 +127,25 @@ async def llm_websocket(
                 )
                 db.add(call_session)
                 await db.flush()
+
+                # Check call usage limit before starting the session
+                usage = await BillingService().check_usage_limit(contractor, "calls")
+                if not usage["allowed"]:
+                    logger.warning(
+                        "Call limit reached | contractor=%s used=%d limit=%d",
+                        contractor.name, usage["used"], usage["limit"],
+                    )
+                    await websocket.send_text(json.dumps({
+                        "response_type": "response",
+                        "response_id": 0,
+                        "content": (
+                            "We're sorry, this account has reached its monthly call limit. "
+                            "Please contact your service provider."
+                        ),
+                        "content_complete": True,
+                        "end_call": True,
+                    }))
+                    return
 
                 agent = ClaudeAgent(
                     contractor=contractor,
@@ -285,6 +305,19 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     elif event == "call_analyzed":
         await _apply_analysis(call_id, call_info, db)
+        transcript = payload.get("transcript", "")
+        if transcript:
+            result = await db.execute(select(CallSession).where(CallSession.retell_call_id == call_id))
+            call_session = result.scalar_one_or_none()
+            if call_session:
+                contractor_result = await db.execute(
+                    select(Contractor).where(Contractor.id == call_session.contractor_id)
+                )
+                contractor = contractor_result.scalar_one_or_none()
+                if contractor:
+                    from app.services.post_call import PostCallAnalyser
+                    analyser = PostCallAnalyser()
+                    await analyser.analyse(call_session, transcript, contractor, db)
 
     elif event in ("transfer_started", "transfer_bridged", "transfer_cancelled", "transfer_ended"):
         logger.info(
@@ -459,6 +492,14 @@ async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> 
     call_session = result.scalar_one_or_none()
     if not call_session:
         return
+
+    # Increment call usage for the contractor
+    contractor_result = await db.execute(
+        select(Contractor).where(Contractor.id == call_session.contractor_id)
+    )
+    _contractor = contractor_result.scalar_one_or_none()
+    if _contractor:
+        await BillingService().increment_usage(_contractor, "calls", db)
 
     call_session.status = "completed"
     call_session.ended_at = datetime.now(tz=timezone.utc)

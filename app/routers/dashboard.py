@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
+from app.config import PLAN_LIMITS, settings
 from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
@@ -246,6 +246,40 @@ async def ws_calls(websocket: WebSocket, token: Optional[str] = Query(None)) -> 
         pass
     finally:
         await unregister_dashboard_client(websocket)
+
+
+@router.get("/billing", response_class=HTMLResponse)
+async def billing_page(
+    request: Request,
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> HTMLResponse:
+    result = await db.execute(select(Contractor).order_by(Contractor.name))
+    contractors = result.scalars().all()
+
+    rows = []
+    for c in contractors:
+        plan = c.plan or "starter"
+        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["starter"])
+        rows.append({
+            "contractor": c,
+            "plan": plan,
+            "calls_used": c.calls_this_month or 0,
+            "calls_limit": limits["calls"],
+            "sms_used": c.sms_this_month or 0,
+            "sms_limit": limits["sms"],
+            "subscription_status": c.subscription_status or "trial",
+            "trial_ends_at": c.trial_ends_at,
+        })
+
+    return templates.TemplateResponse(
+        "billing.html",
+        {
+            "request": request,
+            "active_nav": "billing",
+            "rows": rows,
+        },
+    )
 
 
 @router.get("/contractors", response_class=HTMLResponse)

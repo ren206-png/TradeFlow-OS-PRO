@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead
+from app.services.billing import BillingService
 from app.services.sms import SMSService
 
 
@@ -27,6 +28,11 @@ async def send_sms(tool_input: dict, context: dict) -> dict:
     to_number: str = tool_input["to_number"]
     message_type: str = tool_input["message_type"]
     name: str = tool_input.get("name", "there")
+
+    # Check SMS usage limit before sending
+    usage = await BillingService().check_usage_limit(contractor, "sms")
+    if not usage["allowed"]:
+        return {"success": False, "error": "Monthly SMS limit reached."}
 
     sms = SMSService(contractor)
 

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Float, JSON, String, func
+from sqlalchemy import Boolean, DateTime, Float, Integer, JSON, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,14 @@ class Contractor(Base):
     sms_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     review_link: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     retell_agent_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    # Billing
+    stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    subscription_status: Mapped[str] = mapped_column(String(30), nullable=False, default="trial")
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    calls_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    sms_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    plan: Mapped[str] = mapped_column(String(30), nullable=False, default="starter")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

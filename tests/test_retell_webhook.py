@@ -68,6 +68,9 @@ def mock_contractor():
     c.review_link = None
     c.retell_agent_id = None
     c.is_active = True
+    c.plan = "starter"
+    c.calls_this_month = 0
+    c.sms_this_month = 0
     return c
 
 
@@ -173,9 +176,17 @@ async def test_call_ended_webhook_marks_session_complete(mock_call_session):
     body = json.dumps(payload).encode()
 
     mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(
-        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_call_session))
-    )
+    # _finalise_session: query 1 = call_session, query 2 = contractor (billing)
+    # _schedule_post_call_jobs: query 3 = call_session again (lead_id=None → early return)
+    # Use a callable so any extra queries also return the null result gracefully.
+    _cs_result = MagicMock(scalar_one_or_none=MagicMock(return_value=mock_call_session))
+    _no_result = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    _query_responses = [_cs_result, _no_result, _cs_result]
+
+    async def _execute_side_effect(*_args, **_kwargs):
+        return _query_responses.pop(0) if _query_responses else _no_result
+
+    mock_db.execute = AsyncMock(side_effect=_execute_side_effect)
     mock_db.flush = AsyncMock()
     mock_db.commit = AsyncMock()
     mock_db.rollback = AsyncMock()

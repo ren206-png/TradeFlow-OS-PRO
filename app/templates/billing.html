@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Billing{% endblock %}
+{% block page_title %}Billing & Usage{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h2 class="text-white text-xl font-semibold">Contractor Billing</h2>
+      <p class="text-gray-400 text-sm mt-1">Monthly usage and subscription status for all contractors.</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">Contractor</th>
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">Plan</th>
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">Status</th>
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">Calls</th>
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">SMS</th>
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">Trial Ends</th>
+          <th class="text-left px-6 py-3 text-gray-400 font-medium">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for row in rows %}
+        <tr class="hover:bg-gray-800/50 transition-colors">
+
+          <!-- Name -->
+          <td class="px-6 py-4">
+            <div class="text-white font-medium">{{ row.contractor.name }}</div>
+            <div class="text-gray-500 text-xs">{{ row.contractor.phone_number }}</div>
+          </td>
+
+          <!-- Plan -->
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+              {% if row.plan == 'enterprise' %}bg-purple-900 text-purple-200
+              {% elif row.plan == 'pro' %}bg-indigo-900 text-indigo-200
+              {% else %}bg-gray-700 text-gray-200{% endif %}">
+              {{ row.plan | capitalize }}
+            </span>
+          </td>
+
+          <!-- Status -->
+          <td class="px-6 py-4">
+            {% set s = row.subscription_status %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+              {% if s == 'active' %}bg-green-900 text-green-200
+              {% elif s == 'trial' %}bg-yellow-900 text-yellow-200
+              {% elif s == 'past_due' %}bg-orange-900 text-orange-200
+              {% else %}bg-red-900 text-red-200{% endif %}">
+              {{ s | replace("_", " ") | capitalize }}
+            </span>
+          </td>
+
+          <!-- Calls -->
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 bg-gray-700 rounded-full h-1.5 w-24">
+                {% set call_pct = [(row.calls_used / row.calls_limit * 100) | int, 100] | min %}
+                <div class="h-1.5 rounded-full {% if call_pct >= 90 %}bg-red-500{% elif call_pct >= 70 %}bg-yellow-500{% else %}bg-indigo-500{% endif %}"
+                     style="width: {{ call_pct }}%"></div>
+              </div>
+              <span class="text-gray-300 text-xs whitespace-nowrap">{{ row.calls_used }} / {{ row.calls_limit }}</span>
+            </div>
+          </td>
+
+          <!-- SMS -->
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 bg-gray-700 rounded-full h-1.5 w-24">
+                {% set sms_pct = [(row.sms_used / row.sms_limit * 100) | int, 100] | min %}
+                <div class="h-1.5 rounded-full {% if sms_pct >= 90 %}bg-red-500{% elif sms_pct >= 70 %}bg-yellow-500{% else %}bg-indigo-500{% endif %}"
+                     style="width: {{ sms_pct }}%"></div>
+              </div>
+              <span class="text-gray-300 text-xs whitespace-nowrap">{{ row.sms_used }} / {{ row.sms_limit }}</span>
+            </div>
+          </td>
+
+          <!-- Trial ends -->
+          <td class="px-6 py-4 text-gray-400 text-xs">
+            {% if row.trial_ends_at %}
+              {{ row.trial_ends_at.strftime("%b %d, %Y") }}
+            {% else %}
+              <span class="text-gray-600">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Actions -->
+          <td class="px-6 py-4">
+            <a href="/dashboard/billing/upgrade/{{ row.contractor.id }}"
+               class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">
+              Upgrade
+            </a>
+          </td>
+
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+            No contractors found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

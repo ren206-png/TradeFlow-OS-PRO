@@ -28,6 +28,9 @@ def contractor():
     c.sms_enabled = True
     c.review_link = "https://g.page/fixitfast"
     c.is_active = True
+    c.plan = "starter"
+    c.calls_this_month = 0
+    c.sms_this_month = 0
     return c
 
 
