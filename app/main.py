@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.database import init_db
@@ -15,6 +16,8 @@ from app.utils.logging import configure_logging
 
 configure_logging(debug=settings.debug)
 logger = logging.getLogger(__name__)
+
+templates = Jinja2Templates(directory="app/templates")
 
 
 @asynccontextmanager
@@ -82,9 +85,9 @@ app.include_router(billing.router)
 # Health check
 # ---------------------------------------------------------------------------
 
-@app.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/dashboard/leads")
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def landing_page(request: Request):
+    return templates.TemplateResponse("landing.html", {"request": request})
 
 
 @app.get("/signup", include_in_schema=False)

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradeFlow OS Pro — AI Call Handling for Contractors</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .hero-gradient { background: linear-gradient(160deg, #1e3a5f 0%, #1e3a5f 55%, #ffffff 55%); }
+    @media (max-width: 768px) {
+      .hero-gradient { background: linear-gradient(180deg, #1e3a5f 0%, #1e3a5f 60%, #ffffff 60%); }
+    }
+  </style>
+</head>
+<body class="font-sans text-gray-800 antialiased">
+
+  <!-- ===== NAV BAR ===== -->
+  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <!-- Logo -->
+        <a href="/" class="text-2xl font-extrabold text-blue-700 tracking-tight">TradeFlow</a>
+        <!-- Links -->
+        <div class="hidden md:flex items-center space-x-8">
+          <a href="#how-it-works" class="nav-link text-gray-700 hover:text-blue-700 font-medium transition-colors">How It Works</a>
+          <a href="#pricing" class="nav-link text-gray-700 hover:text-blue-700 font-medium transition-colors">Pricing</a>
+          <a href="/auth/login" class="nav-link text-gray-700 hover:text-blue-700 font-medium transition-colors">Sign In</a>
+          <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors shadow-sm">Start Free</a>
+        </div>
+        <!-- Mobile menu button -->
+        <button id="mobile-menu-btn" class="md:hidden text-gray-700 focus:outline-none">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 px-4 pb-4 pt-2 space-y-3">
+      <a href="#how-it-works" class="block text-gray-700 hover:text-blue-700 font-medium py-1">How It Works</a>
+      <a href="#pricing" class="block text-gray-700 hover:text-blue-700 font-medium py-1">Pricing</a>
+      <a href="/auth/login" class="block text-gray-700 hover:text-blue-700 font-medium py-1">Sign In</a>
+      <a href="/auth/signup" class="block bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg text-center transition-colors">Start Free</a>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="bg-[#1e3a5f] pt-28 pb-0 relative overflow-hidden">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col lg:flex-row items-center gap-12 pb-20">
+        <!-- Left: copy -->
+        <div class="flex-1 text-center lg:text-left">
+          <!-- Badge -->
+          <div class="inline-flex items-center bg-blue-800/60 text-blue-200 text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-blue-700/40">
+            🤖 AI-Powered &nbsp;•&nbsp; Always On &nbsp;•&nbsp; Built for Trades
+          </div>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-5">
+            Never Miss a Lead Again.
+          </h1>
+          <p class="text-lg sm:text-xl text-blue-100 max-w-xl mx-auto lg:mx-0 mb-8 leading-relaxed">
+            TradeFlow answers every call, books appointments, and sends you a full customer summary — while you're on the job.
+          </p>
+          <!-- CTA buttons -->
+          <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
+            <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center">
+              Start Free — 5 Minutes
+            </a>
+            <a href="#how-it-works" class="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl text-lg border border-white/30 transition-colors text-center">
+              Watch How It Works ▶
+            </a>
+          </div>
+          <!-- Trust row -->
+          <div class="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 text-blue-200 text-sm font-medium">
+            <span>✓ No contracts</span>
+            <span>✓ No credit card needed</span>
+            <span>✓ Works for any trade</span>
+          </div>
+        </div>
+
+        <!-- Right: phone mockup -->
+        <div class="flex-shrink-0 w-full max-w-xs lg:max-w-sm mx-auto lg:mx-0">
+          <div class="relative mx-auto" style="width: 220px;">
+            <!-- Phone frame -->
+            <div class="bg-gray-900 rounded-3xl p-3 shadow-2xl border-4 border-gray-700">
+              <div class="bg-gray-800 rounded-2xl overflow-hidden" style="height: 420px;">
+                <!-- Status bar -->
+                <div class="bg-gray-900 px-4 py-2 flex justify-between items-center">
+                  <span class="text-white text-xs font-semibold">9:41</span>
+                  <div class="flex gap-1 items-center">
+                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><rect x="1" y="6" width="3" height="8" rx="0.5"/><rect x="6" y="4" width="3" height="10" rx="0.5"/><rect x="11" y="2" width="3" height="12" rx="0.5"/><rect x="16" y="0" width="3" height="14" rx="0.5"/></svg>
+                    <svg class="w-3 h-3 text-white ml-1" fill="currentColor" viewBox="0 0 20 16"><path d="M10 3.5C6.5 3.5 3.4 5 1.2 7.5L0 6.2C2.5 3.4 6 1.5 10 1.5s7.5 1.9 10 4.7l-1.2 1.3C16.6 5 13.5 3.5 10 3.5z"/><path d="M10 7c-2.2 0-4.2.9-5.7 2.4L3 8.1C4.9 6.2 7.3 5 10 5s5.1 1.2 7 3.1l-1.3 1.3C14.2 7.9 12.2 7 10 7z"/><circle cx="10" cy="13" r="2"/></svg>
+                    <svg class="w-4 h-2.5 text-white ml-1" fill="currentColor" viewBox="0 0 20 10"><rect x="1" y="1" width="16" height="8" rx="2" stroke="white" stroke-width="1.5" fill="none"/><rect x="17" y="3" width="2" height="4" rx="1"/><rect x="2.5" y="2.5" width="12" height="5" rx="1" fill="#22c55e"/></svg>
+                  </div>
+                </div>
+                <!-- App header -->
+                <div class="bg-blue-900 px-3 py-2.5">
+                  <p class="text-blue-200 text-xs">TradeFlow</p>
+                  <p class="text-white text-sm font-bold">Lead Dashboard</p>
+                </div>
+                <!-- Lead cards -->
+                <div class="p-2 space-y-2 overflow-hidden">
+                  <!-- Card 1 - new/hot -->
+                  <div class="bg-white rounded-xl p-2.5 shadow-sm border-l-4 border-green-500">
+                    <div class="flex justify-between items-start mb-1">
+                      <span class="text-gray-900 text-xs font-bold leading-tight">John M.</span>
+                      <span class="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">NEW</span>
+                    </div>
+                    <p class="text-gray-500 text-xs leading-tight">🔧 Furnace not heating</p>
+                    <p class="text-gray-400 text-xs">📍 Oak Park, IL • 2 min ago</p>
+                    <p class="text-green-600 text-xs font-semibold mt-1">Appt booked: Tue 9am ✓</p>
+                  </div>
+                  <!-- Card 2 -->
+                  <div class="bg-white rounded-xl p-2.5 shadow-sm border-l-4 border-yellow-400">
+                    <div class="flex justify-between items-start mb-1">
+                      <span class="text-gray-900 text-xs font-bold">Sarah K.</span>
+                      <span class="bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">URGENT</span>
+                    </div>
+                    <p class="text-gray-500 text-xs leading-tight">⚡ No power in kitchen</p>
+                    <p class="text-gray-400 text-xs">📍 Berwyn, IL • 14 min ago</p>
+                    <p class="text-blue-500 text-xs font-medium mt-1">Follow-up sent 💬</p>
+                  </div>
+                  <!-- Card 3 -->
+                  <div class="bg-white rounded-xl p-2.5 shadow-sm border-l-4 border-blue-400">
+                    <div class="flex justify-between items-start mb-1">
+                      <span class="text-gray-900 text-xs font-bold">Tom R.</span>
+                      <span class="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">LEAD</span>
+                    </div>
+                    <p class="text-gray-500 text-xs leading-tight">🚿 Leaking pipe under sink</p>
+                    <p class="text-gray-400 text-xs">📍 Cicero, IL • 1 hr ago</p>
+                    <p class="text-blue-500 text-xs font-medium mt-1">Awaiting callback 📞</p>
+                  </div>
+                </div>
+                <!-- Bottom bar -->
+                <div class="absolute bottom-3 left-0 right-0 px-4">
+                  <div class="bg-gray-900/80 rounded-full h-1 w-24 mx-auto"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Glow effect -->
+            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-40 h-8 bg-blue-500/30 blur-2xl rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PROBLEM SECTION ===== -->
+  <section class="bg-white py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">
+        You're losing jobs you don't even know about.
+      </h2>
+      <p class="text-lg text-gray-500 max-w-2xl mx-auto mb-14">
+        Every missed call is a job that went to your competitor. Most customers won't leave a voicemail — they just move on. TradeFlow makes sure that never happens again.
+      </p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="bg-red-50 border border-red-100 rounded-2xl p-8 text-center">
+          <div class="text-4xl mb-3">📞</div>
+          <div class="text-3xl font-extrabold text-red-600 mb-2">70%</div>
+          <p class="text-gray-700 font-medium">of missed calls never call back</p>
+        </div>
+        <div class="bg-orange-50 border border-orange-100 rounded-2xl p-8 text-center">
+          <div class="text-4xl mb-3">💸</div>
+          <div class="text-3xl font-extrabold text-orange-600 mb-2">$1,500+</div>
+          <p class="text-gray-700 font-medium">lost per week to voicemail</p>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-100 rounded-2xl p-8 text-center">
+          <div class="text-4xl mb-3">⏱️</div>
+          <div class="text-3xl font-extrabold text-yellow-600 mb-2">&lt; 1 min</div>
+          <p class="text-gray-700 font-medium">average response time needed</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section id="how-it-works" class="bg-gray-50 py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Set up once. Works forever.</h2>
+      <p class="text-lg text-gray-500 max-w-xl mx-auto mb-14">Three steps and you're live. No IT department needed.</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Step 1 -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm text-center relative">
+          <div class="w-12 h-12 bg-blue-600 text-white font-extrabold text-xl rounded-full flex items-center justify-center mx-auto mb-5 shadow-md">1</div>
+          <div class="text-3xl mb-3">🏗️</div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Create Your Account</h3>
+          <p class="text-gray-500">Takes 2 minutes. Enter your trade, service area, and business hours. That's it.</p>
+        </div>
+        <!-- Connector -->
+        <div class="hidden md:flex items-center justify-center absolute" style="display:none"></div>
+        <!-- Step 2 -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm text-center">
+          <div class="w-12 h-12 bg-blue-600 text-white font-extrabold text-xl rounded-full flex items-center justify-center mx-auto mb-5 shadow-md">2</div>
+          <div class="text-3xl mb-3">📲</div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Share Your Number</h3>
+          <p class="text-gray-500">Forward your existing phone number to your TradeFlow line. Works with any carrier in minutes.</p>
+        </div>
+        <!-- Step 3 -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm text-center">
+          <div class="w-12 h-12 bg-green-600 text-white font-extrabold text-xl rounded-full flex items-center justify-center mx-auto mb-5 shadow-md">3</div>
+          <div class="text-3xl mb-3">📈</div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Watch Leads Come In</h3>
+          <p class="text-gray-500">Every call handled, logged, and sent to your phone. Wake up to booked appointments.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURES GRID ===== -->
+  <section class="bg-white py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Everything your receptionist would do. Automatically.</h2>
+      <p class="text-lg text-gray-500 max-w-2xl mx-auto mb-14">No wages, no sick days, no missed calls at 9 PM on a Friday.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+        <!-- Feature 1 -->
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
+          <div class="text-3xl mb-3">📞</div>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Answers Every Call</h3>
+          <p class="text-gray-500 text-sm">24/7, nights, weekends, while you're on the job. Zero calls go to voicemail.</p>
+        </div>
+        <!-- Feature 2 -->
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
+          <div class="text-3xl mb-3">🗣️</div>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Natural Conversations</h3>
+          <p class="text-gray-500 text-sm">Your customers won't know it's AI. Warm, professional, on-brand every time.</p>
+        </div>
+        <!-- Feature 3 -->
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
+          <div class="text-3xl mb-3">📋</div>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Full Lead Capture</h3>
+          <p class="text-gray-500 text-sm">Name, address, problem description, urgency level — all extracted and organized automatically.</p>
+        </div>
+        <!-- Feature 4 -->
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
+          <div class="text-3xl mb-3">📅</div>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Books Appointments</h3>
+          <p class="text-gray-500 text-sm">Slots get filled directly on your calendar. Show up, do the work, get paid.</p>
+        </div>
+        <!-- Feature 5 -->
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
+          <div class="text-3xl mb-3">💬</div>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Instant Notifications</h3>
+          <p class="text-gray-500 text-sm">Full lead report hits your phone in seconds. Know who called and what they need before you call back.</p>
+        </div>
+        <!-- Feature 6 -->
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
+          <div class="text-3xl mb-3">🔁</div>
+          <h3 class="text-lg font-bold text-gray-900 mb-2">Auto Follow-Up</h3>
+          <p class="text-gray-500 text-sm">Unbooked leads get a follow-up text 24 hours later — automatically. Never let a warm lead go cold.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TESTIMONIALS ===== -->
+  <section class="bg-[#1e3a5f] py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-14">Contractors trust TradeFlow</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+        <!-- Testimonial 1 -->
+        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
+          <div class="flex mb-3">
+            <span class="text-yellow-400 text-lg">★★★★★</span>
+          </div>
+          <p class="text-white text-sm leading-relaxed mb-5">"I was missing calls every day while on jobs. Now I check my phone at lunch and everything is organized."</p>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">MD</div>
+            <div>
+              <p class="text-white font-semibold text-sm">Mike D.</p>
+              <p class="text-blue-300 text-xs">HVAC Contractor</p>
+            </div>
+          </div>
+        </div>
+        <!-- Testimonial 2 -->
+        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
+          <div class="flex mb-3">
+            <span class="text-yellow-400 text-lg">★★★★★</span>
+          </div>
+          <p class="text-white text-sm leading-relaxed mb-5">"Set it up in 10 minutes on a Sunday. By Monday I had 3 new leads waiting."</p>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">SK</div>
+            <div>
+              <p class="text-white font-semibold text-sm">Sarah K.</p>
+              <p class="text-blue-300 text-xs">Electrician</p>
+            </div>
+          </div>
+        </div>
+        <!-- Testimonial 3 -->
+        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
+          <div class="flex mb-3">
+            <span class="text-yellow-400 text-lg">★★★★★</span>
+          </div>
+          <p class="text-white text-sm leading-relaxed mb-5">"My customers think I have a real receptionist. They had no idea it was AI."</p>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JT</div>
+            <div>
+              <p class="text-white font-semibold text-sm">James T.</p>
+              <p class="text-blue-300 text-xs">Plumber</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PRICING ===== -->
+  <section id="pricing" class="bg-white py-20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Simple pricing. No surprises.</h2>
+      <p class="text-lg text-gray-500 mb-14">Start free and upgrade when you're ready.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        <!-- Starter -->
+        <div class="border-2 border-gray-200 rounded-2xl p-8 text-left flex flex-col">
+          <div class="mb-6">
+            <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Starter</p>
+            <div class="flex items-end gap-1 mb-1">
+              <span class="text-4xl font-extrabold text-gray-900">Free</span>
+            </div>
+            <p class="text-gray-400 text-sm">Forever free, no card required</p>
+          </div>
+          <ul class="space-y-3 mb-8 flex-1">
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 100 calls / month</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 200 SMS messages</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Lead dashboard</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Auto follow-up texts</li>
+          </ul>
+          <a href="/auth/signup" class="block bg-gray-900 hover:bg-gray-700 text-white font-bold py-3.5 px-6 rounded-xl text-center transition-colors">
+            Get Started Free
+          </a>
+        </div>
+        <!-- Pro -->
+        <div class="border-2 border-green-600 rounded-2xl p-8 text-left flex flex-col relative shadow-lg">
+          <!-- Most Popular badge -->
+          <div class="absolute -top-4 left-1/2 -translate-x-1/2">
+            <span class="bg-green-600 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wide shadow">Most Popular</span>
+          </div>
+          <div class="mb-6">
+            <p class="text-sm font-semibold text-green-700 uppercase tracking-wide mb-1">Pro</p>
+            <div class="flex items-end gap-1 mb-1">
+              <span class="text-4xl font-extrabold text-gray-900">$97</span>
+              <span class="text-gray-500 mb-1">/mo</span>
+            </div>
+            <p class="text-gray-400 text-sm">First month free trial</p>
+          </div>
+          <ul class="space-y-3 mb-8 flex-1">
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 500 calls / month</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 1,000 SMS messages</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Everything in Starter</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Priority support</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Calendar sync</li>
+          </ul>
+          <a href="/auth/signup?plan=pro" class="block bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-6 rounded-xl text-center transition-colors shadow-sm">
+            Start Pro Trial
+          </a>
+        </div>
+      </div>
+      <p class="text-gray-400 text-sm mt-8">No contracts. Cancel anytime.</p>
+    </div>
+  </section>
+
+  <!-- ===== FINAL CTA ===== -->
+  <section class="bg-green-600 py-20">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+        Your next missed call could be your best customer.
+      </h2>
+      <p class="text-lg text-green-100 mb-10">
+        Set up TradeFlow in 5 minutes and never lose a lead to voicemail again.
+      </p>
+      <a href="/auth/signup" class="inline-block bg-white hover:bg-gray-100 text-green-700 font-extrabold px-10 py-5 rounded-2xl text-xl shadow-xl transition-colors">
+        Get Started Free
+      </a>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="bg-gray-900 text-gray-400 py-12">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="text-center md:text-left">
+          <span class="text-2xl font-extrabold text-white">TradeFlow</span>
+          <p class="text-sm mt-1 text-gray-500">AI-powered call handling for trade contractors</p>
+        </div>
+        <nav class="flex gap-6 text-sm">
+          <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
+          <a href="/terms" class="hover:text-white transition-colors">Terms</a>
+          <a href="/contact" class="hover:text-white transition-colors">Contact</a>
+        </nav>
+      </div>
+      <div class="border-t border-gray-800 mt-8 pt-6 text-center text-xs text-gray-600">
+        &copy; 2026 TradeFlow OS Pro
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== JAVASCRIPT ===== -->
+  <script>
+    // Sticky nav: add white bg + shadow after 50px scroll
+    const navbar = document.getElementById('navbar');
+    const navLinks = navbar.querySelectorAll('.nav-link');
+
+    function updateNav() {
+      if (window.scrollY > 50) {
+        navbar.classList.add('bg-white', 'shadow-md');
+        navLinks.forEach(l => l.classList.remove('text-gray-700'));
+        navLinks.forEach(l => l.classList.add('text-gray-700'));
+      } else {
+        navbar.classList.remove('bg-white', 'shadow-md');
+      }
+    }
+
+    window.addEventListener('scroll', updateNav, { passive: true });
+    updateNav();
+
+    // Mobile menu toggle
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileBtn.addEventListener('click', () => {
+      mobileMenu.classList.toggle('hidden');
+    });
+
+    // Close mobile menu when a link is clicked
+    mobileMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => mobileMenu.classList.add('hidden'));
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        const href = this.getAttribute('href');
+        if (href === '#') return;
+        const target = document.querySelector(href);
+        if (target) {
+          e.preventDefault();
+          const offset = 72; // navbar height
+          const top = target.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
