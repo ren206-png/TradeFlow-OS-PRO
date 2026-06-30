@@ -251,3 +251,74 @@ async def _unbooked_followup_job(contractor_id: str, lead_id: str, phone: str) -
         sms = SMSService(contractor)
         await sms.send(to_number=phone, message_type="missed_call")
         logger.info("Unbooked follow-up SMS sent | lead=%s", lead_id)
+
+
+# ---------------------------------------------------------------------------
+# Job: 24-hour lead follow-up SMS (fires 24 hours after lead creation if not booked)
+# ---------------------------------------------------------------------------
+
+def schedule_lead_followup(lead_id: str, contractor_id: str) -> None:
+    fire_at = datetime.now(tz=timezone.utc) + timedelta(hours=24)
+    _scheduler.add_job(
+        _lead_followup_job,
+        trigger="date",
+        run_date=fire_at,
+        kwargs={"lead_id": lead_id, "contractor_id": contractor_id},
+        id=f"lead_followup_{lead_id}",
+        replace_existing=True,
+    )
+    logger.info("Lead follow-up scheduled for %s | lead=%s", fire_at.isoformat(), lead_id)
+
+
+async def _lead_followup_job(lead_id: str, contractor_id: str) -> None:
+    from app.database import async_session_factory
+    from app.models.contractor import Contractor
+    from app.models.lead import Lead
+    from app.services.billing import BillingService
+    from app.services.sms import SMSService
+    from sqlalchemy import select
+    import uuid
+
+    logger.info("Firing lead follow-up job | lead=%s contractor=%s", lead_id, contractor_id)
+    try:
+        async with async_session_factory() as db:
+            lead_result = await db.execute(select(Lead).where(Lead.id == uuid.UUID(lead_id)))
+            lead = lead_result.scalar_one_or_none()
+            if not lead:
+                logger.warning("Lead follow-up: lead %s not found", lead_id)
+                return
+            if lead.appointment_status in ("booked", "contacted"):
+                logger.info(
+                    "Lead follow-up skipped — status is %r | lead=%s",
+                    lead.appointment_status, lead_id,
+                )
+                return
+
+            contractor_result = await db.execute(
+                select(Contractor).where(Contractor.id == uuid.UUID(contractor_id))
+            )
+            contractor = contractor_result.scalar_one_or_none()
+            if not contractor:
+                logger.warning("Lead follow-up: contractor %s not found", contractor_id)
+                return
+            if not contractor.sms_enabled:
+                logger.info("Lead follow-up: SMS disabled for contractor %s", contractor_id)
+                return
+
+            sms = SMSService(contractor)
+            await sms.send_followup(
+                phone=lead.phone,
+                name=lead.caller_name or "there",
+            )
+
+            await BillingService().increment_usage(contractor, "sms", db)
+
+            if hasattr(lead, "follow_up_sent"):
+                lead.follow_up_sent = True
+                await db.flush()
+            else:
+                logger.info("Lead follow-up SMS sent (follow_up_sent field not on model) | lead=%s", lead_id)
+
+            logger.info("Lead follow-up complete | lead=%s", lead_id)
+    except Exception as exc:
+        logger.error("Lead follow-up job failed | lead=%s error=%s", lead_id, exc)

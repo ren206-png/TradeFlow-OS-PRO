@@ -123,22 +123,43 @@
     </div>
   </div>
 
-  <!-- Retell Agent provisioning -->
+  <!-- AI Agent provisioning -->
   <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-    <h2 class="text-white font-semibold text-base mb-2">Retell AI Agent</h2>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-white font-semibold text-base">AI Agent</h2>
+      {% if contractor.retell_agent_id %}
+        <span class="inline-flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-900/30 border border-green-800 px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+          Agent Active
+        </span>
+      {% endif %}
+    </div>
+
     {% if contractor.retell_agent_id %}
-      <p class="text-gray-400 text-sm mb-4">
-        Agent provisioned: <span class="font-mono text-indigo-400">{{ contractor.retell_agent_id }}</span>
-      </p>
+      <div class="mb-4 text-sm text-gray-400">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Agent ID</p>
+        <p class="font-mono text-indigo-300 break-all">{{ contractor.retell_agent_id }}</p>
+      </div>
+      <form method="POST" action="/dashboard/contractors/{{ contractor.id }}/provision-agent"
+            onsubmit="return confirm('Re-provisioning will create a new Retell agent and overwrite the current agent ID. Continue?')">
+        <button type="submit"
+                class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+          Re-provision Agent
+        </button>
+      </form>
     {% else %}
-      <p class="text-gray-500 text-sm mb-4">No Retell agent provisioned yet.</p>
+      <p class="text-gray-500 text-sm mb-4">No AI agent has been provisioned for this contractor yet.</p>
+      <form method="POST" action="/dashboard/contractors/{{ contractor.id }}/provision-agent">
+        <button type="submit"
+                class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Provision AI Agent
+        </button>
+      </form>
     {% endif %}
-    <button
-      onclick="provisionRetellAgent('{{ contractor.id }}')"
-      class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-      {% if contractor.retell_agent_id %}Re-Provision{% else %}Provision{% endif %} Retell Agent
-    </button>
-    <p id="provision-status" class="mt-3 text-sm text-gray-500 hidden"></p>
   </div>
 
   <!-- Recent leads -->
@@ -220,36 +241,6 @@ function toggleReveal(apiKey) {
   } else {
     display.textContent = '••••••••••••••••••••••••••••••••••••••••••••••••••••••••' + apiKey.slice(-8);
     btn.textContent = 'Reveal';
-  }
-}
-
-async function provisionRetellAgent(contractorId) {
-  const btn = event.target;
-  const status = document.getElementById('provision-status');
-  btn.disabled = true;
-  btn.textContent = 'Provisioning…';
-  status.classList.remove('hidden');
-  status.textContent = 'Sending request…';
-  try {
-    const resp = await fetch(`/contractors/${contractorId}/provision-retell-agent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      status.textContent = 'Agent provisioned: ' + (data.retell_agent_id || 'success');
-      status.className = 'mt-3 text-sm text-green-400';
-    } else {
-      const err = await resp.json().catch(() => ({}));
-      status.textContent = 'Error: ' + (err.detail || resp.statusText);
-      status.className = 'mt-3 text-sm text-red-400';
-    }
-  } catch (e) {
-    status.textContent = 'Network error: ' + e.message;
-    status.className = 'mt-3 text-sm text-red-400';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Re-Provision Retell Agent';
   }
 }
 </script>

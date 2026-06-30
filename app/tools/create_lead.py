@@ -76,10 +76,17 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
         if not lead.close_probability:
             lead.close_probability = scores["close_probability"]
 
+    is_new_lead = call_session.lead_id is None
+
     await db.flush()
 
     # Fire-and-forget: notify contractor of new lead
     asyncio.ensure_future(notify_new_lead(contractor, lead))
+
+    # Schedule 24-hour follow-up SMS for new leads that are not yet booked
+    if is_new_lead:
+        from app.services.scheduler import schedule_lead_followup
+        schedule_lead_followup(str(lead.id), str(contractor.id))
 
     # Link back to call session
     if call_session.lead_id is None:

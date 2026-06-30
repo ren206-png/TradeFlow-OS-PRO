@@ -53,6 +53,7 @@ async def portal_leads(
     request: Request,
     contractor: Contractor = Depends(require_contractor),
     db: AsyncSession = Depends(get_db),
+    welcome: Optional[str] = None,
 ):
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
@@ -65,6 +66,8 @@ async def portal_leads(
     )
     leads = result.scalars().all()
 
+    flash = "Welcome to TradeFlow! Your account is ready." if welcome == "1" else None
+
     return templates.TemplateResponse(
         "portal_leads.html",
         {
@@ -72,6 +75,7 @@ async def portal_leads(
             "contractor_name": contractor.name,
             "active_nav": "leads",
             "leads": leads,
+            "flash": flash,
         },
     )
 

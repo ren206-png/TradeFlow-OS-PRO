@@ -226,3 +226,23 @@ class RetellClient:
             )
             response.raise_for_status()
             return response.json()
+
+    # ------------------------------------------------------------------
+    # Phone number management
+    # ------------------------------------------------------------------
+
+    async def update_phone_number(self, phone_number: str, inbound_agent_id: str) -> dict:
+        """
+        PATCH /v2/update-phone-number/{phone_number}
+        Assign an agent to handle inbound calls for a Retell-managed phone number.
+        `phone_number` must be in E.164 format (e.g. +12345678901).
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(
+                f"{_BASE}/v2/update-phone-number/{phone_number}",
+                json={"inbound_agent_id": inbound_agent_id},
+                headers=_headers(),
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()

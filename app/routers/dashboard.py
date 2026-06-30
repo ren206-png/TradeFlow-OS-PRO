@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import secrets
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -389,10 +392,91 @@ async def contractors_page(
     )
 
 
+@router.post("/contractors/{contractor_id}/provision-agent", response_class=RedirectResponse)
+async def provision_agent(
+    contractor_id: str,
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    """
+    Create a Retell Custom LLM agent for this contractor, save the agent_id,
+    and assign the contractor's phone number to it for inbound routing.
+    """
+    import uuid as _uuid
+    from urllib.parse import quote
+
+    from app.services.retell_client import RetellClient
+
+    redirect_base = f"/dashboard/contractors/{contractor_id}"
+
+    try:
+        cid = _uuid.UUID(contractor_id)
+    except ValueError:
+        return RedirectResponse(url=f"{redirect_base}?msg=Invalid+contractor+ID", status_code=303)
+
+    result = await db.execute(select(Contractor).where(Contractor.id == cid))
+    contractor = result.scalar_one_or_none()
+    if contractor is None:
+        return RedirectResponse(url="/dashboard/contractors?msg=Contractor+not+found", status_code=303)
+
+    client = RetellClient()
+
+    agent_config = {
+        "response_engine": {
+            "type": "custom_llm",
+            "llm_websocket_url": "wss://tradesflowos.com/llm-websocket/{call_id}",
+        },
+        "voice_id": "11labs-Adrian",
+        "agent_name": contractor.name,
+        "begin_message": (
+            f"Thank you for calling {contractor.name}. "
+            f"This is {contractor.agent_name}. "
+            "How can I help you today?"
+        ),
+    }
+
+    try:
+        agent_data = await client.create_agent(agent_config)
+    except Exception as exc:
+        logger.error("provision_agent: create_agent failed | contractor=%s error=%s", contractor_id, exc)
+        msg = quote(f"Failed to create Retell agent: {exc}")
+        return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
+
+    agent_id: str = agent_data.get("agent_id", "")
+    if not agent_id:
+        msg = quote("Retell did not return an agent_id — check Retell dashboard.")
+        return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
+
+    contractor.retell_agent_id = agent_id
+    await db.flush()
+
+    # Assign the contractor's phone number to this agent for inbound routing
+    if contractor.phone_number:
+        try:
+            await client.update_phone_number(
+                phone_number=contractor.phone_number,
+                inbound_agent_id=agent_id,
+            )
+        except Exception as exc:
+            # Non-fatal: agent was created; log and surface a warning in the flash
+            logger.warning(
+                "provision_agent: update_phone_number failed | contractor=%s phone=%s error=%s",
+                contractor_id, contractor.phone_number, exc,
+            )
+            msg = quote(
+                f"Agent provisioned ({agent_id}) but phone number assignment failed: {exc}"
+            )
+            return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
+
+    msg = quote(f"AI Agent provisioned successfully. Agent ID: {agent_id}")
+    return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
+
+
 @router.get("/contractors/{contractor_id}", response_class=HTMLResponse)
 async def contractor_detail_page(
     request: Request,
     contractor_id: str,
+    msg: Optional[str] = Query(None),
     _: None = Depends(verify_admin),
     db: AsyncSession = Depends(get_db),
 ) -> HTMLResponse:
@@ -432,6 +516,7 @@ async def contractor_detail_page(
             "sms_used": contractor.sms_this_month or 0,
             "sms_limit": limits["sms"],
             "plan": plan,
+            "flash": msg,
         },
     )
 
