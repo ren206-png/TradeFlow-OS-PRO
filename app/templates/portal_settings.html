@@ -1,78 +1,191 @@
 {% extends "portal_base.html" %}
-
 {% block title %} — Settings{% endblock %}
 
 {% block content %}
-<h2 class="text-xl font-bold text-gray-800 mb-4">Account Settings</h2>
+<div class="space-y-5">
 
-<!-- Business Info -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
-    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Business Info</h3>
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Settings</h1>
+    <p class="text-sm text-gray-500 mt-0.5">Manage your account & AI agent</p>
   </div>
-  <div class="divide-y divide-gray-100">
-    <div class="px-4 py-3 flex justify-between">
-      <span class="text-sm text-gray-500">Business Name</span>
-      <span class="text-sm font-medium text-gray-800">{{ contractor.name }}</span>
-    </div>
-    <div class="px-4 py-3 flex justify-between">
-      <span class="text-sm text-gray-500">Email</span>
-      <span class="text-sm font-medium text-gray-800">{{ contractor.email or "—" }}</span>
-    </div>
-    <div class="px-4 py-3 flex justify-between">
-      <span class="text-sm text-gray-500">Phone</span>
-      <span class="text-sm font-medium text-gray-800">{{ contractor.phone_number }}</span>
-    </div>
-    <div class="px-4 py-3 flex justify-between">
-      <span class="text-sm text-gray-500">Trades</span>
-      <span class="text-sm font-medium text-gray-800">{{ contractor.trades | join(", ") if contractor.trades else "—" }}</span>
-    </div>
-    <div class="px-4 py-3 flex justify-between">
-      <span class="text-sm text-gray-500">Service Areas</span>
-      <span class="text-sm font-medium text-gray-800">{{ contractor.service_areas | join(", ") if contractor.service_areas else "—" }}</span>
-    </div>
-    <div class="px-4 py-3 flex justify-between">
-      <span class="text-sm text-gray-500">Timezone</span>
-      <span class="text-sm font-medium text-gray-800">{{ contractor.timezone }}</span>
-    </div>
-  </div>
-</div>
 
-<!-- Plan & Usage -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
-    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Plan & Usage</h3>
+  {% if saved %}
+  <div class="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+    Settings saved successfully.
   </div>
-  <div class="divide-y divide-gray-100">
-    <div class="px-4 py-3 flex justify-between items-center">
-      <span class="text-sm text-gray-500">Current Plan</span>
-      <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 capitalize">{{ contractor.plan }}</span>
-    </div>
-    <div class="px-4 py-3">
-      <div class="flex justify-between mb-1">
-        <span class="text-sm text-gray-500">Calls This Month</span>
-        <span class="text-sm font-medium text-gray-800">{{ contractor.calls_this_month }} / {{ plan_limits.calls }}</span>
-      </div>
-      <div class="w-full bg-gray-100 rounded-full h-1.5">
-        {% set call_pct = [((contractor.calls_this_month / (plan_limits.calls or 1)) * 100) | int, 100] | min %}
-        <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ call_pct }}%"></div>
-      </div>
-    </div>
-    <div class="px-4 py-3">
-      <div class="flex justify-between mb-1">
-        <span class="text-sm text-gray-500">SMS This Month</span>
-        <span class="text-sm font-medium text-gray-800">{{ contractor.sms_this_month }} / {{ plan_limits.sms }}</span>
-      </div>
-      <div class="w-full bg-gray-100 rounded-full h-1.5">
-        {% set sms_pct = [((contractor.sms_this_month / (plan_limits.sms or 1)) * 100) | int, 100] | min %}
-        <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ sms_pct }}%"></div>
-      </div>
-    </div>
-  </div>
-</div>
+  {% endif %}
 
-<!-- Note -->
-<div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-  To make changes to your account details, please contact your administrator.
+  <!-- Edit form -->
+  <form method="POST" action="/portal/settings/update" class="space-y-4">
+
+    <!-- Business Info -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Business Info</h3>
+      </div>
+      <div class="p-4 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Business Name</label>
+          <input type="text" name="name" value="{{ contractor.name }}" required
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Email</label>
+          <input type="email" value="{{ contractor.email or '' }}" disabled
+                 class="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-400 bg-gray-50 cursor-not-allowed">
+          <p class="text-xs text-gray-400 mt-1">Email cannot be changed — contact support</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Business Phone</label>
+          <input type="tel" name="phone_number" value="{{ contractor.phone_number or '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Service Areas <span class="text-gray-400 font-normal">(comma separated)</span></label>
+          <input type="text" name="service_areas" value="{{ contractor.service_areas | join(', ') if contractor.service_areas else '' }}"
+                 placeholder="Miami, Coral Gables, Brickell"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Timezone</label>
+          <select name="timezone"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% set timezones = [
+              ("America/New_York", "Eastern (ET)"),
+              ("America/Chicago", "Central (CT)"),
+              ("America/Denver", "Mountain (MT)"),
+              ("America/Los_Angeles", "Pacific (PT)"),
+              ("America/Phoenix", "Arizona (no DST)"),
+              ("America/Anchorage", "Alaska (AKT)"),
+              ("Pacific/Honolulu", "Hawaii (HST)"),
+            ] %}
+            {% for tz_val, tz_label in timezones %}
+            <option value="{{ tz_val }}" {% if contractor.timezone == tz_val %}selected{% endif %}>{{ tz_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Agent Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">AI Agent</h3>
+      </div>
+      <div class="p-4 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Agent Name</label>
+          <input type="text" name="agent_name" value="{{ contractor.agent_name or 'Alex' }}"
+                 placeholder="Alex"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <p class="text-xs text-gray-400 mt-1">The name your AI assistant uses when answering calls</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Diagnostic Fee ($)</label>
+          <input type="number" name="diagnostic_fee" value="{{ contractor.diagnostic_fee or 89 }}" min="0" step="1"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <div>
+            <p class="text-sm font-medium text-gray-800">Free Estimates</p>
+            <p class="text-xs text-gray-500">AI will offer free estimates when enabled</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="hidden" name="free_estimate" value="0">
+            <input type="checkbox" name="free_estimate" value="1" {% if contractor.free_estimate %}checked{% endif %}
+                   class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+        <div class="flex items-center justify-between py-1">
+          <div>
+            <p class="text-sm font-medium text-gray-800">SMS Follow-ups</p>
+            <p class="text-xs text-gray-500">Send automated texts after calls</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="hidden" name="sms_enabled" value="0">
+            <input type="checkbox" name="sms_enabled" value="1" {% if contractor.sms_enabled %}checked{% endif %}
+                   class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition text-sm">
+      Save Changes
+    </button>
+  </form>
+
+  <!-- Plan & Usage -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+      <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Plan & Usage</h3>
+    </div>
+    <div class="divide-y divide-gray-100">
+      <div class="px-4 py-3 flex justify-between items-center">
+        <span class="text-sm text-gray-500">Current Plan</span>
+        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold
+          {% if contractor.plan == 'pro' %}bg-purple-100 text-purple-700{% else %}bg-blue-100 text-blue-700{% endif %} capitalize">
+          {{ contractor.plan }}
+        </span>
+      </div>
+      <div class="px-4 py-3">
+        <div class="flex justify-between mb-1">
+          <span class="text-sm text-gray-500">Calls This Month</span>
+          <span class="text-sm font-medium text-gray-800">{{ contractor.calls_this_month }} / {{ plan_limits.calls }}</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-1.5">
+          {% set call_pct = [((contractor.calls_this_month / (plan_limits.calls or 1)) * 100) | int, 100] | min %}
+          <div class="{% if call_pct >= 90 %}bg-red-500{% elif call_pct >= 70 %}bg-yellow-500{% else %}bg-blue-500{% endif %} h-1.5 rounded-full" style="width: {{ call_pct }}%"></div>
+        </div>
+      </div>
+      <div class="px-4 py-3">
+        <div class="flex justify-between mb-1">
+          <span class="text-sm text-gray-500">SMS This Month</span>
+          <span class="text-sm font-medium text-gray-800">{{ contractor.sms_this_month }} / {{ plan_limits.sms }}</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-1.5">
+          {% set sms_pct = [((contractor.sms_this_month / (plan_limits.sms or 1)) * 100) | int, 100] | min %}
+          <div class="{% if sms_pct >= 90 %}bg-red-500{% elif sms_pct >= 70 %}bg-yellow-500{% else %}bg-blue-500{% endif %} h-1.5 rounded-full" style="width: {{ sms_pct }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if contractor.plan != 'pro' %}
+  <!-- Upgrade CTA -->
+  <div class="bg-gradient-to-br from-purple-700 to-blue-700 rounded-xl p-5 text-white">
+    <p class="font-bold text-lg">Upgrade to Pro</p>
+    <p class="text-purple-200 text-sm mt-1 mb-4">Unlimited calls, SMS, priority support & advanced analytics</p>
+    <ul class="text-sm text-purple-100 space-y-1 mb-4">
+      <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Unlimited AI calls</li>
+      <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Unlimited SMS follow-ups</li>
+      <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Priority phone support</li>
+      <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Google Calendar integration</li>
+    </ul>
+    <a href="/billing/upgrade"
+       class="block text-center bg-white text-purple-700 font-bold py-2.5 rounded-lg text-sm hover:bg-purple-50 transition">
+      Upgrade Now — $197/mo
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Danger zone -->
+  <div class="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
+    <div class="px-4 py-3 bg-red-50 border-b border-red-100">
+      <h3 class="text-sm font-semibold text-red-700 uppercase tracking-wide">Account</h3>
+    </div>
+    <div class="p-4">
+      <a href="/auth/logout" class="block text-center text-red-600 border border-red-200 rounded-lg py-2.5 text-sm font-medium hover:bg-red-50 transition">
+        Sign Out
+      </a>
+    </div>
+  </div>
+
 </div>
 {% endblock %}

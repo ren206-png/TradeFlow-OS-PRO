@@ -325,6 +325,7 @@ async def portal_live(
 async def portal_settings(
     request: Request,
     contractor: Contractor = Depends(require_contractor),
+    saved: Optional[str] = Query(None),
 ):
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
@@ -339,9 +340,48 @@ async def portal_settings(
             "active_nav": "settings",
             "contractor": contractor,
             "plan_limits": limits,
-            "back_url": "/portal/leads",
+            "saved": saved == "1",
         },
     )
+
+
+@router.post("/settings/update", response_class=RedirectResponse)
+async def portal_settings_update(
+    request: Request,
+    name: Optional[str] = Form(None),
+    phone_number: Optional[str] = Form(None),
+    service_areas: Optional[str] = Form(None),
+    timezone: Optional[str] = Form(None),
+    agent_name: Optional[str] = Form(None),
+    diagnostic_fee: Optional[str] = Form(None),
+    free_estimate: Optional[str] = Form(None),
+    sms_enabled: Optional[str] = Form(None),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    if name and name.strip():
+        contractor.name = name.strip()
+    if phone_number is not None:
+        contractor.phone_number = phone_number.strip()
+    if service_areas is not None:
+        contractor.service_areas = [a.strip() for a in service_areas.split(",") if a.strip()]
+    if timezone:
+        contractor.timezone = timezone
+    if agent_name and agent_name.strip():
+        contractor.agent_name = agent_name.strip()
+    if diagnostic_fee is not None:
+        try:
+            contractor.diagnostic_fee = float(diagnostic_fee)
+        except ValueError:
+            pass
+    contractor.free_estimate = free_estimate == "1"
+    contractor.sms_enabled = sms_enabled == "1"
+
+    await db.commit()
+    return RedirectResponse(url="/portal/settings?saved=1", status_code=302)
 
 
 @router.get("/events")
