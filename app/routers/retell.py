@@ -30,6 +30,7 @@ from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.models.lead import Lead
+from app.services.call_events import broadcast_call_event
 from app.services.claude_agent import ClaudeAgent
 from app.services.sms import SMSService
 
@@ -133,6 +134,15 @@ async def llm_websocket(
                 )
                 _active_agents[call_id] = agent
 
+                await broadcast_call_event({
+                    "type": "call_started",
+                    "call_id": call_id,
+                    "contractor_name": contractor.name,
+                    "from_number": from_number,
+                    "to_number": to_number,
+                    "started_at": call_session.started_at.isoformat(),
+                })
+
                 # Opening greeting — response_id 0 for the first agent turn
                 greeting = await agent.process_turn("__call_started__")
                 await websocket.send_text(json.dumps({
@@ -191,6 +201,23 @@ async def llm_websocket(
                     "Turn | call_id=%s response_id=%d end_call=%s",
                     call_id, response_id, end_call,
                 )
+
+                # Broadcast transcript update to dashboard clients
+                lead_score: dict = {}
+                if agent and agent.call_session and agent.call_session.lead_id:
+                    cs = agent.call_session
+                    lead_score = {
+                        "emergency": getattr(cs, "emergency_score", None),
+                        "revenue": getattr(cs, "revenue_score", None),
+                        "close": getattr(cs, "close_probability", None),
+                    }
+                await broadcast_call_event({
+                    "type": "transcript_update",
+                    "call_id": call_id,
+                    "role": "agent",
+                    "content": response_text,
+                    "lead_score": lead_score,
+                })
 
             # ------------------------------------------------------------------
             # update_only — transcript update mid-speech; no response needed
@@ -454,6 +481,12 @@ async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> 
 
     await db.flush()
     logger.info("Session finalised | call_id=%s duration=%ss", call_id, call_session.duration_seconds)
+
+    await broadcast_call_event({
+        "type": "call_ended",
+        "call_id": call_id,
+        "duration_seconds": call_session.duration_seconds,
+    })
 
 
 async def _apply_analysis(call_id: str, call_info: dict, db: AsyncSession) -> None:

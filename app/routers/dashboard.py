@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import base64
 import secrets
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
@@ -16,6 +18,7 @@ from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.models.lead import Lead
+from app.services.call_events import register_dashboard_client, unregister_dashboard_client
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -193,6 +196,56 @@ async def calls_page(
             "sessions": sessions,
         },
     )
+
+
+@router.get("/live", response_class=HTMLResponse)
+async def live_dashboard(
+    request: Request,
+    _: None = Depends(verify_admin),
+) -> HTMLResponse:
+    import base64 as _b64
+    token = _b64.b64encode(f"admin:{settings.secret_key}".encode()).decode()
+    return templates.TemplateResponse(
+        "live.html",
+        {
+            "request": request,
+            "active_nav": "live",
+            "ws_token": token,
+        },
+    )
+
+
+@router.websocket("/ws/calls")
+async def ws_calls(websocket: WebSocket, token: Optional[str] = Query(None)) -> None:
+    """Dashboard live-call WebSocket. Auth via ?token=base64(admin:SECRET_KEY)."""
+    # Authenticate before accepting
+    authed = False
+    if token:
+        try:
+            decoded = base64.b64decode(token).decode()
+            expected = f"admin:{settings.secret_key}"
+            authed = secrets.compare_digest(decoded, expected)
+        except Exception:
+            authed = False
+
+    if not authed:
+        await websocket.close(code=4403)
+        return
+
+    await websocket.accept()
+    await register_dashboard_client(websocket)
+    try:
+        while True:
+            # Send heartbeat ping every 30 seconds
+            await asyncio.sleep(30)
+            try:
+                await websocket.send_json({"type": "ping"})
+            except Exception:
+                break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await unregister_dashboard_client(websocket)
 
 
 @router.get("/contractors", response_class=HTMLResponse)

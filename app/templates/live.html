@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Live Calls{% endblock %}
+
+{% block page_title %}Live Call Monitor{% endblock %}
+
+{% block content %}
+<!-- Stats bar -->
+<div class="grid grid-cols-3 gap-4 mb-6">
+  <div class="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Calls Today</p>
+    <p id="stat-total" class="text-2xl font-bold text-white">0</p>
+  </div>
+  <div class="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Avg Duration</p>
+    <p id="stat-avg-duration" class="text-2xl font-bold text-white">—</p>
+  </div>
+  <div class="bg-gray-900 border border-gray-800 rounded-lg px-5 py-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Conversion Rate</p>
+    <p id="stat-conversion" class="text-2xl font-bold text-white">—</p>
+  </div>
+</div>
+
+<div class="flex gap-4 h-[calc(100vh-240px)]">
+
+  <!-- Left: Active Calls panel -->
+  <div class="w-80 flex-shrink-0 flex flex-col">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-white font-semibold text-sm uppercase tracking-wider">Active Calls</h2>
+      <span id="active-count" class="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full">0</span>
+    </div>
+    <div id="calls-list" class="flex-1 overflow-y-auto space-y-3">
+      <p id="no-calls-msg" class="text-gray-600 text-sm text-center mt-8">No active calls</p>
+    </div>
+  </div>
+
+  <!-- Right: Live Transcript panel -->
+  <div class="flex-1 bg-gray-900 border border-gray-800 rounded-lg flex flex-col min-w-0">
+    <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+      <h2 class="text-white font-semibold text-sm uppercase tracking-wider">Live Transcript</h2>
+      <span id="selected-call-label" class="text-xs text-gray-500">Select a call</span>
+    </div>
+    <div id="transcript-panel" class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+      <p id="no-transcript-msg" class="text-gray-600 text-sm text-center mt-8">Click a call card to see the transcript</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Connection status -->
+<div id="conn-status" class="fixed bottom-4 right-4 flex items-center gap-2 text-xs bg-gray-900 border border-gray-800 px-3 py-2 rounded-full">
+  <span id="conn-dot" class="w-2 h-2 rounded-full bg-yellow-500"></span>
+  <span id="conn-label">Connecting…</span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // -----------------------------------------------------------------------
+  // State
+  // -----------------------------------------------------------------------
+  const calls = {};          // call_id -> { card, startedAt, active, duration }
+  const transcripts = {};    // call_id -> [{ role, content }]
+  let selectedCallId = null;
+  let ws = null;
+  let reconnectDelay = 1000;
+  let durations = [];        // ended call durations for avg calc
+  let bookedCount = 0;
+  let totalCallsToday = 0;
+
+  // -----------------------------------------------------------------------
+  // WebSocket
+  // -----------------------------------------------------------------------
+  function connect() {
+    const token = {{ ws_token | tojson }};
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${proto}://${location.host}/dashboard/ws/calls?token=${token}`;
+
+    setConnStatus('connecting');
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      reconnectDelay = 1000;
+      setConnStatus('connected');
+    };
+
+    ws.onmessage = (ev) => {
+      let event;
+      try { event = JSON.parse(ev.data); } catch { return; }
+      handleEvent(event);
+    };
+
+    ws.onclose = () => {
+      setConnStatus('disconnected');
+      setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  // -----------------------------------------------------------------------
+  // Event handlers
+  // -----------------------------------------------------------------------
+  function handleEvent(event) {
+    if (event.type === 'ping') return;
+
+    if (event.type === 'call_started') {
+      addCallCard(event);
+      totalCallsToday++;
+      updateStats();
+    } else if (event.type === 'transcript_update') {
+      appendTranscript(event.call_id, event.role, event.content);
+      if (event.lead_score) updateLeadScore(event.call_id, event.lead_score);
+    } else if (event.type === 'call_ended') {
+      endCallCard(event.call_id, event.duration_seconds);
+      if (event.duration_seconds) durations.push(event.duration_seconds);
+      updateStats();
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Call cards
+  // -----------------------------------------------------------------------
+  function addCallCard(event) {
+    transcripts[event.call_id] = [];
+    document.getElementById('no-calls-msg').style.display = 'none';
+
+    const card = document.createElement('div');
+    card.id = `card-${event.call_id}`;
+    card.className = 'bg-gray-900 border border-gray-800 rounded-lg p-4 cursor-pointer hover:border-indigo-600 transition-colors';
+    card.innerHTML = `
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+          </span>
+          <span class="text-white text-sm font-medium">${escHtml(event.from_number)}</span>
+        </div>
+        <span class="text-xs text-gray-500 font-mono timer" data-started="${event.started_at}">0:00</span>
+      </div>
+      <p class="text-xs text-gray-400 mb-3">${escHtml(event.contractor_name)}</p>
+      <div class="flex gap-1.5 flex-wrap score-badges"></div>
+    `;
+    card.addEventListener('click', () => selectCall(event.call_id));
+    document.getElementById('calls-list').prepend(card);
+
+    calls[event.call_id] = {
+      card,
+      startedAt: new Date(event.started_at),
+      active: true,
+      duration: null,
+    };
+
+    updateActiveCount();
+    if (!selectedCallId) selectCall(event.call_id);
+  }
+
+  function endCallCard(callId, durationSeconds) {
+    const state = calls[callId];
+    if (!state) return;
+    state.active = false;
+    state.duration = durationSeconds;
+
+    const card = state.card;
+    card.classList.remove('border-gray-800', 'hover:border-indigo-600');
+    card.classList.add('border-gray-700', 'opacity-60');
+
+    // Replace pulsing dot with gray dot
+    const dotWrap = card.querySelector('span.relative.flex');
+    if (dotWrap) {
+      dotWrap.outerHTML = '<span class="inline-flex rounded-full h-2.5 w-2.5 bg-gray-500"></span>';
+    }
+
+    // Show duration
+    const timer = card.querySelector('.timer');
+    if (timer && durationSeconds != null) {
+      timer.textContent = fmtDuration(durationSeconds);
+    }
+
+    updateActiveCount();
+  }
+
+  function updateLeadScore(callId, score) {
+    const state = calls[callId];
+    if (!state) return;
+    const badgesEl = state.card.querySelector('.score-badges');
+    if (!badgesEl) return;
+    badgesEl.innerHTML = '';
+    if (score.emergency != null) {
+      badgesEl.appendChild(badge('Emergency', score.emergency, 'red'));
+    }
+    if (score.revenue != null) {
+      badgesEl.appendChild(badge('Revenue', score.revenue, 'yellow'));
+    }
+    if (score.close != null) {
+      badgesEl.appendChild(badge('Close', score.close, 'green'));
+    }
+  }
+
+  function badge(label, value, color) {
+    const el = document.createElement('span');
+    const colors = {
+      red: 'bg-red-900 text-red-300',
+      yellow: 'bg-yellow-900 text-yellow-300',
+      green: 'bg-green-900 text-green-300',
+    };
+    el.className = `text-xs px-1.5 py-0.5 rounded ${colors[color] || 'bg-gray-800 text-gray-400'}`;
+    el.textContent = `${label}: ${value}`;
+    return el;
+  }
+
+  function selectCall(callId) {
+    // Deselect old
+    if (selectedCallId && calls[selectedCallId]) {
+      calls[selectedCallId].card.classList.remove('border-indigo-600');
+      calls[selectedCallId].card.classList.add('border-gray-800');
+    }
+
+    selectedCallId = callId;
+    const state = calls[callId];
+    if (state) {
+      state.card.classList.remove('border-gray-800', 'border-gray-700');
+      state.card.classList.add('border-indigo-600');
+    }
+
+    document.getElementById('no-transcript-msg').style.display = 'none';
+    renderTranscript(callId);
+
+    const fromNumber = state ? state.card.querySelector('.text-white.text-sm') : null;
+    document.getElementById('selected-call-label').textContent =
+      fromNumber ? fromNumber.textContent : callId;
+  }
+
+  // -----------------------------------------------------------------------
+  // Transcript
+  // -----------------------------------------------------------------------
+  function appendTranscript(callId, role, content) {
+    if (!transcripts[callId]) transcripts[callId] = [];
+    transcripts[callId].push({ role, content });
+    if (selectedCallId === callId) renderTranscript(callId);
+  }
+
+  function renderTranscript(callId) {
+    const panel = document.getElementById('transcript-panel');
+    panel.innerHTML = '';
+    const msgs = transcripts[callId] || [];
+    if (msgs.length === 0) {
+      panel.innerHTML = '<p class="text-gray-600 text-sm text-center mt-8">No messages yet</p>';
+      return;
+    }
+    msgs.forEach(msg => {
+      const isAgent = msg.role === 'agent';
+      const wrap = document.createElement('div');
+      wrap.className = `flex ${isAgent ? 'justify-end' : 'justify-start'}`;
+      const bubble = document.createElement('div');
+      bubble.className = `max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl text-sm ${
+        isAgent
+          ? 'bg-indigo-600 text-white rounded-tr-sm'
+          : 'bg-gray-800 text-gray-200 rounded-tl-sm'
+      }`;
+      bubble.textContent = msg.content;
+      wrap.appendChild(bubble);
+      panel.appendChild(wrap);
+    });
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  // -----------------------------------------------------------------------
+  // Stats
+  // -----------------------------------------------------------------------
+  function updateStats() {
+    document.getElementById('stat-total').textContent = totalCallsToday;
+
+    if (durations.length) {
+      const avg = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
+      document.getElementById('stat-avg-duration').textContent = fmtDuration(avg);
+    }
+
+    if (totalCallsToday > 0) {
+      const rate = Math.round((bookedCount / totalCallsToday) * 100);
+      document.getElementById('stat-conversion').textContent = `${rate}%`;
+    }
+  }
+
+  function updateActiveCount() {
+    const active = Object.values(calls).filter(c => c.active).length;
+    document.getElementById('active-count').textContent = active;
+    if (active === 0 && Object.keys(calls).length === 0) {
+      document.getElementById('no-calls-msg').style.display = '';
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Duration timers (tick every second)
+  // -----------------------------------------------------------------------
+  setInterval(() => {
+    const now = Date.now();
+    Object.entries(calls).forEach(([, state]) => {
+      if (!state.active) return;
+      const timerEl = state.card.querySelector('.timer');
+      if (timerEl) {
+        const elapsed = Math.floor((now - state.startedAt.getTime()) / 1000);
+        timerEl.textContent = fmtDuration(elapsed);
+      }
+    });
+  }, 1000);
+
+  // -----------------------------------------------------------------------
+  // Helpers
+  // -----------------------------------------------------------------------
+  function fmtDuration(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function setConnStatus(state) {
+    const dot = document.getElementById('conn-dot');
+    const label = document.getElementById('conn-label');
+    const map = {
+      connecting: ['bg-yellow-500', 'Connecting…'],
+      connected:  ['bg-green-500', 'Connected'],
+      disconnected: ['bg-red-500', 'Reconnecting…'],
+    };
+    dot.className = `w-2 h-2 rounded-full ${map[state][0]}`;
+    label.textContent = map[state][1];
+  }
+
+  // -----------------------------------------------------------------------
+  // Boot
+  // -----------------------------------------------------------------------
+  connect();
+})();
+</script>
+{% endblock %}
