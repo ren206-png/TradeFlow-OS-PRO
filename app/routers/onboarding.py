@@ -125,8 +125,12 @@ async def onboarding_submit(
     await db.commit()
     await db.refresh(contractor)
 
-    # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
+    # --- Auto-provision Retell agent + phone number (fire-and-forget) ---
     import asyncio
+    from app.services.provisioning import provision_contractor
+    asyncio.create_task(provision_contractor(contractor, db))
+
+    # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
     from app.services.mailchimp import subscribe_contractor
     asyncio.create_task(
         subscribe_contractor(

@@ -246,3 +246,57 @@ class RetellClient:
             )
             response.raise_for_status()
             return response.json()
+
+    async def purchase_phone_number(
+        self,
+        area_code: str = "775",
+        inbound_webhook_url: str = "",
+    ) -> dict:
+        """
+        POST /v2/create-phone-number
+        Purchase a new US phone number via Retell (Twilio provider).
+        Returns the phone number object including `phone_number` (E.164).
+        """
+        payload: dict = {"area_code": int(area_code)}
+        if inbound_webhook_url:
+            payload["inbound_webhook_url"] = inbound_webhook_url
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{_BASE}/v2/create-phone-number",
+                json=payload,
+                headers=_headers(),
+                timeout=15.0,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def set_phone_number_webhook(
+        self,
+        phone_number: str,
+        inbound_webhook_url: str,
+    ) -> dict:
+        """
+        PATCH /v2/update-phone-number/{phone_number}
+        Set (or update) the inbound webhook URL on a purchased number.
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.patch(
+                f"{_BASE}/v2/update-phone-number/{phone_number}",
+                json={"inbound_webhook_url": inbound_webhook_url},
+                headers=_headers(),
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def list_phone_numbers(self) -> list:
+        """GET /v2/list-phone-numbers — list all purchased numbers."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{_BASE}/v2/list-phone-numbers",
+                headers=_headers(),
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()

@@ -78,10 +78,15 @@ async def signup_post(
     db.add(contractor)
     await db.flush()
     contractor_id = str(contractor.id)
+
+    # --- Auto-provision Retell agent + phone number (fire-and-forget) ---
+    import asyncio as _asyncio
+    from app.services.provisioning import provision_contractor as _provision
+    _asyncio.create_task(_provision(contractor, db))
+
     await db.commit()
 
     # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
-    import asyncio as _asyncio
     from app.services.mailchimp import subscribe_contractor as _mc_subscribe
     _asyncio.create_task(
         _mc_subscribe(

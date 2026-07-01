@@ -420,13 +420,11 @@ async def provision_agent(
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
     """
-    Create a Retell Custom LLM agent for this contractor, save the agent_id,
-    and assign the contractor's phone number to it for inbound routing.
+    Full auto-provisioning: create Retell agent + purchase phone number.
     """
     import uuid as _uuid
     from urllib.parse import quote
-
-    from app.services.retell_client import RetellClient
+    from app.services.provisioning import provision_contractor
 
     redirect_base = f"/dashboard/contractors/{contractor_id}"
 
@@ -440,56 +438,14 @@ async def provision_agent(
     if contractor is None:
         return RedirectResponse(url="/dashboard/contractors?msg=Contractor+not+found", status_code=303)
 
-    client = RetellClient()
+    outcome = await provision_contractor(contractor, db)
+    await db.commit()
 
-    agent_config = {
-        "response_engine": {
-            "type": "custom_llm",
-            "llm_websocket_url": "wss://tradesflowos.com/llm-websocket/{call_id}",
-        },
-        "voice_id": "11labs-Adrian",
-        "agent_name": contractor.name,
-        "begin_message": (
-            f"Thank you for calling {contractor.name}. "
-            f"This is {contractor.agent_name}. "
-            "How can I help you today?"
-        ),
-    }
+    if outcome.get("success"):
+        msg = quote(f"✅ Provisioned! Agent: {outcome['agent_id']} | Phone: {outcome['phone_number']}")
+    else:
+        msg = quote(f"⚠️ {outcome.get('error', 'Unknown error')}")
 
-    try:
-        agent_data = await client.create_agent(agent_config)
-    except Exception as exc:
-        logger.error("provision_agent: create_agent failed | contractor=%s error=%s", contractor_id, exc)
-        msg = quote(f"Failed to create Retell agent: {exc}")
-        return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
-
-    agent_id: str = agent_data.get("agent_id", "")
-    if not agent_id:
-        msg = quote("Retell did not return an agent_id — check Retell dashboard.")
-        return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
-
-    contractor.retell_agent_id = agent_id
-    await db.flush()
-
-    # Assign the contractor's phone number to this agent for inbound routing
-    if contractor.phone_number:
-        try:
-            await client.update_phone_number(
-                phone_number=contractor.phone_number,
-                inbound_agent_id=agent_id,
-            )
-        except Exception as exc:
-            # Non-fatal: agent was created; log and surface a warning in the flash
-            logger.warning(
-                "provision_agent: update_phone_number failed | contractor=%s phone=%s error=%s",
-                contractor_id, contractor.phone_number, exc,
-            )
-            msg = quote(
-                f"Agent provisioned ({agent_id}) but phone number assignment failed: {exc}"
-            )
-            return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
-
-    msg = quote(f"AI Agent provisioned successfully. Agent ID: {agent_id}")
     return RedirectResponse(url=f"{redirect_base}?msg={msg}", status_code=303)
 
 
