@@ -173,6 +173,7 @@ async def portal_lead_detail(
         {
             "request": request,
             "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
             "active_nav": "leads",
             "lead": lead,
             "sentiment_emoji": sentiment_emoji,

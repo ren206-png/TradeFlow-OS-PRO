@@ -10,8 +10,10 @@ On signup, automatically:
 from __future__ import annotations
 
 import logging
+import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.config import settings
 from app.services.retell_client import RetellClient
@@ -33,10 +35,25 @@ async def provision_contractor(contractor, db: AsyncSession) -> dict:
     Creates a Retell agent + purchases a phone number.
     Updates contractor record in DB.
     Returns {"success": True, "agent_id": ..., "phone_number": ...}
+
+    NOTE: This runs as a background task AFTER db.commit() in the signup route.
+    We re-fetch the contractor from DB to avoid using a detached SQLAlchemy object.
     """
     if not settings.retell_api_key:
         logger.warning("Retell not configured — skipping provisioning for %s", contractor.name)
         return {"success": False, "error": "Retell not configured"}
+
+    # Re-fetch contractor to get a fresh attached instance (avoids DetachedInstanceError)
+    from app.models.contractor import Contractor as _Contractor
+    contractor_id = contractor.id
+    contractor_name = contractor.name  # cache before potential detach
+    try:
+        result = await db.execute(select(_Contractor).where(_Contractor.id == contractor_id))
+        fresh = result.scalar_one_or_none()
+        if fresh:
+            contractor = fresh
+    except Exception:
+        pass  # use original contractor object if re-fetch fails
 
     client = RetellClient()
 
@@ -94,7 +111,7 @@ async def provision_contractor(contractor, db: AsyncSession) -> dict:
         logger.error("Could not purchase any phone number for %s", contractor.name)
         # Still save the agent_id even if number purchase failed
         contractor.retell_agent_id = agent_id
-        await db.flush()
+        await db.commit()
         return {"success": False, "error": "Phone number purchase failed", "agent_id": agent_id}
 
     # ------------------------------------------------------------------
@@ -102,7 +119,7 @@ async def provision_contractor(contractor, db: AsyncSession) -> dict:
     # ------------------------------------------------------------------
     contractor.retell_agent_id = agent_id
     contractor.phone_number = phone_number
-    await db.flush()
+    await db.commit()
 
     logger.info(
         "Contractor provisioned | name=%s agent_id=%s phone=%s",
