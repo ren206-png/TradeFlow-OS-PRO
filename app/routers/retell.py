@@ -357,6 +357,35 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         await _finalise_session(call_id, call_info, db)
         await _schedule_post_call_jobs(call_id, db)
 
+        # Missed call recovery SMS — fire if AI didn't really answer
+        call_status: str = call_info.get("call_status", "")
+        start_ts = call_info.get("start_timestamp", 0)
+        end_ts = call_info.get("end_timestamp", 0)
+        duration_s = (end_ts - start_ts) // 1000 if (start_ts and end_ts) else 0
+        from_number_wh: str = call_info.get("from_number", "")
+        to_number_wh: str = call_info.get("to_number", "")
+        if from_number_wh and to_number_wh and (call_status == "error" or duration_s < 10):
+            try:
+                _contractor_r = await db.execute(
+                    select(Contractor).where(
+                        Contractor.phone_number == to_number_wh,
+                        Contractor.is_active.is_(True),
+                    )
+                )
+                _wh_contractor = _contractor_r.scalar_one_or_none()
+                if _wh_contractor:
+                    import asyncio as _asyncio
+                    from app.services.missed_call import send_missed_call_sms
+                    _asyncio.create_task(
+                        send_missed_call_sms(
+                            to_number=from_number_wh,
+                            contractor_name=_wh_contractor.name,
+                            ai_number=to_number_wh,
+                        )
+                    )
+            except Exception as _exc:
+                logger.warning("Missed call SMS dispatch error | %s", _exc)
+
     elif event == "call_analyzed":
         await _apply_analysis(call_id, call_info, db)
         transcript = payload.get("transcript", "")

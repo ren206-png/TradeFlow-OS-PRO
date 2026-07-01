@@ -84,6 +84,8 @@ async def portal_leads(
         {
             "request": request,
             "contractor_name": contractor.name,
+            "contractor": contractor,
+            "contractor_verified": contractor.is_verified,
             "active_nav": "leads",
             "leads": leads,
             "flash": flash,
@@ -285,6 +287,7 @@ async def portal_analytics(
         {
             "request": request,
             "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
             "active_nav": "analytics",
             "total_month": total_month,
             "booked_month": booked_month,
@@ -315,6 +318,7 @@ async def portal_live(
         {
             "request": request,
             "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
             "active_nav": "live",
             "back_url": "/portal/leads",
         },
@@ -337,6 +341,7 @@ async def portal_settings(
         {
             "request": request,
             "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
             "active_nav": "settings",
             "contractor": contractor,
             "plan_limits": limits,
