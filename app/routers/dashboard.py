@@ -541,3 +541,19 @@ async def admin_settings(
             "app_settings": app_settings,
         },
     )
+
+
+@router.get("/logout")
+async def admin_logout():
+    # HTTP Basic Auth can't be "logged out" via cookie deletion.
+    # Return 401 so the browser clears its cached credentials,
+    # then redirect to a page that re-triggers the auth prompt.
+    from fastapi.responses import Response as _Resp
+    response = _Resp(
+        status_code=401,
+        headers={
+            "WWW-Authenticate": 'Basic realm="TradeFlow Admin"',
+            "Location": "/dashboard",
+        },
+    )
+    return response
