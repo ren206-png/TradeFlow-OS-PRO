@@ -29,6 +29,24 @@ DEFAULT_VOICE_ID = "11labs-Adrian"
 AREA_CODE_POOL = ["212", "310", "404", "512", "602", "702", "770", "813", "832", "972"]
 
 
+async def provision_contractor_by_id(contractor_id: str) -> dict:
+    """
+    Safe background-task entry point that opens its own DB session.
+    Call this from signup route instead of provision_contractor() to avoid
+    passing a request-scoped session into a detached background task.
+    """
+    from app.database import async_session_factory
+    from app.models.contractor import Contractor as _Contractor
+
+    async with async_session_factory() as db:
+        result = await db.execute(select(_Contractor).where(_Contractor.id == uuid.UUID(contractor_id)))
+        contractor = result.scalar_one_or_none()
+        if not contractor:
+            logger.error("provision_contractor_by_id: contractor %s not found", contractor_id)
+            return {"success": False, "error": "Contractor not found"}
+        return await provision_contractor(contractor, db)
+
+
 async def provision_contractor(contractor, db: AsyncSession) -> dict:
     """
     Full provisioning flow for a new contractor.

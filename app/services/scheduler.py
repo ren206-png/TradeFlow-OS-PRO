@@ -151,7 +151,7 @@ async def _appointment_reminder_job(
         sms = SMSService(contractor)
         sms.send_appointment_reminder(
             phone=phone,
-            name=lead.caller_name or "there",
+            name=(lead.caller_name if lead else None) or "there",
             date_str=appointment_time[:10],
             time_str=appointment_time[11:16],
         )

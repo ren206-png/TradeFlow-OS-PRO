@@ -46,7 +46,7 @@ async def get_contractor_from_request(request: Request, db: AsyncSession) -> Con
     if api_key:
         result = await db.execute(select(Contractor).where(Contractor.api_key == api_key))
         contractor = result.scalar_one_or_none()
-        if contractor is not None:
+        if contractor is not None and contractor.is_active:
             return contractor
         raise _AuthError(JSONResponse(status_code=401, content={"error": "Invalid API key"}))
 

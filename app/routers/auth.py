@@ -102,9 +102,10 @@ async def signup_post(
     await db.commit()  # Commit BEFORE firing background tasks so contractor record is visible
 
     # --- Auto-provision Retell agent + phone number (fire-and-forget) ---
+    # Use contractor_id string only — background tasks open their own DB sessions
     import asyncio as _asyncio
-    from app.services.provisioning import provision_contractor as _provision
-    _asyncio.create_task(_provision(contractor, db))
+    from app.services.provisioning import provision_contractor_by_id as _provision_by_id
+    _asyncio.create_task(_provision_by_id(contractor_id))
 
     # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
     from app.services.mailchimp import subscribe_contractor as _mc_subscribe
@@ -126,6 +127,7 @@ async def signup_post(
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
+        secure=not settings.debug,
     )
     return response
 
@@ -163,6 +165,7 @@ async def login_post(
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
+        secure=not settings.debug,
     )
     return response
 
@@ -185,10 +188,27 @@ async def forgot_password_post(
     contractor = result.scalar_one_or_none()
     if contractor:
         token = _make_reset_token(email)
-        logger.info(
-            "Password reset link: /auth/reset-password?email=%s&token=%s",
-            email, token,
-        )
+        reset_url = f"https://tradesflowos.com/auth/reset-password?email={email}&token={token}"
+        logger.info("Password reset requested for email=%s", email)
+        # Send reset email (no-op if SMTP not configured)
+        try:
+            from app.services.notifications import _send_email
+            import asyncio as _asyncio
+            html = f"""
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+              <h2 style="color:#1e40af">TradeFlow Password Reset</h2>
+              <p>Click the button below to reset your password. This link expires in 1 hour.</p>
+              <a href="{reset_url}"
+                 style="display:inline-block;background:#1e40af;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0">
+                Reset Password
+              </a>
+              <p style="color:#6b7280;font-size:13px">If you didn't request this, you can safely ignore this email.</p>
+            </div>"""
+            text = f"Reset your TradeFlow password here: {reset_url}\n\nThis link expires in 1 hour."
+            loop = _asyncio.get_running_loop()
+            loop.run_in_executor(None, _send_email, email, "Reset your TradeFlow password", html, text)
+        except Exception as exc:
+            logger.error("Failed to send password reset email: %s", exc)
     return templates.TemplateResponse(
         "auth_forgot_password.html",
         {

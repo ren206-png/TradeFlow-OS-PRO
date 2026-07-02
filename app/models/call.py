@@ -20,7 +20,7 @@ class CallSession(Base):
         UUID(as_uuid=True), ForeignKey("contractors.id", ondelete="CASCADE"), nullable=False, index=True
     )
     lead_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("leads.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey("leads.id", ondelete="SET NULL"), nullable=True, index=True
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     conversation_history: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

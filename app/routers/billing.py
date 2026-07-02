@@ -7,6 +7,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import PLAN_LIMITS, settings
@@ -64,8 +65,8 @@ async def create_checkout(
                 "mode": "subscription",
                 "line_items[0][price]": price_id,
                 "line_items[0][quantity]": "1",
-                "success_url": "https://app.tradeflow.pro/billing/success",
-                "cancel_url": "https://app.tradeflow.pro/billing/cancel",
+                "success_url": "https://tradesflowos.com/portal/settings?saved=1&upgraded=1",
+                "cancel_url": "https://tradesflowos.com/portal/settings",
                 "metadata[contractor_id]": str(contractor.id),
                 "metadata[plan]": plan,
             },
@@ -79,6 +80,49 @@ async def create_checkout(
         session = resp.json()
 
     return {"checkout_url": session.get("url", "")}
+
+
+# ---------------------------------------------------------------------------
+# GET /billing/upgrade  — redirect portal "Upgrade" button to Stripe checkout
+# ---------------------------------------------------------------------------
+
+@router.get("/upgrade")
+async def billing_upgrade(
+    request: Request,
+    contractor: Contractor = Depends(get_contractor_from_api_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Simple redirect to Stripe Checkout for the Pro plan."""
+    if not settings.stripe_secret_key:
+        # Stripe not configured yet — send to settings with a friendly message
+        return RedirectResponse(url="/portal/settings", status_code=302)
+
+    from fastapi.responses import RedirectResponse as _RR
+    billing = BillingService()
+    if not contractor.stripe_customer_id:
+        await billing.create_customer(contractor)
+        await db.flush()
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{_STRIPE_BASE}/checkout/sessions",
+            headers={"Authorization": f"Bearer {settings.stripe_secret_key}"},
+            data={
+                "customer": contractor.stripe_customer_id,
+                "mode": "subscription",
+                "line_items[0][price]": settings.stripe_pro_price_id or PLAN_LIMITS["pro"]["price_id"],
+                "line_items[0][quantity]": "1",
+                "success_url": "https://tradesflowos.com/portal/settings?saved=1&upgraded=1",
+                "cancel_url": "https://tradesflowos.com/portal/settings",
+                "metadata[contractor_id]": str(contractor.id),
+                "metadata[plan]": "pro",
+            },
+        )
+        if resp.status_code != 200:
+            return RedirectResponse(url="/portal/settings", status_code=302)
+        checkout_url = resp.json().get("url", "/portal/settings")
+
+    return RedirectResponse(url=checkout_url, status_code=302)
 
 
 # ---------------------------------------------------------------------------

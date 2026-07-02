@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import base64
+import hmac
 import logging
 import secrets
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -298,14 +299,20 @@ async def live_dashboard(
     request: Request,
     _: None = Depends(verify_admin),
 ) -> HTMLResponse:
-    import base64 as _b64
-    token = _b64.b64encode(f"admin:{settings.secret_key}".encode()).decode()
+    # Short-lived WS token: HMAC(secret_key, "ws:<minute>") — valid for ~2 minutes
+    # Does NOT embed the secret_key itself in the HTML
+    minute = int(time.time() // 60)
+    ws_token = hmac.new(
+        settings.secret_key.encode(),
+        f"ws:{minute}".encode(),
+        "sha256",
+    ).hexdigest()
     return templates.TemplateResponse(
         "live.html",
         {
             "request": request,
             "active_nav": "live",
-            "ws_token": token,
+            "ws_token": ws_token,
         },
     )
 
@@ -317,9 +324,17 @@ async def ws_calls(websocket: WebSocket, token: Optional[str] = Query(None)) -> 
     authed = False
     if token:
         try:
-            decoded = base64.b64decode(token).decode()
-            expected = f"admin:{settings.secret_key}"
-            authed = secrets.compare_digest(decoded, expected)
+            minute = int(time.time() // 60)
+            # Accept tokens from current minute or previous (2-min window)
+            for m in (minute, minute - 1):
+                expected = hmac.new(
+                    settings.secret_key.encode(),
+                    f"ws:{m}".encode(),
+                    "sha256",
+                ).hexdigest()
+                if secrets.compare_digest(token, expected):
+                    authed = True
+                    break
         except Exception:
             authed = False
 
@@ -388,18 +403,19 @@ async def contractors_page(
     )
     contractors = result.scalars().all()
 
-    # Build per-contractor enrichment data
+    # Single aggregation query for all lead counts (avoids N+1)
+    lead_count_result = await db.execute(
+        select(Lead.contractor_id, func.count(Lead.id).label("cnt"))
+        .group_by(Lead.contractor_id)
+    )
+    lead_counts = {str(row.contractor_id): row.cnt for row in lead_count_result.all()}
+
     rows = []
     for c in contractors:
-        lead_count_result = await db.execute(
-            select(func.count(Lead.id)).where(Lead.contractor_id == c.id)
-        )
-        lead_count: int = lead_count_result.scalar_one() or 0
-        active_this_month = (c.calls_this_month or 0) > 0
         rows.append({
             "contractor": c,
-            "lead_count": lead_count,
-            "active_this_month": active_this_month,
+            "lead_count": lead_counts.get(str(c.id), 0),
+            "active_this_month": (c.calls_this_month or 0) > 0,
             "api_key_tail": c.api_key[-8:] if c.api_key else "",
         })
 

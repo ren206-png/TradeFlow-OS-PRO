@@ -49,6 +49,7 @@ class Lead(Base):
     ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sentiment: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     follow_up_recommended: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    follow_up_sent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     review_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     call_direction: Mapped[str] = mapped_column(String(30), nullable=False, default="inbound")
     lead_source: Mapped[str] = mapped_column(String(100), nullable=False, default="retell_call")
