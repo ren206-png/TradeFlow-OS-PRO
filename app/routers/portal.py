@@ -390,6 +390,26 @@ async def portal_settings_update(
     return RedirectResponse(url="/portal/settings?saved=1", status_code=302)
 
 
+@router.get("/setup", response_class=HTMLResponse)
+async def portal_setup(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    return templates.TemplateResponse(
+        "portal_setup.html",
+        {
+            "request": request,
+            "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
+            "active_nav": "setup",
+            "contractor": contractor,
+        },
+    )
+
+
 @router.get("/events")
 async def portal_events(
     request: Request,
