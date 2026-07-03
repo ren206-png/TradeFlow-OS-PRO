@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     database_url: str
     secret_key: str
     debug: bool = False
+
+    # Admin dashboard credentials (set these in Railway to change login)
+    admin_username: str = "admin"
+    admin_password: str = ""  # falls back to secret_key if empty
     claude_model: str = "claude-sonnet-4-6"
     claude_max_tokens: int = 1024
     stripe_secret_key: str = ""

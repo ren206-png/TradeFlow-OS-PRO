@@ -35,10 +35,10 @@ templates = Jinja2Templates(directory="app/templates")
 # ---------------------------------------------------------------------------
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> None:
-    correct_username = secrets.compare_digest(credentials.username.encode(), b"admin")
-    correct_password = secrets.compare_digest(
-        credentials.password.encode(), settings.secret_key.encode()
-    )
+    expected_username = settings.admin_username or "admin"
+    expected_password = settings.admin_password or settings.secret_key
+    correct_username = secrets.compare_digest(credentials.username.encode(), expected_username.encode())
+    correct_password = secrets.compare_digest(credentials.password.encode(), expected_password.encode())
     if not (correct_username and correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
