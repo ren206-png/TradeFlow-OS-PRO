@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, billing, contractor_app, contractors, dashboard, leads, onboarding, portal, retell
+from app.routers import auth, billing, contractor_app, contractors, dashboard, leads, onboarding, portal, retell, twilio_sms
 from app.services.scheduler import shutdown_scheduler, start_scheduler
 from app.utils.logging import configure_logging
 
@@ -79,6 +79,7 @@ app.include_router(leads.router)
 app.include_router(dashboard.router)
 app.include_router(onboarding.router)
 app.include_router(billing.router)
+app.include_router(twilio_sms.router)
 
 
 # ---------------------------------------------------------------------------

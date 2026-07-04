@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
+    twilio_messaging_service_sid: str = ""  # A2P 10DLC — set this in Railway
     database_url: str
     secret_key: str
     debug: bool = False

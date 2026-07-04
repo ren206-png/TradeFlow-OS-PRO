@@ -154,6 +154,14 @@ async def llm_websocket(
                 _max_call_mins = _plan_limits.get("max_call_mins", 10)
                 call_session.max_duration_seconds = _max_call_mins * 60
 
+                # Record implied SMS consent — caller initiated contact
+                if from_number:
+                    try:
+                        from app.services.sms_compliance import record_consent
+                        await record_consent(from_number, call_id, db)
+                    except Exception as _ce:
+                        logger.warning("Consent recording failed: %s", _ce)
+
                 agent = ClaudeAgent(
                     contractor=contractor,
                     call_session=call_session,
