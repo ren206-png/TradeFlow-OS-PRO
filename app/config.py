@@ -1,9 +1,30 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# ---------------------------------------------------------------------------
+# Plan limits — override any value via env vars at runtime:
+#   PLAN_STARTER_CALLS=20  PLAN_STARTER_SMS=50
+#   PLAN_PRO_CALLS=300     PLAN_PRO_SMS=600
+# ---------------------------------------------------------------------------
 PLAN_LIMITS = {
-    "starter":    {"calls": 100,  "sms": 200,  "price_id": "price_starter"},
-    "pro":        {"calls": 500,  "sms": 1000, "price_id": "price_pro"},
-    "enterprise": {"calls": 9999, "sms": 9999, "price_id": "price_enterprise"},
+    "starter": {
+        "calls":          int(os.environ.get("PLAN_STARTER_CALLS", 100)),
+        "sms":            int(os.environ.get("PLAN_STARTER_SMS",   200)),
+        "max_call_mins":  int(os.environ.get("PLAN_STARTER_MAX_CALL_MINS", 10)),
+        "price_id":       os.environ.get("STRIPE_STARTER_PRICE_ID", "price_starter"),
+    },
+    "pro": {
+        "calls":          int(os.environ.get("PLAN_PRO_CALLS", 500)),
+        "sms":            int(os.environ.get("PLAN_PRO_SMS",   1000)),
+        "max_call_mins":  int(os.environ.get("PLAN_PRO_MAX_CALL_MINS", 30)),
+        "price_id":       os.environ.get("STRIPE_PRO_PRICE_ID", "price_pro"),
+    },
+    "enterprise": {
+        "calls":          int(os.environ.get("PLAN_ENTERPRISE_CALLS", 9999)),
+        "sms":            int(os.environ.get("PLAN_ENTERPRISE_SMS",   9999)),
+        "max_call_mins":  int(os.environ.get("PLAN_ENTERPRISE_MAX_CALL_MINS", 60)),
+        "price_id":       os.environ.get("STRIPE_ENTERPRISE_PRICE_ID", "price_enterprise"),
+    },
 }
 
 

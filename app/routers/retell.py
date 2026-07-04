@@ -128,7 +128,7 @@ async def llm_websocket(
                 db.add(call_session)
                 await db.flush()
 
-                # Check call usage limit before starting the session
+                # Check monthly call limit before starting the session
                 usage = await BillingService().check_usage_limit(contractor, "calls")
                 if not usage["allowed"]:
                     logger.warning(
@@ -139,13 +139,20 @@ async def llm_websocket(
                         "response_type": "response",
                         "response_id": 0,
                         "content": (
-                            "We're sorry, this account has reached its monthly call limit. "
-                            "Please contact your service provider."
+                            "Thank you for calling. This business's AI line has reached its "
+                            "monthly limit. Please call back after the 1st of next month, "
+                            "or contact the business directly."
                         ),
                         "content_complete": True,
                         "end_call": True,
                     }))
                     return
+
+                # Enforce per-call max duration from plan config
+                from app.config import PLAN_LIMITS as _PLAN_LIMITS
+                _plan_limits = _PLAN_LIMITS.get(contractor.plan or "starter", _PLAN_LIMITS["starter"])
+                _max_call_mins = _plan_limits.get("max_call_mins", 10)
+                call_session.max_duration_seconds = _max_call_mins * 60
 
                 agent = ClaudeAgent(
                     contractor=contractor,
@@ -438,6 +445,12 @@ async def missed_call(request: Request, db: AsyncSession = Depends(get_db)):
 
     contractor = await _get_contractor_by_phone(to_number, db)
 
+    # Idempotency — skip if a lead with this call_id already exists
+    existing = await db.execute(select(Lead).where(Lead.call_id == call_id))
+    if existing.scalar_one_or_none():
+        logger.info("missed_call: duplicate webhook for call_id=%s, skipping", call_id)
+        return {"status": "duplicate_ignored"}
+
     lead = Lead(
         contractor_id=contractor.id,
         call_id=call_id,
@@ -577,22 +590,28 @@ async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> 
     call_session = result.scalar_one_or_none()
     if not call_session:
         return
+    # Idempotency — skip if already finalised (handles Retell webhook retries)
+    if call_session.status == "completed":
+        logger.info("_finalise_session: already completed, skipping | call_id=%s", call_id)
+        return
 
     # Increment call usage for the contractor
     contractor_result = await db.execute(
         select(Contractor).where(Contractor.id == call_session.contractor_id)
     )
     _contractor = contractor_result.scalar_one_or_none()
-    if _contractor:
-        await BillingService().increment_usage(_contractor, "calls", db)
-
     call_session.status = "completed"
     call_session.ended_at = datetime.now(tz=timezone.utc)
 
     start_ts = call_info.get("start_timestamp", 0)
     end_ts = call_info.get("end_timestamp", 0)
-    if start_ts and end_ts:
-        call_session.duration_seconds = (end_ts - start_ts) // 1000
+    duration_s = (end_ts - start_ts) // 1000 if (start_ts and end_ts) else 0
+    if duration_s:
+        call_session.duration_seconds = duration_s
+
+    if _contractor:
+        duration_mins = max(1, (duration_s + 59) // 60)  # round up to nearest minute
+        await BillingService().increment_usage(_contractor, "calls", db, minutes=duration_mins)
 
     if call_session.lead_id:
         lead_result = await db.execute(select(Lead).where(Lead.id == call_session.lead_id))

@@ -121,6 +121,29 @@ class BillingService:
     # Usage
     # ------------------------------------------------------------------
 
+    def _reset_if_new_period(self, contractor) -> bool:
+        """
+        Resets monthly counters if billing period has rolled over.
+        Uses billing_period_start (reliable anchor) not updated_at (fragile).
+        Returns True if a reset occurred.
+        """
+        now = datetime.now(tz=timezone.utc)
+        period_start = getattr(contractor, "billing_period_start", None)
+
+        if period_start is not None:
+            if period_start.tzinfo is None:
+                period_start = period_start.replace(tzinfo=timezone.utc)
+            if period_start.month == now.month and period_start.year == now.year:
+                return False  # still in same billing period
+
+        # New period — reset all counters and anchor the period
+        contractor.calls_this_month = 0
+        contractor.sms_this_month = 0
+        contractor.minutes_this_month = 0
+        contractor.billing_period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        logger.info("Billing period reset | contractor=%s period=%s", contractor.name, contractor.billing_period_start)
+        return True
+
     async def check_usage_limit(self, contractor, resource: str) -> dict:
         """Returns {"allowed": bool, "used": int, "limit": int, "plan": str}"""
         plan = getattr(contractor, "plan", "starter") or "starter"
@@ -132,41 +155,43 @@ class BillingService:
         elif resource == "sms":
             used = getattr(contractor, "sms_this_month", 0) or 0
             limit = limits["sms"]
+        elif resource == "minutes":
+            used = getattr(contractor, "minutes_this_month", 0) or 0
+            limit = limits.get("max_call_mins", 10) * limits["calls"]  # total minute budget
         else:
             return {"allowed": True, "used": 0, "limit": 9999, "plan": plan}
 
+        allowed = used < limit
+        if not allowed:
+            logger.warning(
+                "Usage cap hit | contractor=%s resource=%s used=%d limit=%d plan=%s",
+                contractor.name, resource, used, limit, plan,
+            )
         return {
-            "allowed": used < limit,
+            "allowed": allowed,
             "used": used,
             "limit": limit,
             "plan": plan,
         }
 
-    async def increment_usage(self, contractor, resource: str, db: AsyncSession) -> None:
-        """Increments calls_this_month or sms_this_month. Resets on new month."""
-        now = datetime.now(tz=timezone.utc)
-
-        # Reset if month rolled over — use updated_at as a proxy for last increment month
-        last_update = getattr(contractor, "updated_at", None)
-        if last_update is not None:
-            # Make offset-aware if naive
-            if last_update.tzinfo is None:
-                last_update = last_update.replace(tzinfo=timezone.utc)
-            if last_update.month != now.month or last_update.year != now.year:
-                contractor.calls_this_month = 0
-                contractor.sms_this_month = 0
+    async def increment_usage(self, contractor, resource: str, db: AsyncSession, minutes: int = 0) -> None:
+        """Increments usage counters. Resets on new billing period using billing_period_start."""
+        self._reset_if_new_period(contractor)
 
         if resource == "calls":
             contractor.calls_this_month = (getattr(contractor, "calls_this_month", 0) or 0) + 1
+            if minutes > 0:
+                contractor.minutes_this_month = (getattr(contractor, "minutes_this_month", 0) or 0) + minutes
         elif resource == "sms":
             contractor.sms_this_month = (getattr(contractor, "sms_this_month", 0) or 0) + 1
 
         await db.flush()
-        logger.debug(
-            "Usage incremented | contractor=%s resource=%s calls=%d sms=%d",
+        logger.info(
+            "Usage incremented | contractor=%s resource=%s calls=%d sms=%d minutes=%d",
             contractor.name, resource,
             contractor.calls_this_month,
             contractor.sms_this_month,
+            getattr(contractor, "minutes_this_month", 0),
         )
 
     # ------------------------------------------------------------------

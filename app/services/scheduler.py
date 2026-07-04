@@ -70,23 +70,37 @@ async def _missed_call_recovery_job(
     logger.info("Firing missed call recovery outbound | lead=%s to=%s", lead_id, to_number)
     client = RetellClient()
     try:
-        agent_id: str | None = None
         async with async_session_factory() as db:
+            from app.services.billing import BillingService
             result = await db.execute(select(Contractor).where(Contractor.id == uuid.UUID(contractor_id)))
             contractor = result.scalar_one_or_none()
-            if contractor:
-                agent_id = contractor.retell_agent_id
+            if not contractor:
+                logger.warning("Recovery job: contractor %s not found", contractor_id)
+                return
 
-        await client.create_phone_call(
-            to_number=to_number,
-            from_number=from_number,
-            override_agent_id=agent_id,
-            metadata={
-                "contractor_id": contractor_id,
-                "lead_id": lead_id,
-                "call_type": "missed_call_recovery",
-            },
-        )
+            # Hard cap check before firing outbound call
+            usage = await BillingService().check_usage_limit(contractor, "calls")
+            if not usage["allowed"]:
+                logger.warning(
+                    "Recovery call blocked — plan cap reached | contractor=%s used=%d limit=%d",
+                    contractor.name, usage["used"], usage["limit"],
+                )
+                return
+
+            agent_id = contractor.retell_agent_id
+            await client.create_phone_call(
+                to_number=to_number,
+                from_number=from_number,
+                override_agent_id=agent_id,
+                metadata={
+                    "contractor_id": contractor_id,
+                    "lead_id": lead_id,
+                    "call_type": "missed_call_recovery",
+                },
+            )
+            # Count outbound recovery call against quota
+            await BillingService().increment_usage(contractor, "calls", db)
+            await db.commit()
     except Exception as exc:
         logger.error("Missed call outbound failed | lead=%s error=%s", lead_id, exc)
 

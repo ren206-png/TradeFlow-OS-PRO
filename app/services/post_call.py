@@ -92,19 +92,28 @@ class PostCallAnalyser:
                     and lead.phone
                 ):
                     try:
-                        sms = SMSService(contractor)
-                        sms.send_review_request(
-                            phone=lead.phone,
-                            name=lead.caller_name or "there",
-                            review_link=contractor.review_link,
-                        )
-                        lead.review_requested = True
-                        await db.flush()
-                        sms_sent = True
-                        logger.info(
-                            "Review request SMS sent | lead_id=%s phone=%s",
-                            lead.id, lead.phone,
-                        )
+                        from app.services.billing import BillingService
+                        sms_allowed = await BillingService().check_usage_limit(contractor, "sms")
+                        if sms_allowed["allowed"]:
+                            sms = SMSService(contractor)
+                            sms.send_review_request(
+                                phone=lead.phone,
+                                name=lead.caller_name or "there",
+                                review_link=contractor.review_link,
+                            )
+                            await BillingService().increment_usage(contractor, "sms", db)
+                            lead.review_requested = True
+                            await db.flush()
+                            sms_sent = True
+                            logger.info(
+                                "Review request SMS sent | lead_id=%s phone=%s",
+                                lead.id, lead.phone,
+                            )
+                        else:
+                            logger.warning(
+                                "Review SMS blocked — SMS cap reached | contractor=%s used=%d limit=%d",
+                                contractor.name, sms_allowed["used"], sms_allowed["limit"],
+                            )
                     except Exception as sms_exc:
                         logger.warning("PostCallAnalyser: SMS failed: %s", sms_exc)
 

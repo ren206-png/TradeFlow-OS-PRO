@@ -36,6 +36,8 @@ class Contractor(Base):
     trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     calls_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     sms_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    minutes_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    billing_period_start: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     plan: Mapped[str] = mapped_column(String(30), nullable=False, default="starter")
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
     hashed_password: Mapped[Optional[str]] = mapped_column(String, nullable=True)
