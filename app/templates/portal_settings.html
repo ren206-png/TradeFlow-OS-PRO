@@ -134,7 +134,7 @@
         <div class="flex-1">
           <p class="text-sm font-medium text-gray-800">New Lead & Booking Alerts</p>
           <p class="text-xs text-gray-500 mt-0.5">Sent to <span class="font-medium text-gray-700">{{ contractor_name }}</span>'s login email</p>
-          <p class="text-xs text-gray-400 mt-1">Requires SMTP credentials in Railway environment settings.</p>
+          <p class="text-xs text-gray-400 mt-1">Requires SMTP credentials in Railway environment settings. Gmail users: set <code class="bg-gray-100 px-1 rounded">SMTP_PASSWORD</code> to an <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-blue-500 underline">App Password</a>, not your login password.</p>
         </div>
       </div>
       <button id="testEmailBtn" onclick="sendTestEmail()"
@@ -194,7 +194,7 @@
     </ul>
     <a href="/billing/upgrade"
        class="block text-center bg-white text-purple-700 font-bold py-2.5 rounded-lg text-sm hover:bg-purple-50 transition">
-      Upgrade Now — $197/mo
+      Upgrade Now — $97/mo
     </a>
   </div>
   {% endif %}
