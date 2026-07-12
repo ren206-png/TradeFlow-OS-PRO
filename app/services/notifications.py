@@ -67,23 +67,18 @@ async def notify_new_lead(contractor, lead) -> None:
     # ── SMS to contractor ────────────────────────────────────────────
     if contractor.phone_number:
         try:
-            from twilio.rest import Client as TwilioClient
-            if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
-                sms_body = (
-                    f"New {trade} Lead — TradeFlow\n"
-                    f"Name: {name}\n"
-                    f"Phone: {phone}\n"
-                    f"Priority: {priority}\n"
-                    f"Issue: {problem[:100]}\n"
-                    f"View: {portal_url}"
-                )
-                client = TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
-                client.messages.create(
-                    body=sms_body,
-                    from_=settings.twilio_from_number,
-                    to=contractor.phone_number,
-                )
-                logger.info("Lead notification SMS sent | contractor=%s lead=%s", contractor.name, lead.id)
+            from app.services.sms import SMSService
+            sms_body = (
+                f"New {trade} Lead — TradeFlow\n"
+                f"Name: {name}\n"
+                f"Phone: {phone}\n"
+                f"Priority: {priority}\n"
+                f"Issue: {problem[:100]}\n"
+                f"View: {portal_url}"
+            )
+            sms = SMSService(contractor)
+            await sms._send_async(contractor.phone_number, sms_body, "new_lead")
+            logger.info("Lead notification SMS sent | contractor=%s lead=%s", contractor.name, lead.id)
         except Exception as exc:
             logger.error("Lead notification SMS failed | contractor=%s error=%s", contractor.name, exc)
 
@@ -202,21 +197,16 @@ async def notify_appointment_booked(contractor, lead) -> None:
     # SMS
     if contractor.phone_number:
         try:
-            from twilio.rest import Client as TwilioClient
-            if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
-                sms_body = (
-                    f"Appointment Booked — TradeFlow\n"
-                    f"{name} | {phone}\n"
-                    f"{trade} — {apt_time}\n"
-                    f"{address}\n"
-                    f"View: {portal_url}"
-                )
-                client = TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
-                client.messages.create(
-                    body=sms_body,
-                    from_=settings.twilio_from_number,
-                    to=contractor.phone_number,
-                )
+            from app.services.sms import SMSService
+            sms_body = (
+                f"Appointment Booked — TradeFlow\n"
+                f"{name} | {phone}\n"
+                f"{trade} — {apt_time}\n"
+                f"{address}\n"
+                f"View: {portal_url}"
+            )
+            sms = SMSService(contractor)
+            await sms._send_async(contractor.phone_number, sms_body, "appointment_booked")
         except Exception as exc:
             logger.error("Booking notification SMS failed | contractor=%s error=%s", contractor.name, exc)
 
