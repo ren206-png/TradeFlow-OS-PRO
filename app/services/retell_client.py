@@ -187,7 +187,7 @@ class RetellClient:
     async def create_agent(self, agent_config: dict) -> dict:
         """
         POST /create-agent
-        Create a Custom LLM agent. `response_engine.type` must be "custom_llm"
+        Create a Custom LLM agent. `response_engine.type` must be "custom-llm"
         and `response_engine.llm_websocket_url` points at /llm-websocket/{call_id}.
         Required: response_engine, voice_id.
         """

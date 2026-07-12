@@ -49,16 +49,18 @@
           {
             "@type": "Offer",
             "name": "Starter Plan",
-            "price": "97",
+            "price": "0",
             "priceCurrency": "USD",
-            "billingDuration": "P1M"
+            "billingDuration": "P1M",
+            "description": "10 AI calls, 50 SMS per month — free forever"
           },
           {
             "@type": "Offer",
             "name": "Pro Plan",
-            "price": "197",
+            "price": "97",
             "priceCurrency": "USD",
-            "billingDuration": "P1M"
+            "billingDuration": "P1M",
+            "description": "500 AI calls, 1,000 SMS per month"
           }
         ]
       },
@@ -97,7 +99,7 @@
             "name": "How much does TradeFlow cost?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "TradeFlow starts at $97/month for the Starter plan (100 AI calls, 200 SMS) and $197/month for Pro (unlimited calls and SMS)."
+              "text": "TradeFlow starts free for the Starter plan (10 AI calls, 50 SMS) and $97/month for Pro (500 calls, 1,000 SMS)."
             }
           }
         ]
@@ -173,11 +175,29 @@
             </a>
           </div>
           <!-- Trust row -->
-          <div class="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 text-blue-200 text-sm font-medium">
+          <div class="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 text-blue-200 text-sm font-medium mb-6">
             <span>✓ No contracts</span>
             <span>✓ No credit card needed</span>
             <span>✓ Works for any trade</span>
           </div>
+          {% if demo_phone %}
+          <!-- Live demo call strip -->
+          <div class="inline-flex items-center gap-3 bg-green-500/20 border border-green-400/40 rounded-xl px-4 py-3">
+            <span class="relative flex h-3 w-3 flex-shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-green-400"></span>
+            </span>
+            <div>
+              <p class="text-green-200 text-xs font-semibold uppercase tracking-wide">Live Demo Line</p>
+              <a href="tel:{{ demo_phone }}" class="text-white font-bold text-lg hover:text-green-300 transition-colors">
+                {{ demo_phone }}
+              </a>
+            </div>
+            <div class="text-blue-200 text-xs leading-tight ml-1">
+              Call now &amp;<br>hear it live ↗
+            </div>
+          </div>
+          {% endif %}
         </div>
 
         <!-- Right: phone mockup -->
@@ -422,8 +442,8 @@
             <p class="text-gray-400 text-sm">Forever free, no card required</p>
           </div>
           <ul class="space-y-3 mb-8 flex-1">
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 100 calls / month</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 200 SMS messages</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 10 calls / month</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 50 SMS messages</li>
             <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Lead dashboard</li>
             <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Auto follow-up texts</li>
           </ul>

@@ -27,5 +27,6 @@ class CallSession(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     contractor: Mapped[Contractor] = relationship("Contractor", back_populates="call_sessions")

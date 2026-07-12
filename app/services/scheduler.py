@@ -22,7 +22,16 @@ def get_scheduler() -> AsyncIOScheduler:
 def start_scheduler() -> None:
     if not _scheduler.running:
         _scheduler.start()
-        logger.info("APScheduler started.")
+        # Daily call quality digest — 8:00 AM UTC every day
+        _scheduler.add_job(
+            _daily_digest_job,
+            trigger="cron",
+            hour=8,
+            minute=0,
+            id="daily_quality_digest",
+            replace_existing=True,
+        )
+        logger.info("APScheduler started. Daily digest scheduled at 08:00 UTC.")
 
 
 def shutdown_scheduler() -> None:
@@ -344,3 +353,16 @@ async def _lead_followup_job(lead_id: str, contractor_id: str) -> None:
             logger.info("Lead follow-up complete | lead=%s", lead_id)
     except Exception as exc:
         logger.error("Lead follow-up job failed | lead=%s error=%s", lead_id, exc)
+
+
+# ---------------------------------------------------------------------------
+# Job: daily call quality digest (fires 08:00 UTC)
+# ---------------------------------------------------------------------------
+
+async def _daily_digest_job() -> None:
+    from app.services.quality import daily_digest
+    logger.info("Firing daily quality digest job")
+    try:
+        await daily_digest()
+    except Exception as exc:
+        logger.error("Daily digest job failed: %s", exc)

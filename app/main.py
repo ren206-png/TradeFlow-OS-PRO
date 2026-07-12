@@ -3,7 +3,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -88,7 +88,10 @@ app.include_router(twilio_sms.router)
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing_page(request: Request):
-    return templates.TemplateResponse("landing.html", {"request": request})
+    return templates.TemplateResponse("landing.html", {
+        "request": request,
+        "demo_phone": settings.demo_phone_number or None,
+    })
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
@@ -141,13 +144,35 @@ async def login_redirect():
     return RedirectResponse(url="/auth/login")
 
 
+@app.get("/demo/number", tags=["demo"])
+async def demo_number():
+    """Public endpoint — returns the demo phone number for the marketing site hero."""
+    if not settings.demo_phone_number:
+        raise HTTPException(status_code=503, detail="Demo line not yet provisioned.")
+    return {"phone_number": settings.demo_phone_number}
+
+
 @app.get("/health", tags=["health"])
 async def health():
-    return {
-        "status": "ok",
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-        "version": "1.0.0",
-    }
+    from app.database import get_db as _get_db
+    db_ok = False
+    try:
+        async for db in _get_db():
+            from sqlalchemy import text
+            await db.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception:
+        pass
+
+    return JSONResponse(
+        status_code=200 if db_ok else 503,
+        content={
+            "status": "ok" if db_ok else "degraded",
+            "db": "ok" if db_ok else "error",
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "version": "1.0.0",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

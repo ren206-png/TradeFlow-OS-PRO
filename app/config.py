@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # Admin dashboard credentials (set these in Railway to change login)
     admin_username: str = "admin"
     admin_password: str = ""  # falls back to secret_key if empty
+
+    # Live demo line — set in Railway after provisioning the demo tenant
+    demo_phone_number: str = ""        # rendered on marketing site hero
+    demo_contractor_id: str = ""       # UUID of the demo Contractor row
+    demo_daily_call_cap: int = 50      # max demo calls per day
+    demo_max_call_mins: int = 3        # max 3 min per demo call
     claude_model: str = "claude-sonnet-4-6"
     claude_max_tokens: int = 1024
     stripe_secret_key: str = ""
@@ -63,6 +69,13 @@ class Settings(BaseSettings):
     mailchimp_api_key: str = ""
     mailchimp_server_prefix: str = ""   # e.g. "us1", "us14"
     mailchimp_list_id: str = ""         # Audience ID
+
+    # Multi-language support — set MULTILANG_ENABLED=true in Railway to activate.
+    # With flag off (default) behavior is byte-for-byte identical to pre-multilang.
+    multilang_enabled: bool = False
+    # Voice used when multilang is on. Must support multilingual synthesis in Retell.
+    # Override via MULTILANG_VOICE_ID env var if you prefer a different voice.
+    multilang_voice_id: str = "11labs-Valentina"
 
 
 settings = Settings()

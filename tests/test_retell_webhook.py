@@ -71,6 +71,8 @@ def mock_contractor():
     c.plan = "starter"
     c.calls_this_month = 0
     c.sms_this_month = 0
+    c.minutes_this_month = 0
+    c.billing_period_start = None
     return c
 
 
@@ -224,13 +226,31 @@ async def test_websocket_call_details_triggers_greeting(mock_contractor, mock_ca
     mock_agent.process_turn = AsyncMock(return_value="ABC Plumbing, Alex speaking. How can I help?")
     mock_agent.call_session = mock_call_session
 
-    # First execute → find contractor; second execute (on WS disconnect finalise) → None (early return)
+    # DB query sequence in call_details handler:
+    # 1. _get_contractor_by_phone → mock_contractor
+    # 2. check_demo_daily_cap (DemoCall count) — only fires if is_demo_call; demo_contractor_id=""
+    #    so is_demo_call returns False and this is never called. But BillingService queries:
+    # 2. check_usage_limit → needs contractor (already have it, but billing re-queries leads)
+    # 3. record_consent: SmsConsent existence check
+    # 4. record_consent: SmsConsent insert flush (no query)
+    # N. _finalise_session on disconnect → call_session not found → early return
     _no_result = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+    _contractor_result = MagicMock(scalar_one_or_none=MagicMock(return_value=mock_contractor))
     mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(side_effect=[
-        MagicMock(scalar_one_or_none=MagicMock(return_value=mock_contractor)),
-        _no_result,  # _finalise_session: call_session not found → early return
-    ])
+
+    async def _unlimited_no_result(*_a, **_kw):
+        return _no_result
+
+    # First call returns contractor; all subsequent return no-result (safe default)
+    _responses = iter([_contractor_result])
+
+    async def _execute_side_effect(*_a, **_kw):
+        try:
+            return next(_responses)
+        except StopIteration:
+            return _no_result
+
+    mock_db.execute = AsyncMock(side_effect=_execute_side_effect)
     mock_db.flush = AsyncMock()
     mock_db.add = MagicMock()
     mock_db.commit = AsyncMock()
@@ -244,7 +264,7 @@ async def test_websocket_call_details_triggers_greeting(mock_contractor, mock_ca
         with patch("app.routers.retell.ClaudeAgent", return_value=mock_agent):
             from starlette.testclient import TestClient
             client = TestClient(app)
-            with client.websocket_connect("/llm-websocket/call-ws-test") as ws:
+            with client.websocket_connect("/llm-websocket/call-ws-test", headers={"Authorization": "Bearer test-api-key"}) as ws:
                 ws.receive_json()  # discard initial config event
                 ws.send_json({
                     "interaction_type": "call_details",
@@ -290,7 +310,7 @@ async def test_websocket_response_required_returns_agent_text(mock_call_session)
     try:
         from starlette.testclient import TestClient
         client = TestClient(app)
-        with client.websocket_connect(f"/llm-websocket/{call_id}") as ws:
+        with client.websocket_connect(f"/llm-websocket/{call_id}", headers={"Authorization": "Bearer test-api-key"}) as ws:
             ws.receive_json()  # discard initial config event
             ws.send_json({
                 "interaction_type": "response_required",
@@ -333,7 +353,7 @@ async def test_websocket_call_update_returns_string_response():
     try:
         from starlette.testclient import TestClient
         client = TestClient(app)
-        with client.websocket_connect(f"/llm-websocket/{call_id}") as ws:
+        with client.websocket_connect(f"/llm-websocket/{call_id}", headers={"Authorization": "Bearer test-api-key"}) as ws:
             ws.receive_json()  # discard initial config event
             ws.send_json({
                 "interaction_type": "response_required",

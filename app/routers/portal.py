@@ -219,50 +219,79 @@ async def portal_analytics(
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
 
+    from datetime import timedelta
+
     now = datetime.now(tz=timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    days_30_ago = now - timedelta(days=30)
 
-    # All leads for this contractor this month
+    def _tz(dt):
+        return dt.replace(tzinfo=timezone.utc) if dt and dt.tzinfo is None else dt
+
+    # All leads this month
     result = await db.execute(
-        select(Lead).where(
-            Lead.contractor_id == contractor.id,
-            Lead.created_at >= month_start,
-        )
+        select(Lead).where(Lead.contractor_id == contractor.id, Lead.created_at >= month_start)
     )
     leads_month = result.scalars().all()
 
     # All-time leads
-    result_all = await db.execute(
-        select(Lead).where(Lead.contractor_id == contractor.id)
-    )
+    result_all = await db.execute(select(Lead).where(Lead.contractor_id == contractor.id))
     leads_all = result_all.scalars().all()
 
+    # CallSessions for avg duration (last 30 days)
+    result_calls = await db.execute(
+        select(CallSession).where(
+            CallSession.contractor_id == contractor.id,
+            CallSession.started_at >= days_30_ago,
+            CallSession.duration_seconds.isnot(None),
+        )
+    )
+    call_sessions_30 = result_calls.scalars().all()
+
+    # ---- KPIs ----
     total_month = len(leads_month)
     booked_month = sum(1 for l in leads_month if l.appointment_status == "booked")
     called_month = sum(1 for l in leads_month if l.appointment_status in ("called", "booked", "lost", "follow_up"))
-    emergency_month = sum(1 for l in leads_month if l.priority_level == "emergency")
+    emergency_month = sum(1 for l in leads_month if (l.priority_level or "").lower() in ("emergency", "critical"))
 
     booking_rate = round((booked_month / total_month * 100) if total_month else 0)
     answer_rate = round((called_month / total_month * 100) if total_month else 0)
 
-    # Revenue pipeline (revenue_score * avg_job_value proxy $450)
     avg_job = 450
     pipeline_value = sum((l.revenue_score or 0) * avg_job / 10 for l in leads_month)
 
-    # Leads by status breakdown
-    status_counts = {}
+    avg_duration_sec = (
+        int(sum(s.duration_seconds for s in call_sessions_30) / len(call_sessions_30))
+        if call_sessions_30 else 0
+    )
+    avg_duration_fmt = f"{avg_duration_sec // 60}m {avg_duration_sec % 60}s" if avg_duration_sec else "—"
+
+    # ---- Sentiment breakdown (this month) ----
+    sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
+    for l in leads_month:
+        s = (l.sentiment or "neutral").lower()
+        sentiment_counts[s] = sentiment_counts.get(s, 0) + 1
+
+    # ---- Quality flags (last 30 days) ----
+    flagged_leads = [l for l in leads_all if _tz(l.created_at) and _tz(l.created_at) >= days_30_ago and l.call_quality_flags]
+    quality_flag_counts: dict[str, int] = {}
+    for l in flagged_leads:
+        for flag in (l.call_quality_flags or []):
+            quality_flag_counts[flag] = quality_flag_counts.get(flag, 0) + 1
+    quality_flags_sorted = sorted(quality_flag_counts.items(), key=lambda x: x[1], reverse=True)
+
+    # ---- Status & trade breakdowns ----
+    status_counts: dict[str, int] = {}
     for l in leads_all:
         s = l.appointment_status or "new"
         status_counts[s] = status_counts.get(s, 0) + 1
 
-    # Trade breakdown this month
-    trade_counts = {}
+    trade_counts: dict[str, int] = {}
     for l in leads_month:
         t = l.trade or "Unknown"
         trade_counts[t] = trade_counts.get(t, 0) + 1
 
-    # Last 7 days daily lead counts
-    from datetime import timedelta
+    # ---- Last 7 days chart ----
     daily_labels = []
     daily_counts = []
     for i in range(6, -1, -1):
@@ -271,14 +300,22 @@ async def portal_analytics(
         day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
         count = sum(
             1 for l in leads_all
-            if l.created_at and (
-                l.created_at.replace(tzinfo=timezone.utc) if l.created_at.tzinfo is None else l.created_at
-            ) >= day_start and (
-                l.created_at.replace(tzinfo=timezone.utc) if l.created_at.tzinfo is None else l.created_at
-            ) <= day_end
+            if l.created_at and _tz(l.created_at) >= day_start and _tz(l.created_at) <= day_end
         )
         daily_labels.append(day.strftime("%a"))
         daily_counts.append(count)
+
+    # ---- 4-week booking trend ----
+    weekly_labels = []
+    weekly_booked = []
+    weekly_total = []
+    for w in range(3, -1, -1):
+        w_start = now - timedelta(days=(w + 1) * 7)
+        w_end = now - timedelta(days=w * 7)
+        wl = [l for l in leads_all if l.created_at and _tz(l.created_at) >= w_start and _tz(l.created_at) < w_end]
+        weekly_labels.append(f"W-{w}" if w > 0 else "This wk")
+        weekly_total.append(len(wl))
+        weekly_booked.append(sum(1 for l in wl if l.appointment_status == "booked"))
 
     # Top leads by revenue score
     top_leads = sorted(leads_month, key=lambda l: l.revenue_score or 0, reverse=True)[:5]
@@ -297,10 +334,16 @@ async def portal_analytics(
             "answer_rate": answer_rate,
             "pipeline_value": int(pipeline_value),
             "calls_this_month": contractor.calls_this_month or 0,
+            "avg_duration_fmt": avg_duration_fmt,
+            "sentiment_counts": sentiment_counts,
+            "quality_flags_sorted": quality_flags_sorted,
             "status_counts": status_counts,
             "trade_counts": trade_counts,
             "daily_labels": daily_labels,
             "daily_counts": daily_counts,
+            "weekly_labels": weekly_labels,
+            "weekly_total": weekly_total,
+            "weekly_booked": weekly_booked,
             "top_leads": top_leads,
         },
     )
@@ -388,6 +431,46 @@ async def portal_settings_update(
 
     await db.commit()
     return RedirectResponse(url="/portal/settings?saved=1", status_code=302)
+
+
+@router.post("/settings/test-email")
+async def portal_test_email(
+    contractor: Contractor = Depends(require_contractor),
+):
+    """Send a test notification email to the contractor's login address."""
+    if contractor is None:
+        return JSONResponse(status_code=401, content={"error": "Not authenticated"})
+
+    from app.services.notifications import _smtp_enabled, _send_email
+    from app.config import settings as _settings
+
+    if not _smtp_enabled():
+        return JSONResponse(
+            status_code=503,
+            content={"error": "SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD in Railway env vars."},
+        )
+    if not contractor.email:
+        return JSONResponse(status_code=400, content={"error": "No email address on your account."})
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+    ok = await loop.run_in_executor(
+        None,
+        _send_email,
+        contractor.email,
+        "✅ TradeFlow Notification Test",
+        f"""<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+          <h2 style="color:#1e40af">TradeFlow Notifications Are Working!</h2>
+          <p>Hi {contractor.name},</p>
+          <p>Your email notifications are correctly configured. You'll receive alerts like this one whenever a new lead is captured or an appointment is booked.</p>
+          <p style="color:#6b7280;font-size:12px">Sent from TradeFlow OS Pro · {_settings.smtp_from}</p>
+        </div>""",
+        f"Hi {contractor.name},\n\nYour TradeFlow email notifications are working correctly.\n\nYou'll receive alerts when new leads are captured or appointments are booked.",
+    )
+
+    if ok:
+        return JSONResponse(content={"success": True, "message": f"Test email sent to {contractor.email}"})
+    return JSONResponse(status_code=500, content={"error": "Email send failed — check SMTP credentials."})
 
 
 @router.get("/setup", response_class=HTMLResponse)

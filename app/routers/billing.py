@@ -138,10 +138,13 @@ async def stripe_webhook(
     """Verify Stripe webhook signature and route to BillingService.handle_webhook."""
     raw_body = await request.body()
 
-    if settings.stripe_webhook_secret:
-        if not stripe_signature:
-            raise HTTPException(status_code=400, detail="Missing stripe-signature header.")
-        _verify_stripe_signature(raw_body, stripe_signature)
+    if not settings.stripe_webhook_secret:
+        # Reject all Stripe webhooks until the secret is configured — never process
+        # unauthenticated billing events in production.
+        raise HTTPException(status_code=503, detail="Stripe webhook secret not configured.")
+    if not stripe_signature:
+        raise HTTPException(status_code=400, detail="Missing stripe-signature header.")
+    _verify_stripe_signature(raw_body, stripe_signature)
 
     import json
     try:

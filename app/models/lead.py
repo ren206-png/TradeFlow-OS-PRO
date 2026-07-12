@@ -56,6 +56,12 @@ class Lead(Base):
     recording_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     transcript_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     raw_transcript: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    call_quality_flags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # list[str]
+    hang_up_early: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Multilingual fields — populated by translation pass when MULTILANG_ENABLED=true
+    detected_language: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    translation_status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    original_field_values: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

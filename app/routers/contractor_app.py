@@ -37,11 +37,8 @@ async def get_contractor_from_request(request: Request, db: AsyncSession) -> Con
     import uuid as _uuid
     from app.utils.sessions import SESSION_COOKIE, decode_session_token
 
-    # 1. X-API-Key header
+    # 1. X-API-Key header only — never from query params (keys in URLs leak into logs/Referer)
     api_key: Optional[str] = request.headers.get("X-API-Key")
-    # 2. ?api_key= query param
-    if not api_key:
-        api_key = request.query_params.get("api_key")
 
     if api_key:
         result = await db.execute(select(Contractor).where(Contractor.api_key == api_key))
@@ -112,8 +109,7 @@ async def service_worker():
 
 @router.get("", response_class=RedirectResponse)
 async def app_root(request: Request):
-    api_key = request.query_params.get("api_key", "")
-    return RedirectResponse(url=f"/app/leads?api_key={api_key}", status_code=302)
+    return RedirectResponse(url="/app/leads", status_code=302)
 
 
 @router.get("/leads", response_class=HTMLResponse)
@@ -131,7 +127,7 @@ async def leads_list(request: Request, db: AsyncSession = Depends(get_db)):
     )
     leads = result.scalars().all()
 
-    api_key = request.query_params.get("api_key") or request.headers.get("X-API-Key", "")
+    api_key = ""  # no longer passed in URLs — navigation uses session cookies
 
     return templates.TemplateResponse(
         "app_leads.html",
@@ -159,7 +155,7 @@ async def lead_detail(lead_id: str, request: Request, db: AsyncSession = Depends
     if lead is None:
         return HTMLResponse(content="<h1>Lead not found</h1>", status_code=404)
 
-    api_key = request.query_params.get("api_key") or request.headers.get("X-API-Key", "")
+    api_key = ""  # no longer passed in URLs — navigation uses session cookies
 
     sentiment_emoji = {"positive": "😊", "neutral": "😐", "negative": "😞"}.get(
         (lead.sentiment or "neutral").lower(), "😐"
@@ -185,7 +181,7 @@ async def live_calls(request: Request, db: AsyncSession = Depends(get_db)):
     except _AuthError as err:
         return err.response
 
-    api_key = request.query_params.get("api_key") or request.headers.get("X-API-Key", "")
+    api_key = ""  # no longer passed in URLs — navigation uses session cookies
 
     return templates.TemplateResponse(
         "app_live.html",

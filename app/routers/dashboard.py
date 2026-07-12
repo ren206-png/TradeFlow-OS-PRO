@@ -36,7 +36,15 @@ templates = Jinja2Templates(directory="app/templates")
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> None:
     expected_username = settings.admin_username or "admin"
-    expected_password = settings.admin_password or settings.secret_key
+    # Never fall back to secret_key — if admin_password is unset, deny all access
+    # to force the operator to set ADMIN_PASSWORD in Railway.
+    if not settings.admin_password:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin password not configured. Set ADMIN_PASSWORD in Railway.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    expected_password = settings.admin_password
     correct_username = secrets.compare_digest(credentials.username.encode(), expected_username.encode())
     correct_password = secrets.compare_digest(credentials.password.encode(), expected_password.encode())
     if not (correct_username and correct_password):
@@ -107,6 +115,28 @@ async def dashboard_overview(
     )
     trade_counts = [{"trade": row[0], "count": row[1]} for row in trade_counts_result.fetchall()]
 
+    # --- Call quality metrics (last 7 days) ---
+    seven_days_ago = now - timedelta(days=7)
+    _NEGATIVE_SENTIMENTS = {"negative", "frustrated", "angry", "very_negative"}
+    _HIGH_REVENUE_THRESHOLD = 60
+    quality_leads_result = await db.execute(
+        select(Lead).where(Lead.created_at >= seven_days_ago)
+    )
+    quality_leads = quality_leads_result.scalars().all()
+    _q_booked = sum(1 for l in quality_leads if l.appointment_status == "booked")
+    _q_negative = sum(
+        1 for l in quality_leads
+        if (l.customer_sentiment or "").lower() in _NEGATIVE_SENTIMENTS
+    )
+    _q_transfers = sum(1 for l in quality_leads if l.human_transfer_required)
+    _q_hvm = sum(
+        1 for l in quality_leads
+        if l.appointment_status == "not_booked"
+        and (l.revenue_score or 0) >= _HIGH_REVENUE_THRESHOLD
+    )
+    _q_hangups = sum(1 for l in quality_leads if getattr(l, "hang_up_early", False))
+    _q_rate = round(_q_booked / len(quality_leads) * 100, 1) if quality_leads else 0.0
+
     return templates.TemplateResponse(
         "dashboard_overview.html",
         {
@@ -119,6 +149,15 @@ async def dashboard_overview(
                 "calls_today": calls_today,
                 "leads_this_month": leads_this_month,
                 "booked_total": booked_total,
+            },
+            "quality": {
+                "booking_rate": _q_rate,
+                "booked": _q_booked,
+                "leads": len(quality_leads),
+                "hang_ups": _q_hangups,
+                "negative": _q_negative,
+                "transfers": _q_transfers,
+                "high_value_missed": _q_hvm,
             },
             "recent_leads": recent_leads,
             "recent_calls": recent_calls,
@@ -530,7 +569,10 @@ async def impersonate_contractor(
         return RedirectResponse(url="/dashboard/contractors", status_code=302)
     token = create_session_token(contractor_id)
     response = RedirectResponse(url="/portal/leads", status_code=302)
-    response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_MAX_AGE, httponly=True, samesite="lax")
+    response.set_cookie(
+        SESSION_COOKIE, token, max_age=SESSION_MAX_AGE,
+        httponly=True, samesite="lax", secure=not settings.debug,
+    )
     return response
 
 
@@ -554,7 +596,10 @@ async def admin_settings(
             "request": request,
             "active_nav": "settings",
             "configured": configured,
-            "app_settings": app_settings,
+            # NOTE: never pass the full settings object — it contains all secrets.
+            # Add only specific safe values here as needed.
+            "demo_phone": app_settings.demo_phone_number,
+            "multilang_enabled": app_settings.multilang_enabled,
         },
     )
 
@@ -573,3 +618,21 @@ async def admin_logout():
         },
     )
     return response
+
+
+# ---------------------------------------------------------------------------
+# Demo tenant provisioning
+# ---------------------------------------------------------------------------
+
+@router.post("/demo/provision")
+async def provision_demo(
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    One-time admin endpoint — provisions the Summit Plumbing Demo tenant.
+    Run once from the admin dashboard; set the returned env vars in Railway.
+    """
+    from app.services.demo import provision_demo_tenant
+    result = await provision_demo_tenant(db)
+    return result

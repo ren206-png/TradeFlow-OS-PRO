@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.models.contractor import Contractor
-from app.utils.auth import hash_password, verify_password
+from app.utils.auth import hash_password, needs_rehash, verify_password
+from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, SESSION_MAX_AGE, create_session_token
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,14 @@ async def signup_post(
     phone: str = Form(...),
     service_area: str = Form(...),
 ):
+    allowed, retry_after = check_rate_limit(request, "signup", max_requests=5, window_seconds=3600)
+    if not allowed:
+        return templates.TemplateResponse(
+            "auth_signup.html",
+            {"request": request, "error": f"Too many signup attempts. Try again in {retry_after} seconds."},
+            status_code=429,
+        )
+
     def error(msg: str):
         return templates.TemplateResponse(
             "auth_signup.html",
@@ -147,6 +156,14 @@ async def login_post(
     email: str = Form(...),
     password: str = Form(...),
 ):
+    allowed, retry_after = check_rate_limit(request, "login", max_requests=10, window_seconds=600)
+    if not allowed:
+        return templates.TemplateResponse(
+            "auth_login.html",
+            {"request": request, "error": f"Too many login attempts. Try again in {retry_after} seconds."},
+            status_code=429,
+        )
+
     result = await db.execute(select(Contractor).where(Contractor.email == email))
     contractor = result.scalar_one_or_none()
 
@@ -156,6 +173,11 @@ async def login_post(
             {"request": request, "error": "Invalid email or password"},
             status_code=401,
         )
+
+    # Silently upgrade legacy PBKDF2 hashes to argon2id on successful login
+    if needs_rehash(contractor.hashed_password):
+        contractor.hashed_password = hash_password(password)
+        await db.flush()
 
     token = create_session_token(str(contractor.id))
     response = RedirectResponse(url="/portal", status_code=302)
@@ -184,6 +206,9 @@ async def forgot_password_post(
     db: AsyncSession = Depends(get_db),
     email: str = Form(...),
 ):
+    check_rate_limit(request, "forgot_password", max_requests=5, window_seconds=3600)
+    # Note: we don't block on rate limit here to avoid leaking whether the email exists;
+    # we just silently absorb excess requests.
     result = await db.execute(select(Contractor).where(Contractor.email == email))
     contractor = result.scalar_one_or_none()
     if contractor:

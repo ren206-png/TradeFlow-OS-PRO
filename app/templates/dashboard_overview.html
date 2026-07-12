@@ -34,6 +34,49 @@
 
 </div>
 
+<!-- Call Quality Strip — last 7 days -->
+<div class="grid grid-cols-5 gap-3 mb-4">
+
+  <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Booking Rate <span class="normal-case text-gray-600">(7d)</span></p>
+    <p class="text-2xl font-bold {% if quality.booking_rate >= 50 %}text-green-400{% elif quality.booking_rate >= 25 %}text-yellow-400{% else %}text-red-400{% endif %}">
+      {{ quality.booking_rate }}%
+    </p>
+    <p class="text-xs text-gray-600 mt-0.5">{{ quality.booked }} / {{ quality.leads }} leads</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Hang-ups <span class="normal-case text-gray-600">(7d)</span></p>
+    <p class="text-2xl font-bold {% if quality.hang_ups == 0 %}text-green-400{% elif quality.hang_ups <= 3 %}text-yellow-400{% else %}text-red-400{% endif %}">
+      {{ quality.hang_ups }}
+    </p>
+    <p class="text-xs text-gray-600 mt-0.5">Calls &lt; 30 seconds</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Negative Callers <span class="normal-case text-gray-600">(7d)</span></p>
+    <p class="text-2xl font-bold {% if quality.negative == 0 %}text-green-400{% else %}text-yellow-400{% endif %}">
+      {{ quality.negative }}
+    </p>
+    <p class="text-xs text-gray-600 mt-0.5">Frustrated / angry</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Transfers <span class="normal-case text-gray-600">(7d)</span></p>
+    <p class="text-2xl font-bold text-indigo-400">{{ quality.transfers }}</p>
+    <p class="text-xs text-gray-600 mt-0.5">Escalated to human</p>
+  </div>
+
+  <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">High-Value Missed <span class="normal-case text-gray-600">(7d)</span></p>
+    <p class="text-2xl font-bold {% if quality.high_value_missed == 0 %}text-green-400{% else %}text-red-400{% endif %}">
+      {{ quality.high_value_missed }}
+    </p>
+    <p class="text-xs text-gray-600 mt-0.5">Revenue score ≥ 60, unbooked</p>
+  </div>
+
+</div>
+
 <!-- Two-column section -->
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 

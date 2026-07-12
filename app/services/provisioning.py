@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 INBOUND_WEBHOOK_URL = "https://tradesflowos.com/retell/inbound"
 
-# Default voice — same as the existing TradeFlow agent
+# Default voice for English-only agents.
 DEFAULT_VOICE_ID = "11labs-Adrian"
 
 # Area codes to try in order when purchasing numbers
@@ -81,15 +81,22 @@ async def provision_contractor(contractor, db: AsyncSession) -> dict:
     agent_config = {
         "agent_name": f"{contractor.name} — {contractor.agent_name or 'Alex'}",
         "response_engine": {
-            "type": "custom_llm",
-            "llm_websocket_url": f"https://tradesflowos.com/llm-websocket/{{call_id}}",
+            "type": "custom-llm",
+            "llm_websocket_url": f"wss://api.tradesflowos.com/llm-websocket/{{call_id}}",
         },
-        "voice_id": DEFAULT_VOICE_ID,
-        "language": "en-US",
-        "ambient_sound": "office",
+        # Multilingual mode: switch voice and language when flag is on.
+        # Flag-off path is byte-identical to previous behavior.
+        "voice_id": settings.multilang_voice_id if settings.multilang_enabled else DEFAULT_VOICE_ID,
+        "language": "multi" if settings.multilang_enabled else "en-US",
         "boosted_keywords": contractor.trades or [],
         "end_call_after_silence_ms": 30000,
         "max_call_duration_ms": 1800000,  # 30 min
+        # Audio quality — echo-free settings confirmed in production
+        "normalize_for_speech": True,
+        "enable_backchannel": False,
+        "interruption_sensitivity": 0.8,
+        "stt_mode": "accurate",
+        "volume": 0.9,
         "metadata": {
             "contractor_id": str(contractor.id),
             "contractor_name": contractor.name,

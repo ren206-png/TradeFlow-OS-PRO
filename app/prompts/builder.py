@@ -1,5 +1,6 @@
 from app.models.contractor import Contractor
 from app.prompts.master_prompt import MASTER_PROMPT_TEMPLATE
+from app.prompts.multilang_wrapper import apply_language_directive
 
 
 def build_system_prompt(contractor: Contractor) -> str:
@@ -30,7 +31,7 @@ def build_system_prompt(contractor: Contractor) -> str:
     trades_str = ", ".join(t.title() for t in contractor.trades) if contractor.trades else "general trades"
     review_link = contractor.review_link or ""
 
-    return MASTER_PROMPT_TEMPLATE.format(
+    base = MASTER_PROMPT_TEMPLATE.format(
         AGENT_NAME=contractor.agent_name,
         COMPANY_NAME=contractor.name,
         SERVICE_AREA=service_area_str,
@@ -39,3 +40,4 @@ def build_system_prompt(contractor: Contractor) -> str:
         FREE_ESTIMATE_CLAUSE=free_estimate_clause,
         REVIEW_LINK=review_link,
     ).strip()
+    return apply_language_directive(base)

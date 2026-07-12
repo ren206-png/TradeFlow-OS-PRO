@@ -22,8 +22,9 @@ twilio==9.3.7
 # Scheduler
 apscheduler==3.10.4
 
-# Crypto (webhook signature verification)
+# Crypto (webhook signature verification + password hashing)
 cryptography==44.0.0
+argon2-cffi==23.1.0
 
 # Signing (onboarding cookie)
 itsdangerous==2.2.0

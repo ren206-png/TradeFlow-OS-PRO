@@ -59,6 +59,8 @@
     {% block content %}{% endblock %}
   </main>
 
+  {% block scripts %}{% endblock %}
+
   <!-- Bottom nav -->
   <nav class="fixed bottom-0 inset-x-0 bg-white border-t-2 border-gray-200 flex shadow-xl" style="padding-bottom: env(safe-area-inset-bottom)">
     <a href="/portal/leads" class="flex-1 flex flex-col items-center pt-2 pb-3 {% if active_nav == 'leads' %}text-blue-600{% else %}text-gray-500{% endif %}">

@@ -18,6 +18,7 @@ import hmac
 import json
 import logging
 import re
+import secrets
 import time
 from datetime import datetime, timezone
 
@@ -74,6 +75,15 @@ async def llm_websocket(
                         content_complete, end_call, transfer_number
       update_agent    — modify responsiveness/interruption_sensitivity mid-call
     """
+    # --- Verify Retell's Authorization header before accepting ---
+    # Retell sends: Authorization: Bearer <retell_api_key>
+    auth_header = websocket.headers.get("Authorization", "")
+    expected = f"Bearer {settings.retell_api_key}" if settings.retell_api_key else None
+    if expected and not secrets.compare_digest(auth_header, expected):
+        logger.warning("WebSocket rejected — invalid Authorization | call_id=%s", call_id)
+        await websocket.close(code=4401)
+        return
+
     await websocket.accept()
     logger.info("WebSocket opened | call_id=%s", call_id)
 
@@ -128,6 +138,24 @@ async def llm_websocket(
                 db.add(call_session)
                 await db.flush()
 
+                # Demo tenant — enforce daily cap before anything else
+                from app.services.demo import check_demo_daily_cap, is_demo_call
+                if is_demo_call(str(contractor.id)):
+                    cap_ok = await check_demo_daily_cap(db)
+                    if not cap_ok:
+                        await websocket.send_text(json.dumps({
+                            "response_type": "response",
+                            "response_id": 0,
+                            "content": (
+                                "Thanks for calling Summit Plumbing Demo! Our demo line has "
+                                "reached today's limit. Please try again tomorrow or visit "
+                                "tradesflowos.com to set up your own AI line. Have a great day!"
+                            ),
+                            "content_complete": True,
+                            "end_call": True,
+                        }))
+                        return
+
                 # Check monthly call limit before starting the session
                 usage = await BillingService().check_usage_limit(contractor, "calls")
                 if not usage["allowed"]:
@@ -148,10 +176,13 @@ async def llm_websocket(
                     }))
                     return
 
-                # Enforce per-call max duration from plan config
+                # Enforce per-call max duration — demo line caps at demo_max_call_mins
                 from app.config import PLAN_LIMITS as _PLAN_LIMITS
-                _plan_limits = _PLAN_LIMITS.get(contractor.plan or "starter", _PLAN_LIMITS["starter"])
-                _max_call_mins = _plan_limits.get("max_call_mins", 10)
+                if is_demo_call(str(contractor.id)):
+                    _max_call_mins = settings.demo_max_call_mins
+                else:
+                    _plan_limits = _PLAN_LIMITS.get(contractor.plan or "starter", _PLAN_LIMITS["starter"])
+                    _max_call_mins = _plan_limits.get("max_call_mins", 10)
                 call_session.max_duration_seconds = _max_call_mins * 60
 
                 # Record implied SMS consent — caller initiated contact
@@ -417,6 +448,17 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     analyser = PostCallAnalyser()
                     await analyser.analyse(call_session, transcript, contractor, db)
 
+        # Fire translation pass after 2xx — does not block the response
+        try:
+            import asyncio as _asyncio
+            from app.services.translation import normalize_lead_fields
+            _retell_lang = call_info.get("call_analysis", {}).get("detected_language")
+            _asyncio.create_task(
+                normalize_lead_fields(call_id, _retell_lang, db)
+            )
+        except Exception as _te:
+            logger.warning("multilang: failed to schedule translation task | call_id=%s error=%s", call_id, _te)
+
     elif event in ("transfer_started", "transfer_bridged", "transfer_cancelled", "transfer_ended"):
         logger.info(
             "Transfer event | event=%s call_id=%s destination=%s",
@@ -621,6 +663,16 @@ async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> 
         duration_mins = max(1, (duration_s + 59) // 60)  # round up to nearest minute
         await BillingService().increment_usage(_contractor, "calls", db, minutes=duration_mins)
 
+        # Log demo call separately (no billing, just analytics + cap tracking)
+        from app.services.demo import is_demo_call, log_demo_call
+        if is_demo_call(str(_contractor.id)):
+            _from_num = call_info.get("from_number", "unknown")
+            try:
+                await log_demo_call(call_id, _from_num, duration_s or 0, db)
+            except Exception as _de:
+                logger.warning("Demo call log failed: %s", _de)
+
+    lead: Lead | None = None
     if call_session.lead_id:
         lead_result = await db.execute(select(Lead).where(Lead.id == call_session.lead_id))
         lead = lead_result.scalar_one_or_none()
@@ -631,6 +683,13 @@ async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> 
                 lead.transcript_url = call_info["public_log_url"]
             if call_info.get("transcript"):
                 lead.raw_transcript = call_info["transcript"]
+
+    # Quality scoring — runs for every call (lead may be None for very short calls)
+    try:
+        from app.services.quality import score_call
+        await score_call(call_session, lead, duration_s or 0, db)
+    except Exception as _qe:
+        logger.warning("Quality scoring failed: %s", _qe)
 
     await db.flush()
     logger.info("Session finalised | call_id=%s duration=%ss", call_id, call_session.duration_seconds)
