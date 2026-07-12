@@ -38,8 +38,8 @@ class JobberAdapter(FSMAdapter):
             "input": {
                 "title": f"{lead_data.get('trade', 'Service')} - {lead_data.get('problem_summary', 'New Request')[:80]}",
                 "client": {
-                    "firstName": (lead_data.get("caller_name") or "").split()[0] or "Unknown",
-                    "lastName": " ".join((lead_data.get("caller_name") or "Unknown").split()[1:]) or "",
+                    "firstName": ((lead_data.get("caller_name") or "").split() or ["Unknown"])[0],
+                    "lastName": " ".join((lead_data.get("caller_name") or "").split()[1:]) or "",
                     "phones": [{"number": lead_data.get("phone", ""), "primary": True}],
                 },
                 "details": lead_data.get("problem_summary", ""),

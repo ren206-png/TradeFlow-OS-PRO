@@ -259,7 +259,8 @@ async def llm_websocket(
                 from app.services.triage import classify_life_safety, LIFE_SAFETY_RESPONSE
                 if classify_life_safety(user_message):
                     ws_response = {
-                        "response_id": data.get("response_id"),
+                        "response_type": "response",
+                        "response_id": response_id,
                         "content": LIFE_SAFETY_RESPONSE,
                         "content_complete": True,
                         "end_call": True,

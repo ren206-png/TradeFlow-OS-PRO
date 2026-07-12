@@ -28,6 +28,17 @@ async def lifespan(app: FastAPI):
     await init_db()
     start_scheduler()
     logger.info("Database initialised.")
+    # Seed system intake templates on every startup (idempotent)
+    if settings.intake_flows_v2:
+        try:
+            from app.database import async_session_factory
+            from app.services.intake import seed_system_templates
+            async with async_session_factory() as _seed_db:
+                await seed_system_templates(_seed_db)
+                await _seed_db.commit()
+            logger.info("Intake templates seeded.")
+        except Exception as _seed_err:
+            logger.warning("Intake template seeding failed: %s", _seed_err)
     yield
     shutdown_scheduler()
     logger.info("TradeFlow-OS Pro shutting down.")
