@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,39 @@ class SMSService:
             return {"success": False, "error": str(exc)}
 
     # ------------------------------------------------------------------
+    # Async send — uses httpx to avoid blocking the event loop
+    # ------------------------------------------------------------------
+
+    async def _send_async(self, to: str, body: str, message_type: str) -> dict:
+        """Dispatch a single SMS via httpx (non-blocking). Uses Messaging Service SID if configured."""
+        if not settings.twilio_account_sid or not settings.twilio_auth_token:
+            logger.warning("Twilio not configured — SMS skipped [%s]", message_type)
+            return {"success": False, "error": "Twilio not configured"}
+        try:
+            url = (
+                f"https://api.twilio.com/2010-04-01/Accounts/"
+                f"{settings.twilio_account_sid}/Messages.json"
+            )
+            data: dict = {"To": to, "Body": body}
+            if settings.twilio_messaging_service_sid:
+                data["MessagingServiceSid"] = settings.twilio_messaging_service_sid
+            else:
+                data["From"] = settings.twilio_from_number
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    url,
+                    data=data,
+                    auth=(settings.twilio_account_sid, settings.twilio_auth_token),
+                )
+                resp.raise_for_status()
+                sid = resp.json().get("sid", "")
+            logger.info("SMS sent | sid=%s to=%s type=%s", sid, to, message_type)
+            return {"success": True, "sid": sid}
+        except Exception as exc:
+            logger.error("SMS send failed [%s]: %s", message_type, exc)
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
     # Async compliance-aware send (use this from async routes/services)
     # ------------------------------------------------------------------
 
@@ -82,7 +117,7 @@ class SMSService:
                 body = body.rstrip() + COMPLIANCE_FOOTER
                 await mark_first_sms_sent(to, self._db)
 
-        return self._send(to, body, message_type)
+        return await self._send_async(to, body, message_type)
 
     # ------------------------------------------------------------------
     # Template methods — use _send_compliant when DB is available

@@ -48,6 +48,13 @@ class Contractor(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    # Phase 1 feature flags per contractor
+    emergency_triage_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    live_transfer_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    fsm_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    intake_flows_v2_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    emergency_config: Mapped[dict] = mapped_column(JSON, nullable=True)
+
     leads: Mapped[list[Lead]] = relationship("Lead", back_populates="contractor", lazy="select")
     call_sessions: Mapped[list[CallSession]] = relationship(
         "CallSession", back_populates="contractor", lazy="select"

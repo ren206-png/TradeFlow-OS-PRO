@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.lead import Lead
 from app.services.lead_scoring import calculate_scores
 from app.services.notifications import notify_new_lead
@@ -82,6 +83,25 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
 
     # Fire-and-forget: notify contractor of new lead
     asyncio.ensure_future(notify_new_lead(contractor, lead))
+
+    # Fire-and-forget: push lead to FSM if enabled
+    if settings.fsm_sync and contractor.fsm_sync_enabled:
+        from app.services.fsm.service import FSMService
+        lead_payload = {
+            "lead_id": lead.id,
+            "caller_name": lead.caller_name,
+            "phone": lead.phone,
+            "email": lead.email,
+            "service_address": lead.service_address,
+            "city": lead.city,
+            "province_state": lead.province_state,
+            "postal_zip": lead.postal_zip,
+            "trade": lead.trade,
+            "problem_summary": lead.problem_summary,
+        }
+        asyncio.ensure_future(
+            FSMService().push_lead(contractor, lead_payload, None, db)
+        )
 
     # Schedule 24-hour follow-up SMS for new leads that are not yet booked
     if is_new_lead:

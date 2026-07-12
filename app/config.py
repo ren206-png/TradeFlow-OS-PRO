@@ -84,5 +84,11 @@ class Settings(BaseSettings):
     # Override via MULTILANG_VOICE_ID env var if you prefer a different voice.
     multilang_voice_id: str = "11labs-Valentina"
 
+    # Phase 1 feature flags — all default OFF; flip via Railway env vars.
+    emergency_triage: bool = False
+    live_transfer: bool = False
+    fsm_sync: bool = False
+    intake_flows_v2: bool = False
+
 
 settings = Settings()

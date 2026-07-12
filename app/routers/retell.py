@@ -193,10 +193,20 @@ async def llm_websocket(
                     except Exception as _ce:
                         logger.warning("Consent recording failed: %s", _ce)
 
+                intake_section = ""
+                if settings.intake_flows_v2 and contractor.intake_flows_v2_enabled:
+                    from app.services.intake import IntakeService
+                    trade = (contractor.trades or [""])[0] if contractor.trades else ""
+                    if trade:
+                        tmpl = await IntakeService().get_template(trade, contractor.id, db)
+                        if tmpl:
+                            intake_section = await IntakeService().format_questions_for_prompt(tmpl)
+
                 agent = ClaudeAgent(
                     contractor=contractor,
                     call_session=call_session,
                     db=db,
+                    intake_section=intake_section,
                 )
                 _active_agents[call_id] = agent
 
@@ -244,6 +254,18 @@ async def llm_websocket(
                         "end_call": False,
                     }))
                     continue
+
+                # Life-safety intercept — HARDCODED, never gated by any flag or tenant setting
+                from app.services.triage import classify_life_safety, LIFE_SAFETY_RESPONSE
+                if classify_life_safety(user_message):
+                    ws_response = {
+                        "response_id": data.get("response_id"),
+                        "content": LIFE_SAFETY_RESPONSE,
+                        "content_complete": True,
+                        "end_call": True,
+                    }
+                    await websocket.send_json(ws_response)
+                    return  # stop processing this turn
 
                 response_text = await agent.process_turn(user_message)
 
@@ -431,6 +453,41 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     )
             except Exception as _exc:
                 logger.warning("Missed call SMS dispatch error | %s", _exc)
+
+        # Missed-transfer detection — if live_transfer is on and call ended quickly
+        # after a transfer was initiated, alert the contractor
+        from app.config import settings as _settings
+        if _settings.live_transfer and to_number_wh and 10 <= duration_s < 20:
+            try:
+                from sqlalchemy import select as _select
+                from app.models.lead import Lead as _Lead
+                _cs_r = await db.execute(
+                    _select(CallSession).where(CallSession.retell_call_id == call_id)
+                )
+                _call_session = _cs_r.scalar_one_or_none()
+                if _call_session and _call_session.lead_id:
+                    _lead_r = await db.execute(
+                        _select(_Lead).where(_Lead.id == _call_session.lead_id)
+                    )
+                    _lead = _lead_r.scalar_one_or_none()
+                    if _lead and getattr(_lead, "human_transfer_required", False):
+                        _ctr_r = await db.execute(
+                            _select(Contractor).where(Contractor.id == _call_session.contractor_id)
+                        )
+                        _ctr = _ctr_r.scalar_one_or_none()
+                        if _ctr:
+                            import asyncio as _asyncio2
+                            from app.services.on_call import OnCallService
+                            _asyncio2.create_task(
+                                OnCallService().send_missed_transfer_alert(
+                                    _ctr,
+                                    call_id,
+                                    call_info.get("recording_url"),
+                                    db,
+                                )
+                            )
+            except Exception as _texc:
+                logger.warning("Missed transfer alert dispatch error | %s", _texc)
 
     elif event == "call_analyzed":
         await _apply_analysis(call_id, call_info, db)

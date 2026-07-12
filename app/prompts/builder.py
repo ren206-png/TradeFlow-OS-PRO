@@ -3,7 +3,7 @@ from app.prompts.master_prompt import MASTER_PROMPT_TEMPLATE
 from app.prompts.multilang_wrapper import apply_language_directive
 
 
-def build_system_prompt(contractor: Contractor) -> str:
+def build_system_prompt(contractor: Contractor, intake_section: str = "") -> str:
     """Build a personalized system prompt for a contractor by filling template variables."""
     required = {
         "name": contractor.name,
@@ -40,4 +40,8 @@ def build_system_prompt(contractor: Contractor) -> str:
         FREE_ESTIMATE_CLAUSE=free_estimate_clause,
         REVIEW_LINK=review_link,
     ).strip()
+
+    if intake_section:
+        base += f"\n\n{intake_section}"
+
     return apply_language_directive(base)

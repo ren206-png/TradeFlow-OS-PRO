@@ -21,10 +21,17 @@ async def transfer_call(tool_input: dict, context: dict) -> dict:
     call_session = context["call_session"]
     contractor = context["contractor"]
 
+    from app.config import settings
+
     reason: str = tool_input["reason"]
     urgency: str = tool_input["urgency"]
     notes: str = tool_input.get("notes", "")
-    transfer_number: str = contractor.calendar_config.get("transfer_number", "")
+
+    if settings.live_transfer:
+        from app.services.on_call import OnCallService
+        transfer_number = await OnCallService().get_transfer_number(contractor, db) or ""
+    else:
+        transfer_number: str = contractor.calendar_config.get("transfer_number", "")
 
     # Update lead record
     if call_session.lead_id:

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -8,6 +9,7 @@ from app.config import settings
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.prompts.builder import build_system_prompt
+from app.services.triage import get_urgency_tool_schema
 from app.tools.definitions import TRADEFLOW_TOOLS
 from app.tools.handlers import execute_tool
 
@@ -19,11 +21,17 @@ MAX_TOOL_ITERATIONS = 5
 class ClaudeAgent:
     """Stateful conversation engine for one call session."""
 
-    def __init__(self, contractor: Contractor, call_session: CallSession, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        contractor: Contractor,
+        call_session: CallSession,
+        db: AsyncSession,
+        intake_section: str = "",
+    ) -> None:
         self.contractor = contractor
         self.call_session = call_session
         self.db = db
-        self.system_prompt = build_system_prompt(contractor)
+        self.system_prompt = build_system_prompt(contractor, intake_section=intake_section)
         self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._tool_context = {
             "contractor": contractor,
@@ -81,14 +89,37 @@ class ClaudeAgent:
         return text_response
 
     async def _call_claude(self, messages: list[dict]) -> anthropic.types.Message:
-        """Send the current conversation to Claude and return the raw Message."""
-        return await self._client.messages.create(
-            model=settings.claude_model,
-            max_tokens=settings.claude_max_tokens,
-            system=self.system_prompt,
-            tools=TRADEFLOW_TOOLS,
-            messages=messages,
-        )
+        """Send the current conversation to Claude and return the raw Message.
+
+        Retries up to 3 attempts with exponential backoff (1s, 2s, 4s) on
+        Anthropic RateLimitError (429) and APIStatusError with status 529.
+        """
+        delays = [1, 2, 4]
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate(delays, start=1):
+            try:
+                tools = list(TRADEFLOW_TOOLS)
+                if settings.emergency_triage:
+                    tools.append(get_urgency_tool_schema())
+                return await self._client.messages.create(
+                    model=settings.claude_model,
+                    max_tokens=settings.claude_max_tokens,
+                    system=self.system_prompt,
+                    tools=tools,
+                    messages=messages,
+                )
+            except anthropic.RateLimitError as exc:
+                last_exc = exc
+                logger.warning("Claude rate-limited (attempt %d/3); retrying in %ds", attempt, delay)
+            except anthropic.APIStatusError as exc:
+                if exc.status_code == 529:
+                    last_exc = exc
+                    logger.warning("Claude overloaded 529 (attempt %d/3); retrying in %ds", attempt, delay)
+                else:
+                    raise
+            if attempt < len(delays):
+                await asyncio.sleep(delay)
+        raise last_exc
 
     async def _handle_tool_calls(
         self, response: anthropic.types.Message, messages: list[dict]
