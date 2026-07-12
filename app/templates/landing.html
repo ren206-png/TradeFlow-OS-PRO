@@ -124,6 +124,43 @@
 </head>
 <body class="font-sans text-gray-800 antialiased">
 
+  <!-- ===== STICKY MOBILE CTA (hidden until hero scrolls away) ===== -->
+  <div id="sticky-cta" class="fixed bottom-0 left-0 right-0 z-40 lg:hidden transform translate-y-full transition-transform duration-300 ease-in-out" style="padding-bottom: env(safe-area-inset-bottom)">
+    <div class="bg-[#1e3a5f] border-t border-blue-700 px-4 py-3 flex items-center gap-3 shadow-2xl">
+      <div class="flex-1 min-w-0">
+        <p class="text-white font-semibold text-sm leading-tight">Never miss another call</p>
+        <p class="text-blue-300 text-xs">Free to start · No card needed</p>
+      </div>
+      <a href="/auth/signup" class="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm whitespace-nowrap transition-colors flex-shrink-0">
+        Start Free →
+      </a>
+    </div>
+  </div>
+
+  <!-- ===== EXIT-INTENT MODAL ===== -->
+  <div id="exit-modal" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog">
+    <!-- Backdrop -->
+    <div id="exit-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+    <!-- Panel -->
+    <div class="absolute inset-0 flex items-center justify-center px-4">
+      <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-7 text-center">
+        <button id="exit-modal-close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl leading-none" aria-label="Close">&times;</button>
+        <div class="text-4xl mb-3">📞</div>
+        <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Wait — hear it yourself.</h2>
+        <p class="text-gray-500 text-sm mb-5 leading-relaxed">Call our live demo line right now and hear exactly what your customers will hear. Takes 60 seconds. No signup required.</p>
+        {% if demo_phone %}
+        <a href="tel:{{ demo_phone }}" class="block w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-4 rounded-xl text-lg mb-3 transition-colors">
+          📞 Call {{ demo_phone }}
+        </a>
+        {% endif %}
+        <a href="/auth/signup" class="block w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-xl text-sm mb-4 transition-colors">
+          Or start free — takes 5 minutes
+        </a>
+        <button id="exit-modal-dismiss" class="text-xs text-gray-400 hover:text-gray-600 underline">No thanks, I'll keep missing calls</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== NAV BAR ===== -->
   <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -597,6 +634,64 @@
         }
       });
     });
+    // ── Sticky mobile CTA ──────────────────────────────────────────────────
+    const stickyCta = document.getElementById('sticky-cta');
+    const heroSection = document.querySelector('section');
+    if (stickyCta && heroSection) {
+      const showSticky = () => {
+        const heroBottom = heroSection.getBoundingClientRect().bottom;
+        if (heroBottom < 0) {
+          stickyCta.classList.remove('translate-y-full');
+        } else {
+          stickyCta.classList.add('translate-y-full');
+        }
+      };
+      window.addEventListener('scroll', showSticky, { passive: true });
+      showSticky();
+    }
+
+    // ── Exit-intent modal ───────────────────────────────────────────────────
+    const exitModal = document.getElementById('exit-modal');
+    const exitClose = document.getElementById('exit-modal-close');
+    const exitDismiss = document.getElementById('exit-modal-dismiss');
+    const exitBackdrop = document.getElementById('exit-modal-backdrop');
+    let exitShown = false;
+
+    const showExitModal = () => {
+      if (exitShown || sessionStorage.getItem('exitDismissed')) return;
+      exitShown = true;
+      exitModal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    };
+    const hideExitModal = () => {
+      exitModal.classList.add('hidden');
+      document.body.style.overflow = '';
+      sessionStorage.setItem('exitDismissed', '1');
+    };
+
+    // Desktop: mouse leaves toward top of viewport
+    document.addEventListener('mouseleave', (e) => {
+      if (e.clientY < 20) showExitModal();
+    });
+
+    // Mobile: show after 45s of uninterrupted reading
+    let mobileTimer = setTimeout(() => {
+      if (window.innerWidth < 1024) showExitModal();
+    }, 45000);
+    ['touchstart','click','scroll'].forEach(ev =>
+      window.addEventListener(ev, () => {
+        clearTimeout(mobileTimer);
+        mobileTimer = setTimeout(() => {
+          if (window.innerWidth < 1024) showExitModal();
+        }, 45000);
+      }, { passive: true })
+    );
+
+    if (exitClose) exitClose.addEventListener('click', hideExitModal);
+    if (exitDismiss) exitDismiss.addEventListener('click', hideExitModal);
+    if (exitBackdrop) exitBackdrop.addEventListener('click', hideExitModal);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideExitModal(); });
+
   }); // end DOMContentLoaded
   </script>
 

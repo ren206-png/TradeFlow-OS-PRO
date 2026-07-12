@@ -4,95 +4,169 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1e40af">
-  <title>TradeFlow — Create Account</title>
   <meta name="robots" content="noindex, nofollow">
+  <title>TradeFlow — Create Account</title>
   <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4 py-8">
-  <div class="w-full max-w-md">
-    <!-- Logo / Brand -->
-    <div class="text-center mb-8">
-      <span class="text-3xl font-bold text-blue-700">TradeFlow</span>
-      <p class="text-gray-500 mt-1 text-sm">OS Pro</p>
+<body class="bg-gray-50 min-h-screen" style="padding-bottom: env(safe-area-inset-bottom)">
+
+  <!-- Top bar -->
+  <div class="bg-[#1e3a5f] px-4 py-3 flex items-center justify-between">
+    <a href="/" class="text-white font-extrabold text-lg tracking-tight">⚡ TradeFlow OS</a>
+    <a href="/auth/login" class="text-blue-200 text-sm hover:text-white transition-colors">Already have an account →</a>
+  </div>
+
+  <div class="max-w-lg mx-auto px-4 py-8">
+
+    <!-- What happens next — expectation setter -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Start answering every call.</h1>
+      <p class="text-gray-500 text-sm">Free forever on Starter. Your AI phone line is ready in 5 minutes.</p>
     </div>
+
+    <!-- Trust strip -->
+    <div class="flex flex-wrap gap-x-5 gap-y-1 mb-6">
+      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ No credit card</span>
+      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ No contracts</span>
+      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ Cancel anytime</span>
+      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ Live in 5 min</span>
+    </div>
+
+    {% if error %}
+    <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
+      <span class="mt-0.5 flex-shrink-0">⚠️</span>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h1 class="text-xl font-bold text-gray-900 mb-1">Create Your TradeFlow Account</h1>
-      <p class="text-sm text-gray-500 mb-6">Start managing your contractor business in minutes.</p>
+      <form method="post" action="/auth/signup" class="space-y-4" novalidate>
 
-      {% if error %}
-      <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-        {{ error }}
-      </div>
-      {% endif %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label for="business_name" class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+            <input type="text" id="business_name" name="business_name" required autocomplete="organization"
+                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                   placeholder="Apex Plumbing Ltd.">
+          </div>
 
-      <form method="post" action="/auth/signup" class="space-y-4">
-        <div>
-          <label for="business_name" class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
-          <input type="text" id="business_name" name="business_name" required
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="Apex Plumbing Ltd.">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="email"
+                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                   placeholder="you@example.com">
+          </div>
+
+          <div>
+            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input type="tel" id="phone" name="phone" required autocomplete="tel"
+                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                   placeholder="+1 (403) 555-0100">
+          </div>
+
+          <div>
+            <label for="trade" class="block text-sm font-medium text-gray-700 mb-1">Your Trade</label>
+            <select id="trade" name="trade" required
+                    class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white">
+              <option value="" disabled selected>Select your trade</option>
+              <option value="plumbing">🔧 Plumbing</option>
+              <option value="hvac">❄️ HVAC</option>
+              <option value="electrical">⚡ Electrical</option>
+              <option value="roofing">🏠 Roofing</option>
+              <option value="garage_door">🚪 Garage Door</option>
+              <option value="locksmith">🔑 Locksmith</option>
+              <option value="towing">🚗 Towing</option>
+              <option value="general">🏗️ General Contracting</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="service_area" class="block text-sm font-medium text-gray-700 mb-1">Service Area</label>
+            <input type="text" id="service_area" name="service_area" required
+                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                   placeholder="e.g. Calgary, T2N">
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password"
+                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                   placeholder="At least 8 characters">
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password"
+                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                   placeholder="Re-enter your password">
+          </div>
         </div>
 
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input type="email" id="email" name="email" required
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="you@example.com">
-        </div>
-
-        <div>
-          <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-          <input type="tel" id="phone" name="phone" required
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="+1 (403) 555-0100">
-        </div>
-
-        <div>
-          <label for="trade" class="block text-sm font-medium text-gray-700 mb-1">Trade</label>
-          <select id="trade" name="trade" required
-                  class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white">
-            <option value="" disabled selected>Select your trade</option>
-            <option value="plumbing">Plumbing</option>
-            <option value="hvac">HVAC</option>
-            <option value="electrical">Electrical</option>
-            <option value="general">General Contracting</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="service_area" class="block text-sm font-medium text-gray-700 mb-1">Service Area</label>
-          <input type="text" id="service_area" name="service_area" required
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="e.g. Calgary, T2N">
-        </div>
-
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input type="password" id="password" name="password" required minlength="8"
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="At least 8 characters">
-        </div>
-
-        <div>
-          <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-          <input type="password" id="confirm_password" name="confirm_password" required minlength="8"
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="Re-enter your password">
-        </div>
-
-        <button type="submit"
-                class="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-lg transition text-sm mt-2">
-          Create Account
+        <button type="submit" id="submit-btn"
+                class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-4 px-4 rounded-xl transition text-base mt-2 flex items-center justify-center gap-2">
+          <span id="submit-text">Create My Free Account →</span>
+          <svg id="submit-spinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
         </button>
-      </form>
 
-      <p class="text-center text-sm text-gray-500 mt-5">
-        Already have an account?
-        <a href="/auth/login" class="text-blue-600 font-medium hover:underline">Sign in</a>
-      </p>
+        <p class="text-center text-xs text-gray-400 leading-relaxed">
+          By creating an account you agree to our
+          <a href="#" class="underline hover:text-gray-600">Terms</a> and
+          <a href="#" class="underline hover:text-gray-600">Privacy Policy</a>.
+        </p>
+      </form>
     </div>
+
+    <!-- What happens next -->
+    <div class="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5">
+      <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-3">What happens after you sign up</p>
+      <div class="space-y-2.5">
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+          <p class="text-sm text-gray-700">We provision your dedicated AI phone number <span class="text-gray-400">(~30 seconds)</span></p>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+          <p class="text-sm text-gray-700">Forward your business line to your TradeFlow number</p>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">✓</div>
+          <p class="text-sm text-gray-700">Every call gets answered, qualified, and sent to your phone</p>
+        </div>
+      </div>
+    </div>
+
   </div>
+
+  <script defer>
+    document.addEventListener('DOMContentLoaded', function () {
+      const form = document.querySelector('form');
+      const btn = document.getElementById('submit-btn');
+      const txt = document.getElementById('submit-text');
+      const spin = document.getElementById('submit-spinner');
+
+      // Show spinner on submit to prevent double-click
+      form.addEventListener('submit', function () {
+        btn.disabled = true;
+        txt.textContent = 'Setting up your account…';
+        spin.classList.remove('hidden');
+      });
+
+      // Client-side password match check
+      const pw = document.getElementById('password');
+      const cpw = document.getElementById('confirm_password');
+      cpw.addEventListener('input', function () {
+        if (pw.value && cpw.value && pw.value !== cpw.value) {
+          cpw.setCustomValidity('Passwords do not match');
+        } else {
+          cpw.setCustomValidity('');
+        }
+      });
+    });
+  </script>
 </body>
 </html>
