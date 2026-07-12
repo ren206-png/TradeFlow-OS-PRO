@@ -16,7 +16,9 @@
   <meta property="og:url" content="https://tradesflowos.com/" />
   <meta property="og:title" content="TradeFlow OS Pro — AI Receptionist for Contractors" />
   <meta property="og:description" content="Never miss a lead again. Our AI answers every call 24/7, qualifies customers, books appointments & sends follow-up texts — built for trade contractors." />
-  <!-- og:image — add when /static/og-image.png is uploaded -->
+  <meta property="og:image" content="https://tradesflowos.com/static/og-image.svg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:site_name" content="TradeFlow OS Pro" />
 
   <!-- Twitter Card -->
@@ -24,7 +26,7 @@
   <meta name="twitter:url" content="https://tradesflowos.com/" />
   <meta name="twitter:title" content="TradeFlow OS Pro — AI Receptionist for Contractors" />
   <meta name="twitter:description" content="Never miss a lead again. AI answers every call 24/7, qualifies customers, books appointments & sends follow-up texts." />
-  <!-- twitter:image — add when /static/og-image.png is uploaded -->
+  <meta name="twitter:image" content="https://tradesflowos.com/static/og-image.svg" />
 
   <!-- Robots & Indexing -->
   <meta name="robots" content="index, follow" />
@@ -108,6 +110,9 @@
   }
   </script>
 
+  <!-- Preconnect to CDN so Tailwind loads as fast as possible -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     html { scroll-behavior: smooth; }
@@ -546,8 +551,9 @@
     </div>
   </footer>
 
-  <!-- ===== JAVASCRIPT ===== -->
-  <script>
+  <!-- ===== JAVASCRIPT (deferred — non-blocking) ===== -->
+  <script defer>
+  document.addEventListener('DOMContentLoaded', function() {
     // Sticky nav: add white bg + shadow after 50px scroll
     const navbar = document.getElementById('navbar');
     const navLinks = navbar.querySelectorAll('.nav-link');
@@ -591,6 +597,7 @@
         }
       });
     });
+  }); // end DOMContentLoaded
   </script>
 
   {% if ff_live_metrics %}

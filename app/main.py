@@ -7,6 +7,7 @@ from functools import lru_cache
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.config import settings
@@ -38,6 +39,8 @@ app = FastAPI(
     description="Multi-tenant voice AI platform for trade contractors.",
     lifespan=lifespan,
 )
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # ---------------------------------------------------------------------------
 # Middleware

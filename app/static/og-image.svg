@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#1e4d8c"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+    <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+  </pattern>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Green accent bar top -->
+  <rect x="0" y="0" width="1200" height="6" fill="url(#accent)"/>
+
+  <!-- Logo area -->
+  <text x="80" y="120" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="700" fill="#93c5fd" letter-spacing="2">⚡ TRADEFLOW OS PRO</text>
+
+  <!-- Main headline -->
+  <text x="80" y="230" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#ffffff" letter-spacing="-1">Never Miss a Lead</text>
+  <text x="80" y="320" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#ffffff" letter-spacing="-1">Again.</text>
+
+  <!-- Sub-headline -->
+  <text x="80" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="32" fill="#93c5fd">AI Receptionist for Trade Contractors</text>
+  <text x="80" y="448" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#60a5fa">Answers every call · Books appointments · Sends SMS follow-ups</text>
+
+  <!-- CTA pill -->
+  <rect x="80" y="500" width="280" height="60" rx="30" fill="url(#accent)"/>
+  <text x="220" y="538" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#ffffff" text-anchor="middle">Start Free Today</text>
+
+  <!-- URL -->
+  <text x="1120" y="590" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#60a5fa" text-anchor="end">tradesflowos.com</text>
+
+  <!-- Decorative phone icon area -->
+  <circle cx="1000" cy="315" r="200" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <circle cx="1000" cy="315" r="140" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="1000" y="360" font-family="system-ui" font-size="120" text-anchor="middle" fill="rgba(255,255,255,0.15)">📞</text>
+</svg>
