@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     mailchimp_server_prefix: str = ""   # e.g. "us1", "us14"
     mailchimp_list_id: str = ""         # Audience ID
 
+    # ── Feature flags ──────────────────────────────────────────────────────────
+    # Toggle via Railway env vars (TRUST_V2=true, MOBILE_HERO_V2=true, etc.)
+    # All default OFF so production is stable until you flip the switch.
+    trust_v2: bool = False          # Replace unverified testimonials with founder block
+    mobile_hero_v2: bool = False    # Enhanced mobile hero layout
+    live_metrics: bool = False      # Show live DB-backed stats on landing page
+
     # Multi-language support — set MULTILANG_ENABLED=true in Railway to activate.
     # With flag off (default) behavior is byte-for-byte identical to pre-multilang.
     multilang_enabled: bool = False

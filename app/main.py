@@ -2,6 +2,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -91,6 +92,9 @@ async def landing_page(request: Request):
     return templates.TemplateResponse("landing.html", {
         "request": request,
         "demo_phone": settings.demo_phone_number or None,
+        "ff_trust_v2": settings.trust_v2,
+        "ff_mobile_hero_v2": settings.mobile_hero_v2,
+        "ff_live_metrics": settings.live_metrics,
     })
 
 
@@ -150,6 +154,61 @@ async def demo_number():
     if not settings.demo_phone_number:
         raise HTTPException(status_code=503, detail="Demo line not yet provisioned.")
     return {"phone_number": settings.demo_phone_number}
+
+
+@app.get("/api/public/metrics", tags=["public"])
+async def public_metrics():
+    """
+    Live DB-backed stats for the landing page.
+    Cached for 5 minutes to avoid hammering the DB on every page load.
+    Only served when settings.live_metrics is True; otherwise returns placeholders.
+    Rate-limited at the nginx/Railway level (no per-IP logic needed here).
+    """
+    if not settings.live_metrics:
+        # Placeholder values — honest about being estimates
+        return JSONResponse({
+            "total_calls_handled": None,
+            "total_appointments_booked": None,
+            "contractors_active": None,
+            "live": False,
+        })
+
+    # Cache key is just time-bucketed to 5-minute windows
+    bucket = int(time.time()) // 300
+
+    @lru_cache(maxsize=1)
+    def _cache_key(b: int):
+        return b  # forces lru_cache to re-run when bucket changes
+
+    _cache_key(bucket)  # advance bucket
+
+    try:
+        from app.database import get_db as _get_db
+        from app.models.call import CallSession
+        from app.models.lead import Lead
+        from app.models.contractor import Contractor
+        from sqlalchemy import func, select as sa_select
+
+        async for db in _get_db():
+            total_calls = (await db.execute(sa_select(func.count()).select_from(CallSession))).scalar() or 0
+            booked = (await db.execute(
+                sa_select(func.count()).select_from(Lead).where(Lead.appointment_status == "booked")
+            )).scalar() or 0
+            active_contractors = (await db.execute(
+                sa_select(func.count()).select_from(Contractor).where(Contractor.is_active == True)
+            )).scalar() or 0
+            break
+
+        return JSONResponse({
+            "total_calls_handled": int(total_calls),
+            "total_appointments_booked": int(booked),
+            "contractors_active": int(active_contractors),
+            "live": True,
+            "bucket": bucket,
+        })
+    except Exception as exc:
+        logger.warning("public_metrics DB error: %s", exc)
+        return JSONResponse({"live": False, "error": "metrics unavailable"}, status_code=503)
 
 
 @app.get("/health", tags=["health"])

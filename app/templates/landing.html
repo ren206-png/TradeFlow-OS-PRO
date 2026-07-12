@@ -166,6 +166,16 @@
             TradeFlow answers every call, books appointments, and sends you a full customer summary — while you're on the job.
           </p>
           <!-- CTA buttons -->
+          {% if ff_mobile_hero_v2 %}
+          <div class="flex flex-col gap-3 sm:flex-row sm:gap-4 justify-center lg:justify-start mb-8">
+            <a href="/auth/signup" class="bg-green-600 active:bg-green-800 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center min-h-[56px] flex items-center justify-center">
+              Start Free — 5 Minutes
+            </a>
+            <a href="#how-it-works" class="bg-white/10 active:bg-white/30 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl text-lg border border-white/30 transition-colors text-center min-h-[56px] flex items-center justify-center">
+              See How It Works ▶
+            </a>
+          </div>
+          {% else %}
           <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
             <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center">
               Start Free — 5 Minutes
@@ -174,6 +184,7 @@
               Watch How It Works ▶
             </a>
           </div>
+          {% endif %}
           <!-- Trust row -->
           <div class="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 text-blue-200 text-sm font-medium mb-6">
             <span>✓ No contracts</span>
@@ -375,54 +386,73 @@
     </div>
   </section>
 
-  <!-- ===== TESTIMONIALS ===== -->
+  <!-- ===== SOCIAL PROOF ===== -->
   <section class="bg-[#1e3a5f] py-20">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-14">Contractors trust TradeFlow</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-        <!-- Testimonial 1 -->
-        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
-          <div class="flex mb-3">
-            <span class="text-yellow-400 text-lg">★★★★★</span>
-          </div>
-          <p class="text-white text-sm leading-relaxed mb-5">"I was missing calls every day while on jobs. Now I check my phone at lunch and everything is organized."</p>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">MD</div>
-            <div>
-              <p class="text-white font-semibold text-sm">Mike D.</p>
-              <p class="text-blue-300 text-xs">HVAC Contractor</p>
-            </div>
-          </div>
-        </div>
-        <!-- Testimonial 2 -->
-        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
-          <div class="flex mb-3">
-            <span class="text-yellow-400 text-lg">★★★★★</span>
-          </div>
-          <p class="text-white text-sm leading-relaxed mb-5">"Set it up in 10 minutes on a Sunday. By Monday I had 3 new leads waiting."</p>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">SK</div>
-            <div>
-              <p class="text-white font-semibold text-sm">Sarah K.</p>
-              <p class="text-blue-300 text-xs">Electrician</p>
-            </div>
-          </div>
-        </div>
-        <!-- Testimonial 3 -->
-        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
-          <div class="flex mb-3">
-            <span class="text-yellow-400 text-lg">★★★★★</span>
-          </div>
-          <p class="text-white text-sm leading-relaxed mb-5">"My customers think I have a real receptionist. They had no idea it was AI."</p>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JT</div>
-            <div>
-              <p class="text-white font-semibold text-sm">James T.</p>
-              <p class="text-blue-300 text-xs">Plumber</p>
-            </div>
+
+      {% if ff_trust_v2 %}
+      <!-- ── TRUST V2: Founder credibility block ── -->
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">Built by a tradesman, for tradesmen.</h2>
+      <p class="text-blue-200 text-lg max-w-2xl mx-auto mb-12">TradeFlow wasn't built in a boardroom. It was built by someone who spent years in the trades and got tired of watching good contractors lose jobs to voicemail.</p>
+      <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-8 max-w-2xl mx-auto text-left mb-12">
+        <div class="flex items-start gap-5">
+          <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-extrabold text-2xl flex-shrink-0">R</div>
+          <div>
+            <p class="text-white font-bold text-lg mb-0.5">Renner Kargbo</p>
+            <p class="text-blue-300 text-sm mb-4">Red Seal tradesman &nbsp;·&nbsp; ~10 years oil &amp; gas &nbsp;·&nbsp; Founder, TradeFlow OS</p>
+            <p class="text-blue-100 text-sm leading-relaxed">"I built this because I lived the problem. You're on a job site at 2 PM, your phone rings, you can't answer — and that's a $2,000 job walking out the door. I wanted something that had my back 24/7, spoke like a professional, and actually booked the appointment. That's TradeFlow."</p>
           </div>
         </div>
       </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+        <div class="bg-white/10 border border-white/20 rounded-xl p-5">
+          <div class="text-2xl mb-2">🔧</div>
+          <h3 class="text-white font-semibold mb-1">Trades-first design</h3>
+          <p class="text-blue-200 text-sm">Every word the AI says was written for how real tradespeople talk to customers — not generic call-center scripts.</p>
+        </div>
+        <div class="bg-white/10 border border-white/20 rounded-xl p-5">
+          <div class="text-2xl mb-2">🛡️</div>
+          <h3 class="text-white font-semibold mb-1">No fluff, no contracts</h3>
+          <p class="text-blue-200 text-sm">Month-to-month. Cancel any time. Built for small operators who can't afford lock-ins or sales calls.</p>
+        </div>
+        <div class="bg-white/10 border border-white/20 rounded-xl p-5">
+          <div class="text-2xl mb-2">📞</div>
+          <h3 class="text-white font-semibold mb-1">Call it right now</h3>
+          <p class="text-blue-200 text-sm">The demo line above is live. Hear exactly what your customers will hear. No pitch, no demo call — just the product.</p>
+        </div>
+      </div>
+
+      {% else %}
+      <!-- ── DEFAULT: Placeholder testimonials (to be replaced with verified quotes) ── -->
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-14">Contractors trust TradeFlow</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
+          <div class="flex mb-3"><span class="text-yellow-400 text-lg">★★★★★</span></div>
+          <p class="text-white text-sm leading-relaxed mb-5">"I was missing calls every day while on jobs. Now I check my phone at lunch and everything is organized."</p>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">MD</div>
+            <div><p class="text-white font-semibold text-sm">Mike D.</p><p class="text-blue-300 text-xs">HVAC Contractor</p></div>
+          </div>
+        </div>
+        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
+          <div class="flex mb-3"><span class="text-yellow-400 text-lg">★★★★★</span></div>
+          <p class="text-white text-sm leading-relaxed mb-5">"Set it up in 10 minutes on a Sunday. By Monday I had 3 new leads waiting."</p>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">SK</div>
+            <div><p class="text-white font-semibold text-sm">Sarah K.</p><p class="text-blue-300 text-xs">Electrician</p></div>
+          </div>
+        </div>
+        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
+          <div class="flex mb-3"><span class="text-yellow-400 text-lg">★★★★★</span></div>
+          <p class="text-white text-sm leading-relaxed mb-5">"My customers think I have a real receptionist. They had no idea it was AI."</p>
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JT</div>
+            <div><p class="text-white font-semibold text-sm">James T.</p><p class="text-blue-300 text-xs">Plumber</p></div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
   </section>
 
@@ -562,5 +592,23 @@
       });
     });
   </script>
+
+  {% if ff_live_metrics %}
+  <script>
+    // Live metrics — fetch from DB-backed endpoint and inject into stat cards
+    (async () => {
+      try {
+        const res = await fetch('/api/public/metrics');
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!d.live) return;
+        const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'k+' : n + '+';
+        document.querySelectorAll('[data-metric="calls"]').forEach(el => el.textContent = fmt(d.total_calls_handled));
+        document.querySelectorAll('[data-metric="bookings"]').forEach(el => el.textContent = fmt(d.total_appointments_booked));
+        document.querySelectorAll('[data-metric="contractors"]').forEach(el => el.textContent = fmt(d.contractors_active));
+      } catch (_) {}
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>
