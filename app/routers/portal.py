@@ -15,7 +15,9 @@ from app.config import PLAN_LIMITS
 from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
+from app.models.intake_template import IntakeTemplate
 from app.models.lead import Lead
+from app.models.on_call_schedule import OnCallSchedule
 from app.utils.sessions import SESSION_COOKIE, decode_session_token
 
 logger = logging.getLogger(__name__)
@@ -491,6 +493,189 @@ async def portal_setup(
             "contractor": contractor,
         },
     )
+
+
+_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+@router.get("/setup/oncall", response_class=HTMLResponse)
+async def portal_oncall_get(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+    flash: Optional[str] = Query(None),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    result = await db.execute(
+        select(OnCallSchedule)
+        .where(OnCallSchedule.contractor_id == contractor.id)
+        .order_by(OnCallSchedule.day_of_week, OnCallSchedule.start_time)
+    )
+    schedules = result.scalars().all()
+
+    return templates.TemplateResponse(
+        "portal_oncall.html",
+        {
+            "request": request,
+            "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
+            "active_nav": "setup",
+            "contractor": contractor,
+            "schedules": schedules,
+            "day_names": _DAY_NAMES,
+            "flash": flash,
+        },
+    )
+
+
+@router.post("/setup/oncall", response_class=RedirectResponse)
+async def portal_oncall_post(
+    request: Request,
+    day_of_week: int = Form(...),
+    start_time: str = Form(...),
+    end_time: str = Form(...),
+    phone_number: str = Form(...),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    # Convert "HH:MM" → "HH:MM:00"
+    def _to_hhmmss(t: str) -> str:
+        return t + ":00" if len(t) == 5 else t
+
+    schedule = OnCallSchedule(
+        contractor_id=contractor.id,
+        day_of_week=day_of_week,
+        start_time=_to_hhmmss(start_time),
+        end_time=_to_hhmmss(end_time),
+        phone_number=phone_number.strip(),
+        is_active=True,
+    )
+    db.add(schedule)
+    await db.commit()
+    return RedirectResponse(url="/portal/setup/oncall?flash=Schedule+added", status_code=302)
+
+
+@router.post("/setup/oncall/{schedule_id}/delete", response_class=RedirectResponse)
+async def portal_oncall_delete(
+    schedule_id: int,
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    result = await db.execute(
+        select(OnCallSchedule).where(
+            OnCallSchedule.id == schedule_id,
+            OnCallSchedule.contractor_id == contractor.id,
+        )
+    )
+    schedule = result.scalar_one_or_none()
+    if schedule:
+        await db.delete(schedule)
+        await db.commit()
+    return RedirectResponse(url="/portal/setup/oncall?flash=Schedule+deleted", status_code=302)
+
+
+@router.get("/setup/intake", response_class=HTMLResponse)
+async def portal_intake_get(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+    flash: Optional[str] = Query(None),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    trade = (contractor.trades or ["general"])[0] if contractor.trades else "general"
+
+    from app.services.intake import IntakeService
+    tmpl = await IntakeService().get_template(trade, contractor.id, db)
+    questions = tmpl.questions if tmpl else []
+    is_custom = tmpl is not None and not tmpl.is_system if tmpl else False
+
+    return templates.TemplateResponse(
+        "portal_intake.html",
+        {
+            "request": request,
+            "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
+            "active_nav": "setup",
+            "contractor": contractor,
+            "trade": trade,
+            "questions": questions,
+            "is_custom": is_custom,
+            "flash": flash,
+        },
+    )
+
+
+@router.post("/setup/intake", response_class=RedirectResponse)
+async def portal_intake_post(
+    request: Request,
+    questions_json: str = Form(...),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    import json as _json
+    try:
+        questions = _json.loads(questions_json)
+    except Exception:
+        questions = []
+
+    trade = (contractor.trades or ["general"])[0] if contractor.trades else "general"
+
+    # Upsert contractor-specific template
+    result = await db.execute(
+        select(IntakeTemplate).where(
+            IntakeTemplate.contractor_id == contractor.id,
+            IntakeTemplate.trade == trade,
+        )
+    )
+    tmpl = result.scalar_one_or_none()
+    if tmpl:
+        tmpl.questions = questions
+    else:
+        tmpl = IntakeTemplate(
+            contractor_id=contractor.id,
+            trade=trade,
+            is_system=False,
+            questions=questions,
+        )
+        db.add(tmpl)
+    await db.commit()
+    return RedirectResponse(url="/portal/setup/intake?flash=Questions+saved", status_code=302)
+
+
+@router.post("/setup/intake/reset", response_class=RedirectResponse)
+async def portal_intake_reset(
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    trade = (contractor.trades or ["general"])[0] if contractor.trades else "general"
+
+    result = await db.execute(
+        select(IntakeTemplate).where(
+            IntakeTemplate.contractor_id == contractor.id,
+            IntakeTemplate.trade == trade,
+        )
+    )
+    tmpl = result.scalar_one_or_none()
+    if tmpl:
+        await db.delete(tmpl)
+        await db.commit()
+    return RedirectResponse(url="/portal/setup/intake?flash=Reset+to+default", status_code=302)
 
 
 @router.get("/events")

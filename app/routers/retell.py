@@ -773,7 +773,10 @@ async def _apply_analysis(call_id: str, call_info: dict, db: AsyncSession) -> No
 
     analysis: dict = call_info.get("call_analysis") or {}
     if analysis.get("call_summary"):
-        lead.notes = (lead.notes or "") + f"\n[Retell summary] {analysis['call_summary']}"
+        # Idempotency: skip if summary already applied (Retell delivers at-least-once)
+        if lead.ai_summary is None and "[Retell summary]" not in (lead.notes or ""):
+            lead.notes = (lead.notes or "") + f"\n[Retell summary] {analysis['call_summary']}"
+            lead.ai_summary = analysis["call_summary"]
     if analysis.get("user_sentiment"):
         lead.customer_sentiment = analysis["user_sentiment"]
 

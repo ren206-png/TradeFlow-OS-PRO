@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.contractor import Contractor
@@ -19,13 +19,24 @@ class OnCallService:
         day = now.weekday()  # 0=Mon
         time_str = now.strftime("%H:%M:%S")
 
+        normal = and_(
+            OnCallSchedule.start_time <= time_str,
+            OnCallSchedule.end_time >= time_str,
+            OnCallSchedule.start_time <= OnCallSchedule.end_time,
+        )
+        spanning = and_(
+            OnCallSchedule.start_time > OnCallSchedule.end_time,
+            or_(
+                OnCallSchedule.start_time <= time_str,
+                OnCallSchedule.end_time >= time_str,
+            ),
+        )
         result = await db.execute(
             select(OnCallSchedule).where(
                 OnCallSchedule.contractor_id == contractor.id,
                 OnCallSchedule.day_of_week == day,
-                OnCallSchedule.is_active == True,
-                OnCallSchedule.start_time <= time_str,
-                OnCallSchedule.end_time >= time_str,
+                OnCallSchedule.is_active == True,  # noqa: E712
+                or_(normal, spanning),
             )
         )
         schedule = result.scalar_one_or_none()

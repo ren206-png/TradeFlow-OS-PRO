@@ -15,7 +15,7 @@ from app.tools.handlers import execute_tool
 
 logger = logging.getLogger(__name__)
 
-MAX_TOOL_ITERATIONS = 5
+MAX_TOOL_ITERATIONS = 8
 
 
 class ClaudeAgent:

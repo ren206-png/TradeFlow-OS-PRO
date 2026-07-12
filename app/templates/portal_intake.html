@@ -1,0 +1,111 @@
+{% extends "portal_base.html" %}
+
+{% block title %} — Intake Questions{% endblock %}
+
+{% block content %}
+
+<div class="mb-5">
+  <a href="/portal/setup" class="text-sm text-blue-600 hover:text-blue-800">&larr; Back to Setup</a>
+</div>
+
+<h2 class="text-xl font-bold text-gray-800 mb-1">Intake Questions</h2>
+<p class="text-sm text-gray-500 mb-4">Questions your AI asks callers</p>
+
+<div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-800">
+  These questions are asked in order during every call for <strong class="capitalize">{{ trade }}</strong> jobs.
+  {% if is_custom %}
+  <span class="ml-1 text-blue-600 font-medium">(Custom)</span>
+  {% else %}
+  <span class="ml-1 text-blue-400">(System default)</span>
+  {% endif %}
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
+  <form method="post" action="/portal/setup/intake" id="intake-form">
+    <input type="hidden" name="questions_json" id="questions_json_input">
+
+    <div id="questions-list" class="space-y-3 mb-4">
+      {% for q in questions %}
+      <div class="question-row flex items-center gap-2">
+        <span class="text-xs font-bold text-gray-400 w-5 shrink-0 text-right question-num"></span>
+        <input type="text"
+               value="{{ q.text }}"
+               placeholder="Enter question..."
+               class="question-input flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="button" onclick="removeQuestion(this)"
+                class="shrink-0 text-red-400 hover:text-red-600 transition-colors text-xs font-medium px-2">
+          Remove
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button type="button" onclick="addQuestion()"
+            class="w-full border-2 border-dashed border-gray-200 hover:border-blue-300 text-gray-400 hover:text-blue-500 rounded-xl py-2.5 text-sm font-medium transition-colors mb-5">
+      + Add Question
+    </button>
+
+    <button type="submit" onclick="prepareSubmit()"
+            class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3.5 rounded-xl text-sm transition-colors">
+      Save Questions
+    </button>
+  </form>
+</div>
+
+<form method="post" action="/portal/setup/intake/reset" onsubmit="return confirm('Reset to system default? Your custom questions will be deleted.');">
+  <button type="submit"
+          class="w-full bg-white border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-300 font-medium py-3 rounded-xl text-sm transition-colors">
+    Reset to Default
+  </button>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function renumberQuestions() {
+  const rows = document.querySelectorAll('.question-row');
+  rows.forEach((row, i) => {
+    row.querySelector('.question-num').textContent = (i + 1) + '.';
+  });
+}
+
+function addQuestion() {
+  const list = document.getElementById('questions-list');
+  const row = document.createElement('div');
+  row.className = 'question-row flex items-center gap-2';
+  row.innerHTML = `
+    <span class="text-xs font-bold text-gray-400 w-5 shrink-0 text-right question-num"></span>
+    <input type="text" placeholder="Enter question..."
+           class="question-input flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <button type="button" onclick="removeQuestion(this)"
+            class="shrink-0 text-red-400 hover:text-red-600 transition-colors text-xs font-medium px-2">
+      Remove
+    </button>
+  `;
+  list.appendChild(row);
+  renumberQuestions();
+  row.querySelector('input').focus();
+}
+
+function removeQuestion(btn) {
+  btn.closest('.question-row').remove();
+  renumberQuestions();
+}
+
+function prepareSubmit() {
+  const inputs = document.querySelectorAll('.question-input');
+  const questions = [];
+  inputs.forEach((inp, i) => {
+    const text = inp.value.trim();
+    if (text) {
+      questions.push({ id: 'q' + (i + 1), text: text, required: false, type: 'open' });
+    }
+  });
+  document.getElementById('questions_json_input').value = JSON.stringify(questions);
+}
+
+// Number questions on load
+document.addEventListener('DOMContentLoaded', renumberQuestions);
+</script>
+{% endblock %}
