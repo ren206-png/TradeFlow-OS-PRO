@@ -213,4 +213,47 @@
   </div>
 </div>
 
+<!-- ===== LANDING PAGE FUNNEL (last 7 days) ===== -->
+<div class="mt-4 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-white">Landing Page Funnel <span class="text-gray-500 font-normal text-xs ml-1">last 7 days · unique sessions</span></h2>
+  </div>
+  <div class="p-5">
+    {% if funnel %}
+    <div class="space-y-3">
+      {% set steps = [
+        ('👁️', 'Page Views',       funnel.page_view),
+        ('📜', 'Scrolled 50%',     funnel.scroll_50),
+        ('🖱️', 'Hero CTA Click',   funnel.cta_hero_click),
+        ('🚪', 'Exit Modal Shown', funnel.exit_modal_shown),
+        ('📌', 'Sticky CTA Click', funnel.cta_sticky_click),
+        ('✏️', 'Signup Started',   funnel.signup_start),
+        ('✅', 'Signup Complete',  funnel.signup_complete),
+      ] %}
+      {% set top = [funnel.page_view, 1] | max %}
+      {% for icon, label, count in steps %}
+      <div class="flex items-center gap-3">
+        <span class="text-base w-6 text-center flex-shrink-0">{{ icon }}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-gray-400">{{ label }}</span>
+            <span class="text-white font-semibold">{{ count }} <span class="text-gray-500 font-normal">({{ ((count / top) * 100) | int }}%)</span></span>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-1.5">
+            {% set pct = [((count / top) * 100) | int, 100] | min %}
+            <div class="h-1.5 rounded-full {% if pct >= 50 %}bg-green-500{% elif pct >= 20 %}bg-yellow-500{% else %}bg-indigo-500{% endif %}" style="width:{{ [pct, 2] | max }}%"></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if funnel.page_view == 0 %}
+    <p class="text-gray-600 text-xs text-center mt-4">No events yet — data populates as visitors land on tradesflowos.com</p>
+    {% endif %}
+    {% else %}
+    <p class="text-gray-600 text-sm text-center py-4">Funnel data unavailable.</p>
+    {% endif %}
+  </div>
+</div>
+
 {% endblock %}

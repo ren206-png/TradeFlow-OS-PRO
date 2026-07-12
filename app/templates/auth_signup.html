@@ -143,11 +143,32 @@
   </div>
 
   <script defer>
+    // Mini tracker for signup page
+    (function() {
+      let sid = localStorage.getItem('_tf_sid');
+      if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); }
+      window._tfFire = function(ev) {
+        fetch('/api/events', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: ev, session_id: sid, page: location.pathname, referrer: document.referrer }),
+          keepalive: true,
+        }).catch(() => {});
+      };
+    })();
+
     document.addEventListener('DOMContentLoaded', function () {
       const form = document.querySelector('form');
       const btn = document.getElementById('submit-btn');
       const txt = document.getElementById('submit-text');
       const spin = document.getElementById('submit-spinner');
+
+      // Fire signup_start when user first focuses any field
+      let startFired = false;
+      form.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('focus', function() {
+          if (!startFired) { startFired = true; window._tfFire('signup_start'); }
+        }, { once: true });
+      });
 
       // Show spinner on submit to prevent double-click
       form.addEventListener('submit', function () {

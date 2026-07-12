@@ -115,8 +115,29 @@ async def dashboard_overview(
     )
     trade_counts = [{"trade": row[0], "count": row[1]} for row in trade_counts_result.fetchall()]
 
-    # --- Call quality metrics (last 7 days) ---
+    # --- Landing page funnel (last 7 days, unique sessions per event) ---
     seven_days_ago = now - timedelta(days=7)
+    funnel: dict = {}
+    try:
+        from app.models.page_event import PageEvent
+        funnel_events = [
+            "page_view", "scroll_50", "cta_hero_click", "exit_modal_shown",
+            "cta_sticky_click", "signup_start", "signup_complete",
+        ]
+        for ev in funnel_events:
+            row = await db.execute(
+                select(func.count(func.distinct(PageEvent.session_id)))
+                .where(PageEvent.event_name == ev)
+                .where(PageEvent.created_at >= seven_days_ago)
+            )
+            funnel[ev] = row.scalar_one() or 0
+    except Exception:
+        funnel = {ev: 0 for ev in [
+            "page_view", "scroll_50", "cta_hero_click", "exit_modal_shown",
+            "cta_sticky_click", "signup_start", "signup_complete",
+        ]}
+
+    # --- Call quality metrics (last 7 days) ---
     _NEGATIVE_SENTIMENTS = {"negative", "frustrated", "angry", "very_negative"}
     _HIGH_REVENUE_THRESHOLD = 60
     quality_leads_result = await db.execute(
@@ -162,6 +183,7 @@ async def dashboard_overview(
             "recent_leads": recent_leads,
             "recent_calls": recent_calls,
             "trade_counts": trade_counts,
+            "funnel": funnel,
         },
     )
 

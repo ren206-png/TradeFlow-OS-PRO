@@ -159,6 +159,60 @@ async def demo_number():
     return {"phone_number": settings.demo_phone_number}
 
 
+_ALLOWED_EVENTS = {
+    "page_view", "cta_hero_click", "cta_sticky_click", "demo_call_click",
+    "exit_modal_shown", "exit_modal_cta_click",
+    "scroll_25", "scroll_50", "scroll_75", "scroll_100",
+    "signup_start", "signup_complete",
+}
+
+@app.post("/api/events", tags=["public"], status_code=204)
+async def track_event(request: Request):
+    """
+    Lightweight analytics event ingestion.
+    Accepts JSON: {event, session_id, page, referrer}
+    Rate-limited, allowlist-validated, fire-and-forget (never blocks the client).
+    """
+    from app.utils.rate_limit import check_rate_limit
+    allowed, _ = check_rate_limit(request, "track_event", max_requests=60, window_seconds=60)
+    if not allowed:
+        return JSONResponse(status_code=429, content={"error": "rate limited"})
+
+    try:
+        body = await request.json()
+    except Exception:
+        return  # silently drop malformed payloads
+
+    event_name = str(body.get("event", ""))[:64]
+    if event_name not in _ALLOWED_EVENTS:
+        return  # silently drop unknown events
+
+    session_id = str(body.get("session_id", ""))[:64]
+    page = str(body.get("page", "/"))[:255]
+    referrer = str(body.get("referrer", ""))[:512]
+
+    # Coarse device detection from UA header
+    ua = request.headers.get("user-agent", "").lower()
+    device = "mobile" if any(x in ua for x in ("mobile", "android", "iphone")) else \
+             "tablet" if "ipad" in ua else "desktop"
+
+    try:
+        from app.models.page_event import PageEvent
+        from app.database import get_db as _get_db
+        async for db in _get_db():
+            db.add(PageEvent(
+                event_name=event_name,
+                session_id=session_id,
+                page=page,
+                referrer=referrer,
+                device=device,
+            ))
+            await db.commit()
+            break
+    except Exception as exc:
+        logger.debug("track_event DB error (non-fatal): %s", exc)
+
+
 @app.get("/api/public/metrics", tags=["public"])
 async def public_metrics():
     """

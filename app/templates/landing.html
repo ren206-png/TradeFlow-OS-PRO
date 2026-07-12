@@ -662,6 +662,7 @@
       exitShown = true;
       exitModal.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
+      if (window._tfFire) window._tfFire('exit_modal_shown');
     };
     const hideExitModal = () => {
       exitModal.classList.add('hidden');
@@ -693,6 +694,61 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideExitModal(); });
 
   }); // end DOMContentLoaded
+  </script>
+
+  <!-- ===== ANALYTICS TRACKER ===== -->
+  <script defer>
+  (function() {
+    // Anonymous session — persisted in localStorage, no PII
+    let sid = localStorage.getItem('_tf_sid');
+    if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); }
+
+    function fire(event) {
+      fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event,
+          session_id: sid,
+          page: location.pathname,
+          referrer: document.referrer.slice(0, 512),
+        }),
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    // Page view
+    fire('page_view');
+
+    // Scroll depth milestones
+    const scrollMilestones = { 25: false, 50: false, 75: false, 100: false };
+    window.addEventListener('scroll', function() {
+      const pct = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
+      [25, 50, 75, 100].forEach(m => {
+        if (!scrollMilestones[m] && pct >= m) {
+          scrollMilestones[m] = true;
+          fire('scroll_' + m);
+        }
+      });
+    }, { passive: true });
+
+    // CTA clicks
+    document.addEventListener('click', function(e) {
+      const a = e.target.closest('a');
+      if (!a) return;
+      const href = a.getAttribute('href') || '';
+      if (href === '/auth/signup') {
+        // Distinguish hero vs sticky
+        const inSticky = !!a.closest('#sticky-cta');
+        const inExitModal = !!a.closest('#exit-modal');
+        fire(inSticky ? 'cta_sticky_click' : inExitModal ? 'exit_modal_cta_click' : 'cta_hero_click');
+      }
+      if (href.startsWith('tel:')) fire('demo_call_click');
+    });
+
+    // Expose fire() so exit-modal JS can call it
+    window._tfFire = fire;
+  })();
   </script>
 
   {% if ff_live_metrics %}

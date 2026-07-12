@@ -63,6 +63,22 @@
 
   {% block scripts %}{% endblock %}
 
+  <!-- Fire signup_complete event on first portal visit after registration -->
+  {% if flash and 'Welcome' in flash %}
+  <script defer>
+    (function() {
+      let sid = localStorage.getItem('_tf_sid');
+      if (sid) {
+        fetch('/api/events', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'signup_complete', session_id: sid, page: location.pathname, referrer: '' }),
+          keepalive: true,
+        }).catch(() => {});
+      }
+    })();
+  </script>
+  {% endif %}
+
   <!-- Bottom nav -->
   <nav class="fixed bottom-0 inset-x-0 bg-white border-t-2 border-gray-200 flex shadow-xl" style="padding-bottom: env(safe-area-inset-bottom)">
     <a href="/portal/leads" class="flex-1 flex flex-col items-center pt-2 pb-3 {% if active_nav == 'leads' %}text-blue-600{% else %}text-gray-500{% endif %}">
