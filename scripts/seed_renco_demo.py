@@ -19,7 +19,7 @@ RENCO_AGENT    = "Alex"
 
 
 async def main():
-    from app.db import AsyncSessionLocal
+    from app.database import async_session_factory as AsyncSessionLocal
     from app.models.contractor import Contractor
     from app.utils.auth import hash_password
     from sqlalchemy import select

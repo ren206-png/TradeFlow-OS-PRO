@@ -8,6 +8,7 @@ Create Date: 2026-07-11
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID
 from alembic import op
 
 revision: str = "0006"
@@ -20,7 +21,7 @@ def upgrade() -> None:
     op.create_table(
         "intake_templates",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("contractor_id", sa.Integer(), nullable=True),
+        sa.Column("contractor_id", UUID(as_uuid=True), nullable=True),
         sa.Column("trade", sa.String(100), nullable=False),
         sa.Column("is_system", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("questions", sa.JSON(), nullable=False),
