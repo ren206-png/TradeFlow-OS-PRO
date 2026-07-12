@@ -131,10 +131,27 @@ async def dashboard_overview(
                 .where(PageEvent.created_at >= seven_days_ago)
             )
             funnel[ev] = row.scalar_one() or 0
+
+        # A/B test signup counts
+        ab_a_row = await db.execute(
+            select(func.count(func.distinct(PageEvent.session_id)))
+            .where(PageEvent.event_name == "signup_complete")
+            .where(PageEvent.ab_variant == "A")
+            .where(PageEvent.created_at >= seven_days_ago)
+        )
+        ab_b_row = await db.execute(
+            select(func.count(func.distinct(PageEvent.session_id)))
+            .where(PageEvent.event_name == "signup_complete")
+            .where(PageEvent.ab_variant == "B")
+            .where(PageEvent.created_at >= seven_days_ago)
+        )
+        funnel["ab_signups_a"] = ab_a_row.scalar_one() or 0
+        funnel["ab_signups_b"] = ab_b_row.scalar_one() or 0
     except Exception:
         funnel = {ev: 0 for ev in [
             "page_view", "scroll_50", "cta_hero_click", "exit_modal_shown",
             "cta_sticky_click", "signup_start", "signup_complete",
+            "ab_signups_a", "ab_signups_b",
         ]}
 
     # --- Call quality metrics (last 7 days) ---

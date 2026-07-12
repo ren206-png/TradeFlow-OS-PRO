@@ -32,6 +32,8 @@ class PageEvent(Base):
     referrer: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     # coarse device type derived from user-agent server-side
     device: Mapped[str] = mapped_column(String(16), nullable=False, default="unknown")
+    # A/B test variant ("A" or "B") — nullable for pre-test events
+    ab_variant: Mapped[str] = mapped_column(String(2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )

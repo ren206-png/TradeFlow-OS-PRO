@@ -90,5 +90,8 @@ class Settings(BaseSettings):
     fsm_sync: bool = False
     intake_flows_v2: bool = False
 
+    # Phase 3 feature flags
+    followup_sms_enabled: bool = False
+
 
 settings = Settings()

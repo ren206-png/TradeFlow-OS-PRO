@@ -202,7 +202,11 @@
             🤖 AI-Powered &nbsp;•&nbsp; Always On &nbsp;•&nbsp; Built for Trades
           </div>
           <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-5">
+            {% if ab_variant == "B" %}
+            Stop Losing Jobs to Voicemail — Your AI Receptionist Answers Every Call
+            {% else %}
             Never Miss a Lead Again.
+            {% endif %}
           </h1>
           <p class="text-lg sm:text-xl text-blue-100 max-w-xl mx-auto lg:mx-0 mb-8 leading-relaxed">
             TradeFlow answers every call, books appointments, and sends you a full customer summary — while you're on the job.
@@ -703,6 +707,8 @@
     let sid = localStorage.getItem('_tf_sid');
     if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); }
 
+    const _tfAbVariant = "{{ ab_variant | default('A') }}";
+
     function fire(event) {
       fetch('/api/events', {
         method: 'POST',
@@ -712,6 +718,7 @@
           session_id: sid,
           page: location.pathname,
           referrer: document.referrer.slice(0, 512),
+          ab_variant: _tfAbVariant,
         }),
         keepalive: true,
       }).catch(() => {});

@@ -168,6 +168,7 @@ async def daily_digest() -> None:
 
         # Per-contractor breakdown
         contractor_ids = list({str(s.contractor_id) for s in sessions})
+        contractors: dict = {}
         if contractor_ids:
             c_result = await db.execute(
                 select(Contractor).where(Contractor.id.in_(contractor_ids))
@@ -191,6 +192,14 @@ async def daily_digest() -> None:
 
         # Email admin if SMTP is configured
         await _email_digest(summary, yesterday_start.date())
+
+        # Feature 4: send per-contractor daily digest emails
+        await _send_contractor_digest_emails(
+            sessions=sessions,
+            leads=leads,
+            contractors=contractors,
+            report_date=yesterday_start.date(),
+        )
 
 
 async def _email_digest(body: str, report_date) -> None:
@@ -219,3 +228,64 @@ async def _email_digest(body: str, report_date) -> None:
         logger.info("daily_digest: email sent to %s", admin_email)
     except Exception as exc:
         logger.warning("daily_digest: email failed — %s", exc)
+
+
+async def _send_contractor_digest_emails(
+    sessions: list,
+    leads: list,
+    contractors: dict,
+    report_date,
+) -> None:
+    """Send per-contractor daily digest emails to active contractors with an email address."""
+    from app.services.notifications import send_daily_digest_email
+
+    MISSED_CALL_SECS = 10
+
+    for cid, contractor in contractors.items():
+        if not contractor.is_active or not contractor.email:
+            continue
+
+        c_sessions = [s for s in sessions if str(s.contractor_id) == cid]
+        if not c_sessions:
+            continue
+
+        c_leads = [l for l in leads if str(l.contractor_id) == cid]
+        c_booked = sum(1 for l in c_leads if l.appointment_status == "booked")
+        c_booking_rate = round(c_booked / len(c_leads) * 100, 1) if c_leads else 0.0
+        c_missed = sum(
+            1 for s in c_sessions if (s.duration_seconds or 0) < MISSED_CALL_SECS
+        )
+        c_high_value_missed = sum(
+            1 for l in c_leads
+            if l.appointment_status == "not_booked"
+            and (l.revenue_score or 0) >= HIGH_REVENUE_THRESHOLD
+        )
+        durations = [s.duration_seconds for s in c_sessions if s.duration_seconds]
+        c_avg_duration = int(sum(durations) / len(durations)) if durations else 0
+        c_emergency = sum(
+            1 for l in c_leads
+            if (l.emergency_level or "").lower() in ("emergency", "urgent")
+            or l.life_safety_risk
+        )
+
+        stats = {
+            "total_calls": len(c_sessions),
+            "leads": len(c_leads),
+            "booked": c_booked,
+            "booking_rate": c_booking_rate,
+            "missed_calls": c_missed,
+            "high_value_missed": c_high_value_missed,
+            "avg_duration_secs": c_avg_duration,
+            "emergency_calls": c_emergency,
+        }
+
+        try:
+            await send_daily_digest_email(contractor, stats, report_date)
+            logger.info(
+                "daily_digest: sent contractor digest to %s (%s)",
+                contractor.email, contractor.name,
+            )
+        except Exception as exc:
+            logger.error(
+                "daily_digest: failed to send to contractor %s: %s", cid, exc
+            )

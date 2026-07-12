@@ -182,6 +182,131 @@ async def notify_new_lead(contractor, lead) -> None:
         )
 
 
+async def send_daily_digest_email(contractor, stats: dict, report_date) -> None:
+    """
+    Send the daily call quality digest email to a contractor.
+
+    stats keys: total_calls, leads, booked, booking_rate, missed_calls,
+                high_value_missed, avg_duration_secs, emergency_calls.
+    """
+    if not contractor.email:
+        return
+
+    portal_url = "https://tradesflowos.com/portal/leads"
+
+    total_calls = stats.get("total_calls", 0)
+    leads = stats.get("leads", 0)
+    booked = stats.get("booked", 0)
+    booking_rate = stats.get("booking_rate", 0.0)
+    missed_calls = stats.get("missed_calls", 0)
+    high_value_missed = stats.get("high_value_missed", 0)
+    avg_duration_secs = stats.get("avg_duration_secs", 0)
+    emergency_calls = stats.get("emergency_calls", 0)
+
+    avg_min = avg_duration_secs // 60
+    avg_sec = avg_duration_secs % 60
+    avg_duration_str = f"{avg_min}m {avg_sec:02d}s" if avg_duration_secs else "—"
+
+    subject = f"TradeFlow Daily Digest — {report_date}"
+
+    text = (
+        f"TradeFlow OS — Daily Digest ({report_date})\n\n"
+        f"Total calls:          {total_calls}\n"
+        f"Leads created:        {leads}\n"
+        f"Appointments booked:  {booked} ({booking_rate}%)\n"
+        f"Missed calls (<10s):  {missed_calls}\n"
+        f"High-value missed:    {high_value_missed}\n"
+        f"Avg call duration:    {avg_duration_str}\n"
+        f"Emergency calls:      {emergency_calls}\n\n"
+        f"View leads: {portal_url}\n"
+    )
+
+    emergency_row = (
+        f"<tr>"
+        f"<td style='padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;width:200px;'>Emergency-level calls</td>"
+        f"<td style='padding:8px 0;border-bottom:1px solid #f3f4f6;color:{'#ef4444' if emergency_calls else '#111827'};font-size:14px;font-weight:{'700' if emergency_calls else '400'};'>{emergency_calls}</td>"
+        f"</tr>"
+        if emergency_calls > 0
+        else ""
+    )
+
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#1e40af;padding:24px 32px;">
+            <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">TradeFlow</p>
+            <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px;">Daily Digest — {report_date}</p>
+          </td>
+        </tr>
+
+        <!-- Stats -->
+        <tr>
+          <td style="padding:24px 32px;">
+            <h2 style="margin:0 0 16px;font-size:18px;color:#111827;">Yesterday at a Glance</h2>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;width:200px;">Total calls received</td>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#111827;font-size:14px;font-weight:600;">{total_calls}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Leads created</td>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#111827;font-size:14px;">{leads}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Appointments booked</td>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#111827;font-size:14px;">{booked} <span style="color:#6b7280;font-size:12px;">({booking_rate}%)</span></td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Missed calls (&lt;10s)</td>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#111827;font-size:14px;">{missed_calls}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">High-value missed leads</td>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:{'#f97316' if high_value_missed else '#111827'};font-size:14px;font-weight:{'700' if high_value_missed else '400'};">{high_value_missed}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:13px;">Avg call duration</td>
+                <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#111827;font-size:14px;">{avg_duration_str}</td>
+              </tr>
+              {emergency_row}
+            </table>
+          </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+          <td style="padding:0 32px 32px;">
+            <a href="{portal_url}"
+               style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;">
+              View Leads in Portal →
+            </a>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;color:#9ca3af;font-size:12px;">TradeFlow OS · tradesflowos.com · Daily digest for {contractor.name or 'your account'}.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    await asyncio.get_running_loop().run_in_executor(
+        None, _send_email, contractor.email, subject, html, text
+    )
+
+
 async def notify_appointment_booked(contractor, lead) -> None:
     """Notify contractor when an appointment is booked."""
     name = lead.caller_name or "Unknown Caller"

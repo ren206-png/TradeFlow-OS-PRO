@@ -250,6 +250,24 @@
     {% if funnel.page_view == 0 %}
     <p class="text-gray-600 text-xs text-center mt-4">No events yet — data populates as visitors land on tradesflowos.com</p>
     {% endif %}
+    <!-- A/B test headline results -->
+    <div class="mt-4 pt-4 border-t border-gray-800">
+      <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">A/B Test — Hero Headline (7d signups)</p>
+      <div class="flex gap-3">
+        <div class="flex-1 bg-gray-800 rounded-lg px-3 py-2">
+          <p class="text-xs text-gray-400 mb-1">Variant A <span class="text-gray-600">· "Never Miss a Lead Again"</span></p>
+          <p class="text-lg font-bold {% if funnel.ab_signups_a > funnel.ab_signups_b %}text-green-400{% else %}text-white{% endif %}">
+            {{ funnel.ab_signups_a }} signups{% if funnel.ab_signups_a > funnel.ab_signups_b %} 🏆{% endif %}
+          </p>
+        </div>
+        <div class="flex-1 bg-gray-800 rounded-lg px-3 py-2">
+          <p class="text-xs text-gray-400 mb-1">Variant B <span class="text-gray-600">· "Stop Losing Jobs to Voicemail"</span></p>
+          <p class="text-lg font-bold {% if funnel.ab_signups_b > funnel.ab_signups_a %}text-green-400{% else %}text-white{% endif %}">
+            {{ funnel.ab_signups_b }} signups{% if funnel.ab_signups_b > funnel.ab_signups_a %} 🏆{% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
     {% else %}
     <p class="text-gray-600 text-sm text-center py-4">Funnel data unavailable.</p>
     {% endif %}

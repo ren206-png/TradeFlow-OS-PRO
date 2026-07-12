@@ -785,8 +785,11 @@ async def _apply_analysis(call_id: str, call_info: dict, db: AsyncSession) -> No
 
 async def _schedule_post_call_jobs(call_id: str, db: AsyncSession) -> None:
     """Queue APScheduler jobs after a call ends."""
+    from datetime import timedelta
+
     try:
         from app.services.scheduler import (
+            get_scheduler,
             schedule_appointment_reminder,
             schedule_review_request,
             schedule_unbooked_followup,
@@ -826,6 +829,28 @@ async def _schedule_post_call_jobs(call_id: str, db: AsyncSession) -> None:
             contractor_id=contractor_id,
             lead_id=lead_id,
             phone=lead.phone,
+        )
+
+    # Feature 3: outbound follow-up SMS sequence for missed callers
+    if settings.followup_sms_enabled and lead.appointment_status != "booked" and lead.phone:
+        from app.services.followup import send_followup_sms
+        scheduler = get_scheduler()
+        now = datetime.now(tz=timezone.utc)
+        scheduler.add_job(
+            send_followup_sms,
+            trigger="date",
+            run_date=now + timedelta(hours=1),
+            args=[lead_id, contractor_id, 1],
+            id=f"followup_1_{call_id}",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            send_followup_sms,
+            trigger="date",
+            run_date=now + timedelta(hours=24),
+            args=[lead_id, contractor_id, 2],
+            id=f"followup_2_{call_id}",
+            replace_existing=True,
         )
 
 

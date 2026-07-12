@@ -1,6 +1,7 @@
 from app.models.contractor import Contractor
 from app.prompts.master_prompt import MASTER_PROMPT_TEMPLATE
 from app.prompts.multilang_wrapper import apply_language_directive
+from app.config import settings
 
 
 def build_system_prompt(contractor: Contractor, intake_section: str = "") -> str:

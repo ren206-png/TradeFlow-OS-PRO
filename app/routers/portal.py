@@ -15,6 +15,7 @@ from app.config import PLAN_LIMITS
 from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
+from app.models.fsm_credential import FSMCredential
 from app.models.intake_template import IntakeTemplate
 from app.models.lead import Lead
 from app.models.on_call_schedule import OnCallSchedule
@@ -676,6 +677,94 @@ async def portal_intake_reset(
         await db.delete(tmpl)
         await db.commit()
     return RedirectResponse(url="/portal/setup/intake?flash=Reset+to+default", status_code=302)
+
+
+@router.get("/setup/integrations", response_class=HTMLResponse)
+async def portal_integrations_get(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+    flash: Optional[str] = Query(None),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    result = await db.execute(
+        select(FSMCredential).where(FSMCredential.contractor_id == contractor.id)
+    )
+    cred = result.scalar_one_or_none()
+
+    jobber_connected = cred is not None and cred.vendor == "jobber"
+    hcp_connected = cred is not None and cred.vendor == "housecall_pro"
+
+    return templates.TemplateResponse(
+        "portal_integrations.html",
+        {
+            "request": request,
+            "contractor_name": contractor.name,
+            "contractor_verified": contractor.is_verified,
+            "active_nav": "setup",
+            "contractor": contractor,
+            "jobber_connected": jobber_connected,
+            "hcp_connected": hcp_connected,
+            "flash": flash,
+        },
+    )
+
+
+@router.post("/setup/integrations/connect", response_class=RedirectResponse)
+async def portal_integrations_connect(
+    request: Request,
+    vendor: str = Form(...),
+    token: str = Form(...),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    from app.services.fsm.service import encrypt_token
+
+    encrypted = encrypt_token(token.strip())
+
+    result = await db.execute(
+        select(FSMCredential).where(FSMCredential.contractor_id == contractor.id)
+    )
+    cred = result.scalar_one_or_none()
+    if cred:
+        cred.vendor = vendor
+        cred.access_token_enc = encrypted
+    else:
+        cred = FSMCredential(
+            contractor_id=contractor.id,
+            vendor=vendor,
+            access_token_enc=encrypted,
+        )
+        db.add(cred)
+
+    await db.commit()
+    return RedirectResponse(url="/portal/setup/integrations?flash=Integration+connected", status_code=302)
+
+
+@router.post("/setup/integrations/disconnect", response_class=RedirectResponse)
+async def portal_integrations_disconnect(
+    request: Request,
+    vendor: str = Form(...),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    result = await db.execute(
+        select(FSMCredential).where(FSMCredential.contractor_id == contractor.id)
+    )
+    cred = result.scalar_one_or_none()
+    if cred and cred.vendor == vendor:
+        await db.delete(cred)
+        await db.commit()
+
+    return RedirectResponse(url="/portal/setup/integrations?flash=Integration+disconnected", status_code=302)
 
 
 @router.get("/events")

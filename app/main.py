@@ -101,15 +101,29 @@ app.include_router(twilio_sms.router)
 # Health check
 # ---------------------------------------------------------------------------
 
+_VISITOR_COOKIE = "tf_visitor"
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing_page(request: Request):
-    return templates.TemplateResponse("landing.html", {
+    visitor_token = request.cookies.get(_VISITOR_COOKIE)
+    if not visitor_token:
+        import uuid as _uuid
+        visitor_token = str(_uuid.uuid4())
+
+    ab_variant = "A" if hash(visitor_token) % 2 == 0 else "B"
+
+    response = templates.TemplateResponse("landing.html", {
         "request": request,
         "demo_phone": settings.demo_phone_number or None,
         "ff_trust_v2": settings.trust_v2,
         "ff_mobile_hero_v2": settings.mobile_hero_v2,
         "ff_live_metrics": settings.live_metrics,
+        "ab_variant": ab_variant,
     })
+    if not request.cookies.get(_VISITOR_COOKIE):
+        response.set_cookie(_VISITOR_COOKIE, visitor_token, max_age=60 * 60 * 24 * 365, httponly=True, samesite="lax")
+    return response
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
@@ -201,6 +215,8 @@ async def track_event(request: Request):
     session_id = str(body.get("session_id", ""))[:64]
     page = str(body.get("page", "/"))[:255]
     referrer = str(body.get("referrer", ""))[:512]
+    ab_variant_raw = body.get("ab_variant")
+    ab_variant = str(ab_variant_raw)[:2] if ab_variant_raw in ("A", "B") else None
 
     # Coarse device detection from UA header
     ua = request.headers.get("user-agent", "").lower()
@@ -217,6 +233,7 @@ async def track_event(request: Request):
                 page=page,
                 referrer=referrer,
                 device=device,
+                ab_variant=ab_variant,
             ))
             await db.commit()
             break
