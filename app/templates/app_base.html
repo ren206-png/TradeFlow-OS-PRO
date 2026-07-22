@@ -16,8 +16,10 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
   <!-- Top bar -->
-  <header class="bg-blue-700 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow">
-    <a href="/app/leads?api_key={{ api_key }}" class="font-bold text-lg text-white hover:text-blue-200">TradeFlow</a>
+  <header class="bg-blue-700 text-white px-4 py-2 flex items-center justify-between sticky top-0 z-10 shadow">
+    <a href="/app/leads?api_key={{ api_key }}" class="flex items-center">
+      <img src="/static/tradeflow-logo.png" alt="TradeFlow" class="h-10 w-auto" style="filter: brightness(0) invert(1);">
+    </a>
     <span class="text-sm opacity-75">{{ contractor_name }}</span>
   </header>
 
