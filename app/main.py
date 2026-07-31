@@ -166,6 +166,16 @@ async def sitemap_xml():
     return Response(content=content, media_type="application/xml")
 
 
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy(request: Request):
+    return templates.TemplateResponse("privacy.html", {"request": request})
+
+
+@app.get("/terms", response_class=HTMLResponse, include_in_schema=False)
+async def terms_and_conditions(request: Request):
+    return templates.TemplateResponse("terms.html", {"request": request})
+
+
 @app.get("/signup", include_in_schema=False)
 async def signup_redirect():
     return RedirectResponse(url="/auth/signup")
