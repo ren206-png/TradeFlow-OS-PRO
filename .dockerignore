@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist
+build
+.eggs
+
+# Virtual environments
+.venv
+venv
+env
+ENV
+
+# Test artifacts
+.pytest_cache
+.coverage
+htmlcov
+tests/
+
+# Dev / editor
+.env
+.env.*
+*.md
+*.txt.bak
+.DS_Store
+.idea
+.vscode
+*.swp
+*.swo
+
+# Docs / planning files
+PHASE_*.md
+LAUNCH_READINESS.md
+README.md
+CLAUDE.md
+
+# Scripts (not needed at runtime)
+scripts/
+
+# Docker compose (not needed inside container)
+docker-compose.yml
+nixpacks.toml
