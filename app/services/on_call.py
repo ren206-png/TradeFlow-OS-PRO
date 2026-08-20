@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class OnCallService:
     async def get_transfer_number(self, contractor: Contractor, db: AsyncSession) -> str | None:
         """Get the on-call number for right now, falling back to calendar_config transfer_number."""
-        now = datetime.datetime.utcnow()  # use contractor.timezone ideally, utcnow for MVP
+        now = datetime.datetime.now(datetime.timezone.utc)  # use contractor.timezone ideally, utc for MVP
         day = now.weekday()  # 0=Mon
         time_str = now.strftime("%H:%M:%S")
 

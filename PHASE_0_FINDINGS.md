@@ -1,277 +1,422 @@
-# PHASE 0 FINDINGS — TradeFlow-OS Pro
-## Read-Only Reconnaissance
-*Commit: main (post Phase 4 analytics build)*
+# PHASE 0 AUDIT FINDINGS — TradeFlow-OS
+**Audit Date:** 2026-08-19
+**Auditor:** Claude Code (read-only, no files modified)
+**Codebase Root:** `/Users/rennerkargbo/Desktop/tradeflow - os/`
 
 ---
 
-## 1. CALL PIPELINE MAP
+## 1. CALL LIFECYCLE MAP
 
-```
-PSTN caller dials contractor's Retell number
-        │
-        ▼
-POST /retell/inbound                              retell.py:324
-  DB lookup: Contractor WHERE phone_number = to_number AND is_active
-  Returns {"agent_id": contractor.retell_agent_id}
-  Fallback: first active agent if no match       retell.py:359–368
-        │
-        ▼  Retell opens WebSocket
-WS  /llm-websocket/{call_id}                      retell.py:55
-  Auth: Authorization: Bearer <retell_api_key>    retell.py:80–85
-  Sends config {auto_reconnect, call_details}     retell.py:97–103
-        │
-        │  [interaction_type = call_details]
-        ▼
-  _get_contractor_by_phone(to_number)             retell.py:604
-  CallSession INSERT + flush                      retell.py:131–139
-  Demo daily cap check (is_demo_call)             retell.py:143–157
-  BillingService.check_usage_limit("calls")       retell.py:160–177
-  Per-plan max_call_mins stamped                  retell.py:180–186
-  SMS consent recorded (sms_compliance)           retell.py:189–194
-  ClaudeAgent(contractor, call_session, db)       retell.py:196–201
-  broadcast_call_event("call_started")            retell.py:203–210
-  agent.process_turn("__call_started__")          retell.py:213
-    → build_system_prompt(contractor)             prompts/builder.py:6
-    → _client.messages.create(model, tools, …)   claude_agent.py:84
-    → first assistant text returned as greeting
-  WS response_type="response" sent               retell.py:214–220
-        │
-        │  [interaction_type = response_required per utterance]
-        ▼
-  agent.process_turn(user_message)               retell.py:248
-    Appends user message to history              claude_agent.py:50
-    while iteration < MAX_TOOL_ITERATIONS(5):    claude_agent.py:53
-      Claude API call (AsyncAnthropic)           claude_agent.py:84–91
-      if tool_use blocks:
-        execute_tool(name, input, context)       tools/handlers.py:22
-          ├── check_availability                tools/check_availability.py
-          ├── book_appointment                  tools/book_appointment.py
-          │     └── asyncio.ensure_future(      book_appointment.py:91
-          │           notify_appointment_booked) ← calls sync SMSService ⚠️
-          ├── validate_service_area             tools/validate_address.py
-          ├── send_sms                          tools/send_sms.py
-          ├── create_lead_record                tools/create_lead.py
-          │     └── asyncio.ensure_future(      create_lead.py:84
-          │           notify_new_lead)           ← calls sync SMSService ⚠️
-          └── transfer_call                     tools/transfer_call.py
-                reads contractor.calendar_config["transfer_number"]
-                calls queue_transfer(call_id, number) retell.py:541
-    Conversation history → DB flush             claude_agent.py:78–79
-  _pending_transfers.pop(call_id) checked       retell.py:251
-  WS payload with optional transfer_number sent retell.py:254–265
-        │
-        │  [WebSocketDisconnect or end_call=True]
-        ▼
-  _finalise_session(call_id, call_info, db)     retell.py:637
-    CallSession.status = "completed"
-    duration_seconds stamped
-    BillingService.increment_usage("calls")     retell.py:664
-    Demo call logged if demo tenant             retell.py:667–673
-    Lead: recording_url, transcript_url,
-          raw_transcript from call_info         retell.py:680–686
-    score_call() quality flags                  retell.py:689–692
-    db.flush()
-  broadcast_call_event("call_ended")            retell.py:697–701
-        │
-POST /retell/webhook  event=call_ended          retell.py:402–433
-  _finalise_session() (idempotent)
-  _schedule_post_call_jobs()                    retell.py:725
-    schedule_appointment_reminder / review / followup
-  If duration < 10s: asyncio.create_task(       retell.py:424
-    send_missed_call_sms)  ← sync Twilio ⚠️
-        │
-POST /retell/webhook  event=call_analyzed       retell.py:435
-  _apply_analysis() → Lead.customer_sentiment   retell.py:704
-  PostCallAnalyser.analyse(transcript)          retell.py:447
-    httpx POST to Anthropic (haiku model)       post_call.py:161
-    Updates Lead.ai_summary, sentiment
-    Optionally sends review request SMS         post_call.py:89–107
-  normalize_lead_fields() translation pass      retell.py:453
-```
+This traces a single inbound call from initial Retell contact through to post-call artifacts.
+
+### Step 1 — Retell routes the inbound call
+
+**File:** `app/routers/retell.py` lines 347–393, function `retell_inbound`
+
+Retell hits `POST /retell/inbound`. The handler queries `Contractor` by `Contractor.phone_number == to_number` and returns `{"agent_id": contractor.retell_agent_id}`. No signature verification is performed on this endpoint. If no contractor is found, a fallback query picks any active contractor with a non-null `retell_agent_id` (lines 383–391). This returns the agent ID, which tells Retell which agent to connect.
+
+### Step 2 — WebSocket opens (`/llm-websocket/{call_id}`)
+
+**File:** `app/routers/retell.py` lines 55–339, function `llm_websocket`
+
+Retell opens a WebSocket. Authorization check at line 82: compares `Authorization: Bearer <token>` header against `settings.retell_api_key` using `secrets.compare_digest`. If invalid, closes with code 4401. Server immediately sends a `config` event (lines 97–103) requesting `call_details`.
+
+### Step 3 — `call_details` message received (agent initialization)
+
+**File:** `app/routers/retell.py` lines 124–234
+
+On receiving `interaction_type == "call_details"`:
+- Extracts `to_number` and `from_number` from `call_info` (lines 126–127)
+- Calls `_get_contractor_by_phone(to_number, db)` (line 129) — queries `contractors` table
+- Creates `CallSession` object and calls `db.flush()` at line 139 — DB write before usage checks
+- Demo cap check (lines 143–157), then billing cap check (lines 160–177)
+- SMS consent recorded via `record_consent(from_number, call_id, db)` at line 192
+- Intake template loaded if feature flag enabled (lines 197–204)
+- `ClaudeAgent` instantiated (lines 205–211) — builds system prompt via `build_system_prompt()` in `app/prompts/builder.py` line 7
+- `broadcast_call_event` fires (lines 213–221) — SSE to dashboard
+- First greeting generated by `agent.process_turn("__call_started__")` at line 223
+
+### Step 4 — Intent handling / triage (each user turn)
+
+**File:** `app/routers/retell.py` lines 239–309, `app/services/claude_agent.py` lines 42–89
+
+On each `response_required` or `reminder_required` message:
+1. Extract `_latest_user_utterance(transcript)` at line 242
+2. **Life-safety intercept** at lines 258–269 — `classify_life_safety(user_message)` from `app/services/triage.py` line 43. Hardcoded regex; if matched, sends `LIFE_SAFETY_RESPONSE` and returns immediately. Non-overridable.
+3. `agent.process_turn(user_message)` at line 271 calls `ClaudeAgent.process_turn()` in `app/services/claude_agent.py`
+
+Inside `ClaudeAgent.process_turn()` (`app/services/claude_agent.py` lines 42–89):
+- Calls `_call_claude(messages)` which invokes the Anthropic API (line 104) with full tool set
+- Agentic loop runs up to `MAX_TOOL_ITERATIONS = 8` times (line 18)
+- Tool dispatch via `execute_tool()` in `app/tools/handlers.py` line 22
+
+### Step 5 — Booking
+
+**File:** `app/tools/book_appointment.py` lines 14–115
+
+When Claude calls `book_appointment` tool:
+1. Calls `CalendarService(contractor).book_slot()` — `app/services/calendar.py`
+2. Upserts a `Lead` record (lines 60–83), calls `db.flush()`
+3. Links `call_session.lead_id = lead.id` (line 88)
+4. Fires `notify_appointment_booked` as `asyncio.ensure_future` (line 91)
+5. Calls `send_sms` tool with `booking_confirmation` type (lines 94–107)
+
+### Step 6 — FSM write-back
+
+**File:** `app/tools/create_lead.py` lines 87–103
+
+When Claude calls `create_lead_record` tool and both `settings.fsm_sync` and `contractor.fsm_sync_enabled` are true, `FSMService().push_lead()` is fired as `asyncio.ensure_future` — fire-and-forget.
+
+`FSMService.push_lead()` in `app/services/fsm/service.py` lines 56–100:
+- Fetches `FSMCredential`, decrypts token with Fernet, routes to `JobberAdapter` or `HousecallAdapter`
+- On failure, writes a `FSMRetryQueue` record (lines 87–97) and flushes
+
+### Step 7 — Call ends: `call_ended` webhook
+
+**File:** `app/routers/retell.py` lines 425–491
+
+Retell fires `POST /retell/webhook` with `event == "call_ended"`. Signature verified first via `_verify_retell_signature()` (line 413). Handler calls:
+- `_finalise_session(call_id, call_info, db)` — marks `CallSession.status = "completed"`, stamps `duration_seconds`, `recording_url`, `transcript_url`, `raw_transcript` onto `Lead` (lines 695–759)
+- `_schedule_post_call_jobs(call_id, db)` — queues APScheduler jobs for reminders, review requests, follow-up SMS (lines 786–855)
+
+### Step 8 — Post-call analysis
+
+**File:** `app/routers/retell.py` lines 493–518
+
+On `event == "call_analyzed"`, Retell webhook calls `_apply_analysis()` (writes `ai_summary`, `customer_sentiment` to Lead), then if `transcript` is present, `PostCallAnalyser().analyse()` in `app/services/post_call.py` is called — makes a separate Claude API call to score the transcript and update `Lead.sentiment`, `Lead.ai_summary`, `Lead.follow_up_recommended`.
+
+Translation pass fires as `asyncio.create_task` if `multilang_enabled` (lines 514–518).
 
 ---
 
-## 2. RETELL INTEGRATION SURFACE
+## 2. EXTENSION POINTS INVENTORY
 
-| Feature | Status | File:Line |
-|---|---|---|
-| Custom LLM WebSocket | ✅ FULL | retell.py:55 |
-| Inbound routing webhook | ✅ FULL | retell.py:324 |
-| Lifecycle webhooks (ended, analyzed) | ✅ FULL | retell.py:377 |
-| Webhook HMAC-SHA256 signature verification | ✅ FULL | retell.py:557 |
-| Heartbeat ping-pong | ✅ FULL | retell.py:114 |
-| Auto-reconnect | ✅ FULL | retell.py:99 |
-| Warm transfer (caller stays connected while human is rung) | ⚠️ PARTIAL | transfer_call.py:42 — `transfer_number` injected in WS response; Retell bridges the call. **No `transfer_no_answer` / `transfer_failed` webhook handler exists.** If tech doesn't answer, caller is silently disconnected. |
-| update-live-call (mid-call context injection) | ❌ UNUSED | retell_client.py mentions endpoint; no call-path usage |
-| Dynamic variables (retell_llm_dynamic_variables) | ⚠️ OUTBOUND ONLY | retell_client.py:64 |
-| Retell function calling / custom tools | ❌ N/A | TradeFlow uses Custom LLM WS; Retell function calling is a Retell LLM feature only |
-| Agent config / provisioning | ✅ FULL | provisioning.py:81–104 |
-| Post-call analysis (Retell native sentiment) | ✅ USED | retell.py:436 → lead.customer_sentiment |
-| Agent prompt config | ✅ FULL | prompts/builder.py:6, prompts/master_prompt.py |
+### Outbound flows
 
----
+- **Seam: `_schedule_post_call_jobs`** — `app/routers/retell.py` lines 786–855. New outbound job types (outbound nurture sequences, campaign triggers) can be added here without modifying existing functions. Just add additional `scheduler.add_job()` calls.
+- **Seam: `app/services/scheduler.py`** — entire file is additive. New job functions (`def schedule_X()` + `async def _X_job()`) can be added without modifying existing jobs.
+- **Seam: `app/services/followup.py`** — referenced in `_schedule_post_call_jobs` at line 836; an outbound campaign hook can be registered here.
 
-## 3. TENANT MODEL
+### Triage trees
 
-**Model:** `app/models/contractor.py:14` — `contractors` table
+- **Seam: `app/services/triage.py` lines 50–78** — `URGENCY_LEVELS` dict (line 51) and `get_urgency_tool_schema()` (line 58) are the extension points for triage taxonomy. Adding new urgency levels or triage categories requires only editing this file.
+- **Seam: `app/services/claude_agent.py` line 103** — tools list is assembled at call time: `tools = list(TRADEFLOW_TOOLS)` then `tools.append(get_urgency_tool_schema())` when `settings.emergency_triage` is True. New tools can be conditionally appended here under new feature flags without modifying existing logic.
+- **Seam: `app/tools/handlers.py` `_TOOL_MAP` dict** — lines 12–19. New tools are registered by adding an entry to this dict and providing a handler function. No modification of existing handlers needed.
 
-Key per-tenant business config fields:
+### Analytics events
 
-| Field | Type | Used in call path |
-|---|---|---|
-| `name` | String | System prompt (COMPANY_NAME) |
-| `agent_name` | String | System prompt (AGENT_NAME) |
-| `trades` | JSON list | System prompt + Retell boosted_keywords |
-| `service_areas` | JSON list | System prompt + validate_service_area |
-| `timezone` | String | Scheduling only |
-| `diagnostic_fee` | Float | System prompt clause |
-| `free_estimate` | Bool | System prompt clause |
-| `calendar_config` | JSON dict | `{"transfer_number": "+1..."}` only key used today |
-| `sms_enabled` | Bool | Gates all outbound SMS |
-| `plan` | String | Plan limits lookup |
-| `retell_agent_id` | String | Inbound routing |
-| `phone_number` | String | Inbound routing key |
-
-**Per-tenant call scripting:** All tenants share one `MASTER_PROMPT_TEMPLATE` (master_prompt.py:1). Per-tenant variables interpolated at call start in `build_system_prompt()` (builder.py:34–43). **No per-tenant intake questions, urgency overrides, or emergency definitions exist.**
+- **Seam: `app/services/call_events.py`** — `broadcast_call_event()` is called at key lifecycle moments (`call_started` line 213, `transcript_update` line 303, `call_ended` line 756 in `retell.py`). New analytics consumers can subscribe to the same SSE channel by adding a new event type or hooking into `broadcast_call_event`. No modification to callers needed.
+- **Seam: `app/main.py` `_ALLOWED_EVENTS` set** — lines 197–202. New frontend analytics events can be registered here.
+- **Seam: `app/models/page_event.py`** — PageEvent model is the analytics table; new columns can be added as additive migrations without breaking existing consumers.
 
 ---
 
-## 4. POST-CALL STRUCTURED DATA
+## 3. DATA MODEL AUDIT
 
-Extracted by Claude's `create_lead_record` tool during the call, then enriched post-call.
+### All current tables (from models/ and alembic/versions/)
 
-**Extracted real-time (in-call, via Claude tool):**
-- `caller_name`, `phone`, `email`, `service_address`, `city`, `province_state`, `postal_zip`
-- `property_type` (residential/commercial)
-- `trade`, `service_category`
-- `problem_summary`
-- `emergency_level` — **free-text string, no validated taxonomy** (lead.py:34)
-- `life_safety_risk` — Boolean, **LLM-set only**, no code-level enforcement (lead.py:35)
-- `appointment_status`, `appointment_time`
-- `human_transfer_required`, `transfer_reason`
-- `emergency_score` (1–10), `revenue_score` (1–10), `close_probability` (1–10)
-- `priority_level` (Low/Medium/High/Critical)
-- `customer_sentiment`, `notes`
+| Table | Source | Description |
+|-------|--------|-------------|
+| `contractors` | Migration 0001 + 0002–0005, 0007–0010 | Tenant record; all other tables FK here |
+| `leads` | Migration 0001 + 0004 | Call lead/CRM record |
+| `call_sessions` | Migration 0001 | Active/completed call state + conversation history |
+| `sms_opt_outs` | Model only — no numbered migration | STOP/opt-out tracking per phone |
+| `sms_consents` | Model only — no numbered migration | Implied consent from inbound calls |
+| `fsm_credentials` | Migration 0009 | Fernet-encrypted FSM tokens (Jobber, HousecallPro) |
+| `fsm_retry_queue` | Migration 0009 | Failed FSM push retry records |
+| `on_call_schedules` | Migration 0008 | On-call schedule per contractor |
+| `intake_templates` | Migration 0006 | Intake question templates per trade |
+| `page_events` | Model + Migration 0011 (ab_variant column) | Landing page analytics events |
+| `demo_call` | `app/models/demo_call.py` | Demo call log for daily cap tracking |
 
-**Extracted post-call (webhook-triggered):**
-- `recording_url`, `transcript_url`, `raw_transcript` — from `call_ended` webhook
-- `ai_summary`, `sentiment`, `follow_up_recommended` — from `PostCallAnalyser` (haiku model)
-- `customer_sentiment` — also set by Retell's native analysis
-- `call_quality_flags` — from `quality.py:score_call()`
-- `detected_language`, `translation_status` — from `translation.py` (MULTILANG_ENABLED)
+**Schema drift risk:** `sms_opt_outs` and `sms_consents` are defined in `app/models/sms_opt_out.py` but have no numbered alembic migration. They are created only by `Base.metadata.create_all` at startup (`app/database.py` line 37). Running `alembic upgrade head` in a CI/CD environment will NOT create these tables. The migration chain (0001–0011) is incomplete for these two critical compliance tables.
+
+### Tenant isolation mechanism
+
+**File:** `app/models/lead.py` lines 17–19; `app/models/call.py` lines 19–21
+
+All `Lead` and `CallSession` records carry a non-nullable `contractor_id` foreign key with `ondelete="CASCADE"`. Every portal query enforces `Lead.contractor_id == contractor.id` (e.g. `app/routers/portal.py` line 66). The `contractor` object resolves from `require_contractor()` (lines 30–46), which decodes a signed session cookie (`decode_session_token()` from `app/utils/sessions.py`). The `contractor_id` does not come from user-controllable query parameters.
+
+**Gap noted:** `IntakeTemplate.contractor_id` is nullable (system templates have null) — `app/models/intake_template.py` line 21. The query in `IntakeService.get_template()` (not read in detail) must explicitly filter on `contractor_id` to avoid leaking system templates that could be modified cross-tenant.
+
+### Call record storage — present vs. missing
+
+**Present on `Lead` (`app/models/lead.py`):**
+- `raw_transcript` (JSON) — line 58
+- `recording_url` — line 56
+- `transcript_url` — line 57
+- `phone` (source number of caller) — line 23
+- `call_direction` — line 54
+- `lead_source` — line 55
+- `ai_summary`, `sentiment`, `customer_sentiment` — lines 49–50
+- `appointment_status`, `appointment_time` — lines 37–38
+
+**Present on `CallSession` (`app/models/call.py`):**
+- `duration_seconds` — line 29
+- `started_at`, `ended_at` — lines 27–28
+
+**Missing — ADDITIVE migration candidates only:**
+
+| Missing Column | Recommended Table | Type | Rationale |
+|---------------|-------------------|------|-----------|
+| `from_number` | `call_sessions` | String(30) nullable | Caller number captured in WS but only stored on Lead if lead created; calls that end without a lead (cap-exceeded, demo-capped) have no caller number stored |
+| `call_cost_cents` | `call_sessions` | Integer nullable | No per-call billing cost; needed for financial analytics |
+| `retell_agent_version` | `call_sessions` | String(64) nullable | No record of which agent version handled a call; cannot correlate quality to deployments |
+| `outbound_campaign_id` | `leads` | String(128) nullable | No marketing campaign attribution on leads |
+| `consent_type` | `sms_consents` | String(30) | Only `inbound_caller` basis recorded; no `express_written`, `web_form`, `verbal` |
+| `is_marketing` | `sms_consents` | Boolean | No distinction between transactional and marketing consent — CASL requires this |
+| `transfer_to_number` | `call_sessions` | String(30) nullable | No record of which number a transfer was sent to |
+| `language_at_call_time` | `call_sessions` | String(8) nullable | Detected language only on Lead after translation pass; not on the call record itself |
 
 ---
 
-## 5. FLAG INFRASTRUCTURE
+## 4. A2P 10DLC / CASL READINESS
 
-**Global flags** — `app/config.py:31`, `Settings(BaseSettings)`:
+### What exists today
+
+**Twilio Messaging Service SID (A2P routing):**
+`app/config.py` line 41: `twilio_messaging_service_sid: str = ""` — field exists. When set, SMS routes through the Messaging Service (`app/services/sms.py` lines 51–54). When not set, falls back to direct `from_number` — not A2P compliant for production US traffic. The config comment reads "A2P 10DLC — set this in Railway."
+
+**Opt-out / STOP handling:**
+`app/models/sms_opt_out.py` — `SmsOptOut` table. `app/services/sms_compliance.py` implements full keyword processing (STOP, STOPALL, UNSUBSCRIBE, START, UNSTOP, HELP). `app/routers/twilio_sms.py` handles inbound Twilio webhook for keyword routing. Opt-out is checked in `SMSService._send_compliant()` at `app/services/sms.py` line 112.
+
+**Implied consent storage:**
+`app/models/sms_opt_out.py` lines 29–41 — `SmsConsent` table records implied consent on inbound caller contact. `record_consent()` called in WebSocket handler at `app/routers/retell.py` line 192.
+
+**Compliance footer:**
+`app/services/sms.py` line 13: `COMPLIANCE_FOOTER = " Msg&data rates may apply. Reply STOP to opt out."` — appended on first message via `_send_compliant()` (lines 116–118).
+
+### What does NOT exist
+
+**Campaign registration status fields:** No table or column anywhere stores A2P TCR campaign ID, brand registration ID, campaign status, or registration submission date. There is no `a2p_campaign_id`, `brand_registration_id`, or `tcr_status` field in any model or migration.
+
+**CASL express consent for marketing:** `SmsConsent.consent_basis` is always `"inbound_caller"` (`app/services/sms_compliance.py` line 84). No mechanism records express written consent for outbound marketing. No distinction between transactional (appointment confirmation) and marketing (followup, review request) consent basis.
+
+**Canadian number / CASL determination:** No country-code detection, no routing logic that applies CASL rules (express consent required for all marketing) vs. TCPA (implied for established business relationship). Canadian callers (e.g., 416, 604, 514 area codes) treated identically to US callers.
+
+**Outbound scheduled SMS bypass of opt-out:** Scheduled job handlers call synchronous `SMSService` methods that go through `_send()` directly, skipping the opt-out check that only exists in `_send_compliant()`. Specifically:
+- `app/services/scheduler.py` line 283: `sms.send_followup()` — sync, no opt-out check
+- `app/services/scheduler.py` line 175: `sms.send_appointment_reminder()` — sync, no opt-out check
+- `app/services/scheduler.py` line 232: `sms.send_review_request()` — sync, no opt-out check
+
+---
+
+## 5. RETELL AGENT CONFIGURATION
+
+### How agents are versioned and deployed
+
+**File:** `app/services/provisioning.py` lines 50–158, function `provision_contractor`
+
+Each contractor receives exactly one Retell agent at signup via `RetellClient.create_agent()`. The agent config is assembled inline (lines 81–104). There is no agent versioning table, no version history, and no rollback mechanism in the codebase. The agent is updated post-creation only via `RetellClient.update_agent()` (`app/services/retell_client.py` lines 204–218) — manually triggered, not automated.
+
+**There is no prompt stored in Retell.** The agent type is `"custom-llm"` with `response_engine.type = "custom-llm"` and an LLM WebSocket URL (`app/services/provisioning.py` lines 83–86). All prompting is server-side. Retell's agent record stores only voice ID, language, audio settings, and the WebSocket URL.
+
+### Can per-tenant dynamic prompt variables be added without redeploying agents?
+
+**Yes — no agent redeployment required.** Since the `custom-llm` architecture delegates all prompting to the server, the system prompt is built fresh on every call by `build_system_prompt()` in `app/prompts/builder.py` line 7. Variables currently injected at call time: `contractor.name`, `contractor.agent_name`, `contractor.service_areas`, `contractor.trades`, `contractor.diagnostic_fee`, `contractor.free_estimate`, `contractor.review_link`.
+
+To add new per-tenant prompt variables (e.g. surge mode messaging, custom triage library content):
+1. Add column to `contractors` table (additive migration)
+2. Add variable to `build_system_prompt()` in `app/prompts/builder.py`
+3. Reference it in `MASTER_PROMPT_TEMPLATE` or the `intake_section` injection
+
+No Retell agent update required. No downtime required.
+
+**Exception — voice/language changes DO require agent update:** `voice_id` and `language` are set at agent creation time (`app/services/provisioning.py` lines 88–90). Changing `multilang_enabled` for an existing contractor requires calling `RetellClient.update_agent()` to update the voice. This is not automated.
+
+### Retell client capabilities relevant to expansion
+
+**File:** `app/services/retell_client.py`
+
+- `create_phone_call` (line 42) — outbound calls; supports `retell_llm_dynamic_variables` (line 48) for per-call variable injection into Retell Native LLM agents (not the current Custom LLM architecture, but available if switching architectures)
+- `update_live_call` (line 108) — mid-call context injection via `additional_context` string; could be used for surge-mode prompting without WebSocket reconnect
+- `update_agent` (line 204) — full agent config update; required for voice/language changes
+
+---
+
+## 6. SAFETY RULE VERIFICATION
+
+### 911-redirect implementation location
+
+**File:** `app/services/triage.py` lines 13–47
+
+Life-safety patterns compiled into `_LIFE_SAFETY_REGEX` at module load time (lines 30–33). Function `classify_life_safety(text)` at line 43 returns True on any match.
+
+**Patterns covered (lines 14–29):**
+- Gas smell/leak/line
+- Carbon monoxide / CO detector/alarm/leak
+- Sparking, electrical fire
+- House fire
+- Sewer backup + flood (combined pattern)
+- Whole-building flooding
+- Whole-house power loss
+- Electrical shock / "got shocked"
+
+**Intercept location:** `app/routers/retell.py` lines 258–269 — inside the `response_required` / `reminder_required` branch, BEFORE `agent.process_turn()` is called. If matched, sends `LIFE_SAFETY_RESPONSE` with `end_call: True` and `return`s immediately (line 269). Claude is never invoked.
+
+### Is it non-overridable?
+
+The comment at `app/routers/retell.py` line 258 states: `# Life-safety intercept — HARDCODED, never gated by any flag or tenant setting`. The `classify_life_safety` docstring at `app/services/triage.py` line 44 states: `This function is HARDCODED and cannot be disabled by any flag or tenant config.`
+
+No feature flag, no contractor column, no API parameter, and no request header can bypass this code path. It executes unconditionally in the turn-processing loop.
+
+### Code paths that could reach a caller without passing through life-safety check
+
+**Gap 1 — Opening greeting (line 223):** `agent.process_turn("__call_started__")` sends the greeting before any user speech. If the caller speaks during the greeting (latency window), Retell will buffer it and send it as the first `response_required` — which IS checked. Low practical risk.
+
+**Gap 2 — Empty `reminder_required` (lines 248–256):** If `user_message` is empty and `interaction_type == "reminder_required"`, a hardcoded nudge is sent without passing through `classify_life_safety`. If a caller uttered a life-safety phrase that Retell failed to transcribe (returning empty string), the check would be skipped. Practical likelihood low since Retell silence timeout triggers reminders, implying the user was not speaking.
+
+**Gap 3 — WebSocket exception handler (lines 324–335):** On unhandled exception, a hardcoded error message is sent directly. This is an error recovery path, not a normal caller path. Not exploitable.
+
+**Gap 4 — Outbound missed-call recovery calls:** Initiated by `RetellClient.create_phone_call()` in `app/services/scheduler.py` line 100. These connect through the same WebSocket at `/llm-websocket/{call_id}`, so the life-safety check IS active when the callee responds. No gap here.
+
+---
+
+## 7. CONCURRENCY CEILING
+
+### Retell plan limits
+
+Not defined in the codebase. Retell account-level concurrency limits are external. The code imposes no cap on simultaneous WebSocket connections. `_active_agents` dict at `app/routers/retell.py` line 44 is unbounded.
+
+### Webhook worker pool (Uvicorn)
+
+**File:** `start.sh` line 7: `exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1`
+
+Single worker process. All WebSocket connections and HTTP requests compete for one asyncio event loop on one CPU core. No process-level parallelism. Under surge, slow Claude API response times (1–4 seconds per turn) cause all concurrent calls to wait for coroutine scheduling. Each additional concurrent call increases per-turn latency for all others.
+
+### DB connection pool
+
+**File:** `app/database.py` lines 8–12
+
 ```python
-# Feature flags (added during UI overhaul)
-trust_v2: bool = False        # config.py:76
-mobile_hero_v2: bool = False  # config.py:77
-live_metrics: bool = False    # config.py:78
-multilang_enabled: bool = False  # config.py:82
+engine = create_async_engine(
+    settings.database_url,
+    echo=settings.debug,
+    pool_pre_ping=True,
+)
 ```
-Pattern: pydantic-settings bool, default False, overridden by Railway env var.
 
-**Per-tenant flags:** NONE exist today. The four new flags (`EMERGENCY_TRIAGE`, `LIVE_TRANSFER`, `FSM_SYNC`, `INTAKE_FLOWS_V2`) require:
-1. Global `Settings` bool (feature enabled for any tenant)
-2. New `Boolean` columns on `Contractor` model (tenant opted in)
+No `pool_size`, `max_overflow`, or `pool_timeout` specified. SQLAlchemy asyncpg default: 5 connections, overflow to 10. Under surge with many simultaneous calls each performing DB flushes (multiple per call: CallSession create at line 139, Lead upsert in tools, usage increment), pool exhaustion (>10 concurrent DB operations) will cause requests to queue or fail.
 
----
+### APScheduler
 
-## 6. CONCURRENCY REALITY
+**File:** `app/services/scheduler.py` lines 12–15
 
-**Deployment:** Railway Nixpacks, no explicit `Procfile`. Likely single `uvicorn` worker. `asyncio`-based throughout.
+`AsyncIOScheduler` with `MemoryJobStore`. All scheduled jobs are in-memory only. On process restart (e.g. Railway deploy), all pending jobs (appointment reminders, followup SMS, recovery calls) are permanently lost. No persistent job store configured.
 
-**Async correctly used:**
-- SQLAlchemy: `AsyncSession` everywhere ✅
-- Claude API: `anthropic.AsyncAnthropic` ✅
-- Retell REST: `httpx.AsyncClient` with timeouts ✅
-- WebSocket: native FastAPI async ✅
+### In-memory rate limiter
 
-### ⚠️ BLOCKING I/O — CRITICAL
+**File:** `app/utils/rate_limit.py` lines 15–17
 
-**`SMSService._send()` — sms.py:42 is synchronous:**
-```python
-message = self._get_client().messages.create(**params)  # sync Twilio SDK
-```
-Blocks the uvicorn event loop for ~200–500ms per Twilio API call. Called from:
-- `notify_appointment_booked()` via `asyncio.ensure_future()` — book_appointment.py:91
-- `notify_new_lead()` via `asyncio.ensure_future()` — create_lead.py:84
-- `send_missed_call_sms()` via `asyncio.create_task()` — retell.py:424
-- `retell.py:517` — sync call directly in webhook handler (worst case)
-
-**Effect:** 10 concurrent bookings firing SMS = 10 × 500ms of event loop blocking = potential 5s total, exceeding Retell's 5s ping-pong timeout → call drops.
-
-**In-memory state:**
-- `_active_agents: dict` — retell.py:44. Lost on restart; mitigated by `_rebuild_agent()`.
-- `_pending_transfers: dict` — retell.py:48. Lost on restart with zero recovery path.
-
-**No per-tenant Claude concurrency limit.** 500 simultaneous calls across tenants = 500 simultaneous `anthropic.AsyncAnthropic` calls. Anthropic rate limits could throttle/error.
+`_windows: dict[str, deque]` — in-memory per-process. Rate limit state is not shared across replicas or restarts. On multi-replica deploys, each replica has an independent counter, effectively multiplying the allowed rate by the replica count.
 
 ---
 
-## 7. EXISTING INTEGRATIONS
+## 8. RISK REGISTER
 
-| System | Status |
-|---|---|
-| Retell AI | ✅ Production-ready |
-| Twilio SMS | ✅ Wired (sync client is the bug) |
-| Anthropic Claude | ✅ Production-ready |
-| Google Calendar | ⚠️ Code exists (services/calendar.py:345 lines), not verified in production |
-| Stripe | ⚠️ Code exists (services/billing.py), no live keys |
-| Mailchimp | ⚠️ Code exists (services/mailchimp.py), no live keys |
-| Jobber | ❌ Zero code |
-| Housecall Pro | ❌ Zero code |
-| ServiceTitan | ❌ Zero code |
+Ranked by severity (1 = highest risk).
 
----
+### Risk 1 — CRITICAL: In-memory agent state not shared across replicas
+**File:** `app/routers/retell.py` lines 44–48
 
-## 8. RISKS
+`_active_agents` and `_pending_transfers` are module-level in-memory dicts. The code comment at line 44 acknowledges: "Replace with Redis in production for horizontal scaling / restart safety." With multiple Railway replicas, a WebSocket connecting to Replica A and a webhook arriving at Replica B will fail to find agent state. Retell's `auto_reconnect: True` (line 100) can route reconnects to a different replica, losing conversation history until `_rebuild_agent()` reconstructs from DB (line 678), but the in-memory conversation context between flushes is lost. Transfer state in `_pending_transfers` is entirely in-memory with no DB fallback — a missed transfer notification would be silently dropped.
 
-### 🔴 Critical (block live calls)
+### Risk 2 — CRITICAL: Scheduled jobs lost on process restart
+**File:** `app/services/scheduler.py` lines 12–15
 
-**R1 — Life-safety has no hardcoded intercept**
-The "gas smell / CO / sparking" 911 redirect lives in master_prompt.py:92–113 as prompt text. A confused model response, tenant with customized prompt, or edge-case phrasing can miss it. Build spec requires a code-level intercept above LLM control that cannot be disabled by any flag or tenant setting.
+APScheduler `MemoryJobStore`. Every process restart (Railway deploy, crash, scale event) silently drops all pending: appointment reminders, review requests, follow-up SMS, missed-call recovery outbound calls. No alert, no re-queue mechanism, no persistent store. Users who booked appointments would receive no reminders.
 
-**R2 — Sync Twilio SDK blocks the event loop**
-sms.py:42 — `self._get_client().messages.create()`. Every SMS call during an active session competes with all concurrent WebSocket heartbeats and Claude API calls. Under load this causes Retell to detect a dead WebSocket and terminate calls.
+### Risk 3 — HIGH: Outbound scheduled SMS bypasses opt-out check
+**File:** `app/services/scheduler.py` lines 175, 232, 283
 
-**R3 — Transfer has no failure handling**
-transfer_call.py:42–48 — if `transfer_number` is not configured, a warning is logged but the call continues with `transfer_queued=False`. The lead is already marked `transferred`. If the tech doesn't answer: no fallback, no owner notification, caller disconnected.
+Scheduled jobs call synchronous `SMSService` methods (`send_appointment_reminder`, `send_review_request`, `send_followup`) which call `_send()` directly — bypassing `_send_compliant()` which performs the opt-out database check (`app/services/sms.py` line 112). A subscriber who sent STOP would still receive scheduled messages. This is a TCPA/CASL violation.
 
-### 🟡 High (data integrity / reliability)
+### Risk 4 — HIGH: FSM push uses fire-and-forget with request-scoped DB session
+**File:** `app/tools/create_lead.py` lines 102–104
 
-**R4 — `emergency_level` is free-text**
-lead.py:34 — no enum, no validation. Downstream severity routing is impossible without a taxonomy.
+`asyncio.ensure_future(FSMService().push_lead(contractor, lead_payload, None, db))` — the `db` session passed is the WebSocket request-scoped session. By the time the task executes, the session may be committed and closed. SQLAlchemy async sessions are not safe to share across tasks. This can cause `DetachedInstanceError` or silent failures when writing to `FSMRetryQueue` within the background task.
 
-**R5 — Duplicate `call_analyzed` webhook appends duplicate notes**
-`_apply_analysis()` (retell.py:704) appends `"[Retell summary] ..."` to `Lead.notes` with no idempotency check. Retell guarantees at-least-once delivery.
+### Risk 5 — HIGH: FSM retry queue is written but never processed
+**File:** `app/services/fsm/service.py` lines 87–98; `app/services/scheduler.py` (no retry job present)
 
-**R6 — `_pending_transfers` in-memory**
-retell.py:48 — process restart mid-call silently drops queued transfer.
+The `FSMRetryQueue` model and table exist. Failed FSM pushes are enqueued with `attempt_count=1` and `next_attempt_at` 5 minutes out. However, there is no APScheduler job, no background task, and no API endpoint that reads and retries these records. The queue grows indefinitely without any retry execution. All FSM failures are permanently lost.
 
-**R7 — MAX_TOOL_ITERATIONS = 5 is tight**
-claude_agent.py:16 — a booking flow can use: validate_service_area → check_availability → book_appointment → send_sms → create_lead_record = 5 tools exactly. Any retry or extra step silently caps.
+### Risk 6 — HIGH: Billing counter race condition under concurrent calls
+**File:** `app/services/billing.py` lines 177–195
 
-### 🟢 Low
+Usage increment is a read-modify-write: `contractor.calls_this_month = (getattr(...) or 0) + 1`. Under two simultaneous calls for the same contractor, both reads see the same value and both write `n+1` instead of `n+2`. No row-level lock or atomic increment is used. Over time under surge, contractors can exceed plan limits undetected.
 
-**R8 — No Anthropic rate limit handling**
-`_call_claude()` (claude_agent.py:83) has no retry on 429/529. Under burst load, Claude API errors return degraded responses ("I'm experiencing a technical issue").
+### Risk 7 — MEDIUM: `sms_opt_outs` and `sms_consents` tables not in Alembic
+**File:** `app/models/sms_opt_out.py` (model defined); no migration in `alembic/versions/`
 
----
+Tables created only by `Base.metadata.create_all` at startup. Running `alembic upgrade head` from scratch (CI, fresh environment, DB restore) will not create these two tables. Compliance checks at `app/services/sms_compliance.py` lines 40–45 will raise `ProgrammingError` at runtime when querying non-existent tables, silently failing the opt-out guard.
 
-## SUMMARY
+### Risk 8 — MEDIUM: No A2P campaign registration status tracking
+**File:** No file — feature is absent
 
-| Feature to Build | Gap |
-|---|---|
-| Emergency triage | Need: validated urgency taxonomy, hardcoded life-safety code intercept, per-tenant emergency definitions |
-| Live transfer + fallback | Need: transfer failure webhook handler, fallback chain, on-call schedule model |
-| FSM write-back | Need: full build from zero — adapter interface, Jobber + HCP adapters, OAuth, retry queue |
-| Concurrency | Need: async Twilio client (httpx), Anthropic retry, remove in-memory transfer state |
-| Trade-specific intake flows | Need: template data model, per-tenant selection, agent build integration |
+Twilio requires A2P 10DLC campaign registration for US commercial messaging. The `twilio_messaging_service_sid` field exists in config, but there is no mechanism to track campaign approval status, brand registration, or registration errors. If the campaign is rejected or suspended, all outbound SMS silently fails (Twilio returns error codes) with no alerting or fallback.
+
+### Risk 9 — MEDIUM: `POST /retell/inbound` has no authentication
+**File:** `app/routers/retell.py` lines 347–393
+
+This endpoint accepts any JSON POST without signature verification. An external actor could enumerate phone numbers to discover active contractor configurations. While no DB writes are made, contractor `retell_agent_id` values are returned in the response, exposing internal Retell agent IDs to unauthenticated callers.
+
+### Risk 10 — MEDIUM: CORS allows all origins in debug mode
+**File:** `app/main.py` lines 61–66
+
+`allow_origins=["*"] if settings.debug else []` combined with `allow_credentials=True` (line 63). If `DEBUG=true` is accidentally set in Railway production, all origins can make credentialed requests to all API endpoints, bypassing any origin-based protection.
 
 ---
 
-`PHASE 0 COMPLETE — AWAITING: APPROVED: PHASE 0`
+## 9. ADVERSARIAL SELF-CHECK
+
+### (a) Webhook handlers that write to DB before validation
+
+**FOUND — WebSocket handler, `app/routers/retell.py` line 139**
+
+In the `call_details` handler (lines 124–234):
+- WebSocket bearer token is verified at line 82 (before accept) — this is correct
+- But after auth, `CallSession` is created and `db.flush()` executes at line 139, before the demo cap check (line 143) and billing cap check (line 160)
+- Result: a `CallSession` row is written to the DB for every authenticated connection, even those that would fail billing caps. These are orphaned rows (no `lead_id`, status never updated to `completed`)
+
+**NOT FOUND — `POST /retell/webhook`**
+
+`_verify_retell_signature()` at line 413 runs before all DB operations in the webhook handler. Correctly ordered.
+
+**NOT FOUND — `POST /retell/missed-call`**
+
+`_verify_retell_signature()` at line 546 runs before DB operations. Correctly ordered.
+
+**FOUND (read-only, no write) — `POST /retell/inbound`**
+
+No authentication at all on this endpoint (`app/routers/retell.py` lines 347–393). No signature verification. Only reads from DB (contractor lookup) — does not write. Not a write-before-validate issue, but an unauthenticated DB read and agent ID disclosure.
+
+### (b) FSM adapters that retry non-idempotently (double-booking risk under surge)
+
+**FOUND — `app/tools/create_lead.py` lines 26–34 + `app/services/fsm/jobber.py` lines 24–49**
+
+`create_lead_record` is a standard Claude tool. Within a single call, Claude could invoke `create_lead_record` more than once (the agentic loop allows up to `MAX_TOOL_ITERATIONS = 8` — `app/services/claude_agent.py` line 18). Each invocation fires `asyncio.ensure_future(FSMService().push_lead(...))`. Jobber's `create_lead()` uses a GraphQL `requestCreate` mutation (`app/services/fsm/jobber.py` lines 26–48) with no idempotency key — two invocations create two separate Requests in Jobber for the same caller.
+
+Additionally, Retell delivers webhooks at-least-once. A `call_ended` webhook received twice would call `_finalise_session()` twice. The idempotency guard at `app/routers/retell.py` lines 701–703 prevents double-finalization of `CallSession`. However, `_schedule_post_call_jobs` is called from the webhook handler (line 427) — if the webhook fires twice before the first call is processed, two sets of APScheduler jobs would be registered. `replace_existing=True` in scheduler calls (e.g. `app/services/scheduler.py` line 145) mitigates double-scheduling for most jobs.
+
+### (c) Places where `tenant_id` comes from client input rather than auth context
+
+**FOUND — `POST /retell/inbound`, `app/routers/retell.py` lines 361–363**
+
+`to_number = payload.get("to_number", "")` comes from the unauthenticated request body. The contractor is resolved from `Contractor.phone_number == to_number`. A caller with network access who knows or guesses a valid phone number could probe this endpoint to discover internal contractor and agent configuration. No writes occur, but the `agent_id` value in the response is an internal Retell identifier.
+
+**FOUND — WebSocket call_details, `app/routers/retell.py` lines 126–129**
+
+`to_number = call_info.get("to_number", "")` from the WebSocket message content (sent by Retell). The bearer token auth at line 82 verifies the connection is from Retell, but the `to_number` value within the message is not independently validated against the authenticated API key. If Retell's API key is shared across all agents (which it is — it is a single `settings.retell_api_key`), the authenticated channel does not prove which contractor's number is being called. The contractor lookup on line 129 uses only `to_number` from message content.
+
+**NOT FOUND — Portal routes**
+
+`app/routers/portal.py` `require_contractor()` (lines 30–46) resolves contractor exclusively from a signed session cookie. `contractor_id` does not appear in query parameters or form fields accessible to the user.
+
+**PARTIAL CONCERN — `app/tools/create_lead.py` lines 35–55 (field injection via tool input)**
+
+Tool input fields like `lead_source`, `call_direction`, `notes`, `emergency_level` (line 36 list) are written to the Lead record via `setattr(lead, field, tool_input[field])` without validation of values. Claude's tool call input is trusted. A caller who can reliably manipulate Claude's tool calls (through adversarial prompting) could set arbitrary string values in these fields. `contractor_id` itself is not injectable — it is hardcoded from `contractor.id` at line 27. The risk is data quality corruption, not cross-tenant isolation breach.
+
+---
+
+*End of PHASE_0_FINDINGS.md — Audit complete. 9 sections, all file/line citations included.*

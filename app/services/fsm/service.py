@@ -4,7 +4,7 @@ import datetime
 import logging
 import os
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,7 +43,7 @@ class FSMService:
             return None
         try:
             token = decrypt_token(cred.access_token_enc)
-        except Exception:
+        except (ValueError, InvalidToken):
             logger.error(f"Failed to decrypt FSM token for contractor {contractor.id}")
             return None
 
@@ -79,11 +79,9 @@ class FSMService:
                 await adapter.create_job(lead_data, appointment_time)
             else:
                 await adapter.create_lead(lead_data)
-            await adapter.close()
             return True
         except Exception as e:
             logger.error(f"FSM push failed for contractor {contractor.id}: {e}")
-            await adapter.close()
             # Enqueue for retry
             lead_id = lead_data.get("lead_id")
             retry = FSMRetryQueue(
@@ -93,8 +91,10 @@ class FSMService:
                 payload=lead_data,
                 attempt_count=1,
                 last_error=str(e),
-                next_attempt_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=5),
+                next_attempt_at=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=5),
             )
             db.add(retry)
             await db.flush()
             return False
+        finally:
+            await adapter.close()

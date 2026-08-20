@@ -171,12 +171,15 @@ async def _appointment_reminder_job(
         lead_result = await db.execute(select(Lead).where(Lead.id == uuid.UUID(lead_id)))
         lead = lead_result.scalar_one_or_none()
 
-        sms = SMSService(contractor)
-        sms.send_appointment_reminder(
-            phone=phone,
-            name=(lead.caller_name if lead else None) or "there",
-            date_str=appointment_time[:10],
-            time_str=appointment_time[11:16],
+        sms = SMSService(contractor).with_db(db)
+        # Phase 1 fix (Risk #3): use _send_compliant to enforce opt-out checks
+        await sms._send_compliant(
+            to=phone,
+            body=(
+                f"Hi {(lead.caller_name if lead else None) or 'there'}, reminder: "
+                f"your appointment is tomorrow, {appointment_time[:10]} at {appointment_time[11:16]}."
+            ),
+            message_type="appointment_reminder",
         )
         logger.info("Reminder SMS sent | lead=%s", lead_id)
 
@@ -227,11 +230,15 @@ async def _review_request_job(contractor_id: str, lead_id: str, phone: str) -> N
         if not contractor or not contractor.review_link:
             return
 
-        sms = SMSService(contractor)
-        sms.send_review_request(
-            phone=phone,
-            name=lead.caller_name or "there",
-            review_link=contractor.review_link or "",
+        sms = SMSService(contractor).with_db(db)
+        # Phase 1 fix (Risk #3): use _send_compliant to enforce opt-out checks
+        await sms._send_compliant(
+            to=phone,
+            body=(
+                f"Hi {lead.caller_name or 'there'}, thank you for choosing us! "
+                f"We'd love your feedback: {contractor.review_link or ''}"
+            ),
+            message_type="review_request",
         )
         logger.info("Review request SMS sent | lead=%s", lead_id)
 
@@ -279,8 +286,16 @@ async def _unbooked_followup_job(contractor_id: str, lead_id: str, phone: str) -
         if not contractor:
             return
 
-        sms = SMSService(contractor)
-        sms.send_followup(phone=phone, name="there")
+        sms = SMSService(contractor).with_db(db)
+        # Phase 1 fix (Risk #3): use _send_compliant to enforce opt-out checks
+        await sms._send_compliant(
+            to=phone,
+            body=(
+                "Hi there, we wanted to check in — are you still looking for help "
+                "with your service request? We're ready when you are."
+            ),
+            message_type="followup",
+        )
         logger.info("Unbooked follow-up SMS sent | lead=%s", lead_id)
 
 
@@ -336,10 +351,15 @@ async def _lead_followup_job(lead_id: str, contractor_id: str) -> None:
                 logger.info("Lead follow-up: SMS disabled for contractor %s", contractor_id)
                 return
 
-            sms = SMSService(contractor)
-            sms.send_followup(
-                phone=lead.phone,
-                name=lead.caller_name or "there",
+            sms = SMSService(contractor).with_db(db)
+            # Phase 1 fix (Risk #3): use _send_compliant to enforce opt-out checks
+            await sms._send_compliant(
+                to=lead.phone,
+                body=(
+                    f"Hi {lead.caller_name or 'there'}, we wanted to check in — are you still "
+                    f"looking for help with your service request? We're ready when you are."
+                ),
+                message_type="followup",
             )
 
             await BillingService().increment_usage(contractor, "sms", db)

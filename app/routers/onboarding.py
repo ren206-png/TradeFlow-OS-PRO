@@ -124,11 +124,12 @@ async def onboarding_submit(
     db.add(contractor)
     await db.commit()
     await db.refresh(contractor)
+    contractor_id = str(contractor.id)  # capture before session closes
 
     # --- Auto-provision Retell agent + phone number (fire-and-forget) ---
     import asyncio
-    from app.services.provisioning import provision_contractor
-    asyncio.create_task(provision_contractor(contractor, db))
+    from app.services.provisioning import provision_contractor_by_id
+    asyncio.create_task(provision_contractor_by_id(contractor_id))
 
     # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
     from app.services.mailchimp import subscribe_contractor

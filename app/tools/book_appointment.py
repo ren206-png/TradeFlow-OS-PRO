@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select
@@ -86,6 +86,32 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     # Link lead back to call session
     if call_session.lead_id is None:
         call_session.lead_id = lead.id
+
+    # Phase 1 — Consent capture (outbound_gateway flag guard)
+    # Record implied_transaction consent for the inbound caller who just booked.
+    # Only runs when the outbound_gateway flag is ON for this tenant.
+    # Flag OFF → no change to existing behaviour.
+    try:
+        from app.services.feature_flags import is_enabled as _flag_enabled
+        if await _flag_enabled(str(contractor.id), "outbound_gateway", db):
+            from app.models.consent_ledger import ConsentLedger
+            consent_row = ConsentLedger(
+                tenant_id=str(contractor.id),
+                recipient_phone=phone,
+                channel="sms",
+                consent_type="implied_transaction",
+                consent_basis="caller booked appointment via AI receptionist",
+                evidence_call_id=call_session.retell_call_id,
+                expires_at=datetime.utcnow() + timedelta(days=730),  # CASL 2-year window
+            )
+            db.add(consent_row)
+            await db.flush()
+    except Exception as _consent_err:
+        # Non-fatal — never block a booking due to consent recording failure
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "book_appointment: consent recording failed (non-fatal) | err=%s", _consent_err
+        )
 
     # Notify contractor: appointment booked
     asyncio.ensure_future(notify_appointment_booked(contractor, lead))

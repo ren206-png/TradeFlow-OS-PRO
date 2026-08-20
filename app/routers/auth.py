@@ -28,7 +28,7 @@ def _make_reset_token(email: str) -> str:
     """Simple time-based reset token (valid 1 hour)."""
     secret = settings.secret_key
     hour = int(time.time() // 3600)
-    return hashlib.sha256(f"{email}:{hour}:{secret}".encode()).hexdigest()[:32]
+    return hashlib.sha256(f"{email}:{hour}:{secret}".encode()).hexdigest()
 
 
 def _verify_reset_token(email: str, token: str) -> bool:
