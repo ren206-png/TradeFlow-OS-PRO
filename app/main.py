@@ -16,6 +16,7 @@ from app.routers import auth, billing, contractor_app, contractors, dashboard, l
 from app.routers import a2p as a2p_router  # Phase 1: A2P admin API
 from app.routers import webform as webform_router          # Phase 2: webform callback
 from app.routers import lead_ingest as lead_ingest_router  # Phase 2: lead ingest
+from app.routers import triage_admin as triage_admin_router  # Phase 3: triage admin API
 # Phase 1: register new models so SQLAlchemy/Base.metadata knows about them
 import app.models.feature_flag       # noqa: F401 — registers FeatureFlag
 import app.models.outbound_ledger    # noqa: F401 — registers OutboundLedger
@@ -23,6 +24,12 @@ import app.models.consent_ledger     # noqa: F401 — registers ConsentLedger
 import app.models.a2p_registration   # noqa: F401 — registers A2PRegistration
 # Phase 2: register new model
 import app.models.callback_request   # noqa: F401 — registers CallbackRequest
+# Phase 3: register new models
+import app.models.triage_tree        # noqa: F401 — registers TriageTree
+import app.models.triage_node        # noqa: F401 — registers TriageNode
+import app.models.coaching_script    # noqa: F401 — registers CoachingScript
+import app.models.safety_action_ledger  # noqa: F401 — registers SafetyActionLedger
+import app.models.on_call_rotation   # noqa: F401 — registers OnCallRotation
 from app.services.scheduler import shutdown_scheduler, start_scheduler
 from app.utils.logging import configure_logging
 
@@ -49,6 +56,17 @@ async def lifespan(app: FastAPI):
             logger.info("Intake templates seeded.")
         except Exception as _seed_err:
             logger.warning("Intake template seeding failed: %s", _seed_err)
+    # Phase 3: Seed system triage trees and coaching scripts (idempotent)
+    if settings.triage_library_v2:
+        try:
+            from app.database import async_session_factory
+            from app.services.triage_seed import seed_triage_data
+            async with async_session_factory() as _seed_db:
+                await seed_triage_data(_seed_db)
+                await _seed_db.commit()
+            logger.info("Triage trees and coaching scripts seeded.")
+        except Exception as _seed_err:
+            logger.warning("Triage seed failed: %s", _seed_err)
     yield
     shutdown_scheduler()
     logger.info("TradeFlow-OS Pro shutting down.")
@@ -108,6 +126,7 @@ app.include_router(twilio_sms.router)
 app.include_router(a2p_router.router)  # Phase 1: A2P admin API
 app.include_router(webform_router.router)          # Phase 2: webform callback
 app.include_router(lead_ingest_router.router)      # Phase 2: lead ingest
+app.include_router(triage_admin_router.router)     # Phase 3: triage admin API
 
 
 # ---------------------------------------------------------------------------

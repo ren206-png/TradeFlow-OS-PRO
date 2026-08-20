@@ -208,6 +208,8 @@ async def llm_websocket(
                     db=db,
                     intake_section=intake_section,
                 )
+                # Phase 3: inject triage prompt section async (no-op when flag OFF)
+                await agent.initialise_async_prompt()
                 _active_agents[call_id] = agent
 
                 await broadcast_call_event({

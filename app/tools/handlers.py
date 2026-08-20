@@ -1,21 +1,31 @@
 import logging
 
+from app.config import settings
 from app.tools.book_appointment import book_appointment
 from app.tools.check_availability import check_availability
 from app.tools.create_lead import create_lead_record
+from app.tools.deliver_coaching import deliver_coaching
 from app.tools.send_sms import send_sms
 from app.tools.transfer_call import transfer_call
 from app.tools.validate_address import validate_service_area
 
 logger = logging.getLogger(__name__)
 
-_TOOL_MAP = {
+_TOOL_MAP_BASE = {
     "check_availability": check_availability,
     "book_appointment": book_appointment,
     "validate_service_area": validate_service_area,
     "send_sms": send_sms,
     "create_lead_record": create_lead_record,
     "transfer_call": transfer_call,
+}
+
+# deliver_coaching is gated behind settings.safety_coaching feature flag.
+# When flag is ON, it is included in _TOOL_MAP at import time.
+# The tool schema is added to TRADEFLOW_TOOLS list in claude_agent.py dynamically.
+_TOOL_MAP = {
+    **_TOOL_MAP_BASE,
+    **({"deliver_coaching": deliver_coaching} if settings.safety_coaching else {}),
 }
 
 

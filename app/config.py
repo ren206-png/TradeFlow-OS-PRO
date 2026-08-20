@@ -97,6 +97,8 @@ class Settings(BaseSettings):
 
     # Phase 3 feature flags
     followup_sms_enabled: bool = False
+    triage_library_v2: bool = False   # Enables versioned triage tree prompt injection
+    safety_coaching: bool = False     # Enables deliver_coaching tool in agent tool list
 
 
 settings = Settings()

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.call import CallSession
 from app.models.contractor import Contractor
-from app.prompts.builder import build_system_prompt
+from app.prompts.builder import build_system_prompt, build_system_prompt_async
 from app.services.triage import get_urgency_tool_schema
 from app.tools.definitions import TRADEFLOW_TOOLS
 from app.tools.handlers import execute_tool
@@ -31,13 +31,31 @@ class ClaudeAgent:
         self.contractor = contractor
         self.call_session = call_session
         self.db = db
+        # Synchronous base prompt — triage injection happens async in initialise()
         self.system_prompt = build_system_prompt(contractor, intake_section=intake_section)
+        self._intake_section = intake_section
         self._client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._tool_context = {
             "contractor": contractor,
             "call_session": call_session,
             "db": db,
         }
+
+    async def initialise_async_prompt(self) -> None:
+        """
+        Call once after construction to inject triage section when triage_library_v2 is ON.
+        Safe to skip — falls back to sync-built prompt.
+        """
+        try:
+            self.system_prompt = await build_system_prompt_async(
+                self.contractor,
+                intake_section=self._intake_section,
+                db=self.db,
+            )
+        except Exception as exc:
+            logger.warning(
+                "ClaudeAgent: async prompt init failed, using base prompt | err=%s", exc
+            )
 
     async def process_turn(self, user_message: str) -> str:
         """
@@ -101,6 +119,9 @@ class ClaudeAgent:
                 tools = list(TRADEFLOW_TOOLS)
                 if settings.emergency_triage:
                     tools.append(get_urgency_tool_schema())
+                if settings.safety_coaching:
+                    from app.tools.deliver_coaching import get_deliver_coaching_tool_schema
+                    tools.append(get_deliver_coaching_tool_schema())
                 return await self._client.messages.create(
                     model=settings.claude_model,
                     max_tokens=settings.claude_max_tokens,
