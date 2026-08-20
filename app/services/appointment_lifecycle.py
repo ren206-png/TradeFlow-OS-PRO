@@ -49,12 +49,38 @@ class AppointmentLifecycleService:
 
         date_str = appt_dt.strftime("%B %d, %Y")
         time_str = appt_dt.strftime("%I:%M %p UTC")
+        appointment_time_str = f"{date_str} at {time_str}"
+        service_address_str = getattr(appointment, "service_address", "") or ""
 
-        message = (
-            f"Confirmed: {contractor.name} on {date_str} at {time_str}. "
-            f"Reply CONFIRM to confirm or RESCHEDULE to pick a new time. "
-            f"Your number: {contractor.phone_number}"
-        )
+        from app.config import settings as _settings
+        if _settings.french_bilingual:
+            try:
+                from app.services.bilingual import BilingualService
+                bilingual_svc = BilingualService()
+                lang = await bilingual_svc.get_stored_language_preference(
+                    contractor, appointment.caller_phone, db
+                )
+                tmpl = bilingual_svc.get_sms_template("appointment_confirmation", lang)
+                message = tmpl.format(
+                    company_name=contractor.name,
+                    appointment_time=appointment_time_str,
+                    service_address=service_address_str,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "appointment_lifecycle: bilingual confirmation failed, using English | err=%s", exc
+                )
+                message = (
+                    f"Confirmed: {contractor.name} on {date_str} at {time_str}. "
+                    f"Reply CONFIRM to confirm or RESCHEDULE to pick a new time. "
+                    f"Your number: {contractor.phone_number}"
+                )
+        else:
+            message = (
+                f"Confirmed: {contractor.name} on {date_str} at {time_str}. "
+                f"Reply CONFIRM to confirm or RESCHEDULE to pick a new time. "
+                f"Your number: {contractor.phone_number}"
+            )
 
         try:
             request = OutboundRequest(
@@ -150,14 +176,39 @@ class AppointmentLifecycleService:
             appt_dt = appt_dt.replace(tzinfo=timezone.utc)
         date_str = appt_dt.strftime("%B %d, %Y")
         time_str = appt_dt.strftime("%I:%M %p UTC")
+        appointment_time_str = f"{date_str} at {time_str}"
         name = appointment.caller_name or "there"
 
-        message = (
-            f"Hi {name}, reminder: your appointment with {contractor.name} is tomorrow, "
-            f"{date_str} at {time_str}. "
-            f"Reply CONFIRM to confirm or RESCHEDULE to reschedule. "
-            f"Questions? Call {contractor.phone_number}"
-        )
+        from app.config import settings as _settings
+        if _settings.french_bilingual:
+            try:
+                from app.services.bilingual import BilingualService
+                bilingual_svc = BilingualService()
+                lang = await bilingual_svc.get_stored_language_preference(
+                    contractor, appointment.caller_phone, db
+                )
+                tmpl = bilingual_svc.get_sms_template("appointment_reminder", lang)
+                message = tmpl.format(
+                    company_name=contractor.name,
+                    appointment_time=appointment_time_str,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "appointment_lifecycle: bilingual reminder failed, using English | err=%s", exc
+                )
+                message = (
+                    f"Hi {name}, reminder: your appointment with {contractor.name} is tomorrow, "
+                    f"{date_str} at {time_str}. "
+                    f"Reply CONFIRM to confirm or RESCHEDULE to reschedule. "
+                    f"Questions? Call {contractor.phone_number}"
+                )
+        else:
+            message = (
+                f"Hi {name}, reminder: your appointment with {contractor.name} is tomorrow, "
+                f"{date_str} at {time_str}. "
+                f"Reply CONFIRM to confirm or RESCHEDULE to reschedule. "
+                f"Questions? Call {contractor.phone_number}"
+            )
 
         try:
             request = OutboundRequest(

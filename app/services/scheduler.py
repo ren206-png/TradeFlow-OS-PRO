@@ -3,14 +3,21 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Convert async DB URL to sync for APScheduler's SQLAlchemy jobstore
+_sync_db_url = (
+    settings.database_url
+    .replace("postgresql+asyncpg://", "postgresql://")
+    .replace("sqlite+aiosqlite://", "sqlite:///")
+)
+
 _scheduler = AsyncIOScheduler(
-    jobstores={"default": MemoryJobStore()},
+    jobstores={"default": SQLAlchemyJobStore(url=_sync_db_url)},
     timezone="UTC",
 )
 

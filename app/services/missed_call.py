@@ -116,11 +116,28 @@ async def handle_missed_call(
         getattr(contractor, "agent_name", None)
         or getattr(contractor, "name", "us")
     )
-    message = (
-        f"Hi, you just called {display_name}. "
-        f"We didn't want to miss you — book online: {booking_url} "
-        f"or reply CALL and we'll phone you right back."
-    )
+
+    # Bilingual: use BilingualService when french_bilingual flag is ON
+    if settings.french_bilingual:
+        try:
+            from app.services.bilingual import BilingualService
+            bilingual_svc = BilingualService()
+            lang = await bilingual_svc.get_stored_language_preference(contractor, caller_phone, db)
+            template = bilingual_svc.get_sms_template("missed_call_textback", lang)
+            message = template.format(company_name=display_name)
+        except Exception as exc:
+            logger.warning("handle_missed_call: bilingual failed, using English | err=%s", exc)
+            message = (
+                f"Hi, you just called {display_name}. "
+                f"We didn't want to miss you — book online: {booking_url} "
+                f"or reply CALL and we'll phone you right back."
+            )
+    else:
+        message = (
+            f"Hi, you just called {display_name}. "
+            f"We didn't want to miss you — book online: {booking_url} "
+            f"or reply CALL and we'll phone you right back."
+        )
 
     try:
         from app.schemas.outbound import OutboundRequest

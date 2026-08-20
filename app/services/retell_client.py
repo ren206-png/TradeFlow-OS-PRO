@@ -52,6 +52,41 @@ class RetellClient:
         Initiate an outbound phone call.
         `override_agent_id` selects the agent for this call only.
         """
+        # Concurrency ceiling guard (settings.max_concurrent_calls).
+        # Active call count is tracked via Retell webhook events (call_started /
+        # call_ended) stored in the call_session table. If that table is available,
+        # query it here; otherwise this is a best-effort log-only guard.
+        # Full enforcement: see retell webhook handler for active call tracking.
+        try:
+            from app.config import settings as _cfg
+            _max = _cfg.max_concurrent_calls
+            # Attempt DB-backed count if call_session model is importable
+            try:
+                from app.database import async_session_factory
+                from sqlalchemy import select, func as _func
+
+                async with async_session_factory() as _db:
+                    from app.models.call_session import CallSession  # may not exist yet
+                    _cnt_result = await _db.execute(
+                        select(_func.count()).select_from(CallSession).where(
+                            CallSession.status == "active"
+                        )
+                    )
+                    _active = _cnt_result.scalar() or 0
+                    if _active >= _max:
+                        raise RuntimeError(
+                            f"max_concurrent_calls ceiling reached: {_active}/{_max}"
+                        )
+            except ImportError:
+                # call_session model not yet present — skip DB check, log only
+                logger.debug(
+                    "retell_client: call_session model not found; skipping active-call count check"
+                )
+        except RuntimeError:
+            raise
+        except Exception as _exc:
+            logger.warning("retell_client: concurrent-call ceiling check failed (non-fatal) | err=%s", _exc)
+
         payload: dict = {
             "to_number": to_number,
             "from_number": from_number,

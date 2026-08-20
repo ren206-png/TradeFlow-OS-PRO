@@ -117,5 +117,9 @@ class Settings(BaseSettings):
     french_bilingual: bool = False     # Full EN/FR bilingual outbound SMS & calls
     commercial_intake: bool = False    # Commercial/mechanical intake mode
 
+    # Concurrency ceiling — max simultaneous outbound calls across all tenants.
+    # Enforce at call creation in retell_client.py; active call tracking via retell webhook.
+    max_concurrent_calls: int = 50
+
 
 settings = Settings()

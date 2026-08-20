@@ -153,10 +153,29 @@ class EstimateFollowupService:
 
         if step == 0:
             # Day 2: SMS question
-            message = (
-                f"Hi {estimate.caller_name or 'there'}, still thinking about that estimate? "
-                f"We can answer any questions — just reply or call {contractor.phone_number}."
-            )
+            from app.config import settings as _settings
+            if _settings.french_bilingual:
+                try:
+                    from app.services.bilingual import BilingualService
+                    bilingual_svc = BilingualService()
+                    lang = await bilingual_svc.get_stored_language_preference(
+                        contractor, estimate.caller_phone, db
+                    )
+                    tmpl = bilingual_svc.get_sms_template("estimate_followup_day2", lang)
+                    message = tmpl.format(company_name=contractor.name)
+                except Exception as exc:
+                    logger.warning(
+                        "estimate_followup: bilingual step0 failed, using English | err=%s", exc
+                    )
+                    message = (
+                        f"Hi {estimate.caller_name or 'there'}, still thinking about that estimate? "
+                        f"We can answer any questions — just reply or call {contractor.phone_number}."
+                    )
+            else:
+                message = (
+                    f"Hi {estimate.caller_name or 'there'}, still thinking about that estimate? "
+                    f"We can answer any questions — just reply or call {contractor.phone_number}."
+                )
             await self._send_sms(
                 estimate=estimate,
                 contractor=contractor,
@@ -191,10 +210,29 @@ class EstimateFollowupService:
         elif step == 2:
             # Day 10: last SMS reminder
             booking_url = contractor.booking_url or contractor.phone_number
-            message = (
-                f"Hi {estimate.caller_name or 'there'}, last reminder — your estimate expires soon. "
-                f"Book now: {booking_url}"
-            )
+            from app.config import settings as _settings
+            if _settings.french_bilingual:
+                try:
+                    from app.services.bilingual import BilingualService
+                    bilingual_svc = BilingualService()
+                    lang = await bilingual_svc.get_stored_language_preference(
+                        contractor, estimate.caller_phone, db
+                    )
+                    tmpl = bilingual_svc.get_sms_template("estimate_followup_day10", lang)
+                    message = tmpl.format(company_name=contractor.name)
+                except Exception as exc:
+                    logger.warning(
+                        "estimate_followup: bilingual step2 failed, using English | err=%s", exc
+                    )
+                    message = (
+                        f"Hi {estimate.caller_name or 'there'}, last reminder — your estimate expires soon. "
+                        f"Book now: {booking_url}"
+                    )
+            else:
+                message = (
+                    f"Hi {estimate.caller_name or 'there'}, last reminder — your estimate expires soon. "
+                    f"Book now: {booking_url}"
+                )
             await self._send_sms(
                 estimate=estimate,
                 contractor=contractor,

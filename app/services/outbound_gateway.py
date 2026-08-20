@@ -572,6 +572,47 @@ class OutboundGateway:
             logger.error("outbound_gateway: rate limit check failed | err=%s", exc)
 
         # ------------------------------------------------------------------
+        # Step 8b: Cross-tenant recipient daily cap (carrier reputation guard)
+        # Max 20 SMS per recipient phone number across ALL tenants per 24h
+        # ------------------------------------------------------------------
+        if request.channel == "sms":
+            try:
+                from datetime import timedelta
+                window_start = now_utc - timedelta(hours=24)
+                cross_tenant_result = await db.execute(
+                    select(func.count()).select_from(OutboundLedger).where(
+                        OutboundLedger.recipient_phone == request.recipient_phone,
+                        OutboundLedger.created_at > window_start,
+                        OutboundLedger.status == "sent",
+                    )
+                )
+                cross_tenant_count = cross_tenant_result.scalar() or 0
+                if cross_tenant_count >= 20:
+                    logger.info(
+                        "outbound_gateway: blocked cross_tenant_daily_cap | phone=%s count=%d",
+                        request.recipient_phone, cross_tenant_count,
+                    )
+                    await _write_ledger(
+                        db, ledger_id=ledger_id,
+                        tenant_id=request.tenant_id,
+                        idempotency_key=request.idempotency_key,
+                        recipient_phone=request.recipient_phone,
+                        channel=request.channel,
+                        status="blocked",
+                        block_reason="cross_tenant_daily_cap",
+                        template_id=request.template_id,
+                        campaign_id=request.campaign_id,
+                        message_preview=preview,
+                    )
+                    return GatewayResult(
+                        success=False,
+                        block_reason="cross_tenant_daily_cap",
+                        ledger_id=str(ledger_id),
+                    )
+            except Exception as exc:
+                logger.error("outbound_gateway: cross-tenant rate limit check failed | err=%s", exc)
+
+        # ------------------------------------------------------------------
         # Step 9: Send — route to appropriate sender
         # ------------------------------------------------------------------
         send_success = False
