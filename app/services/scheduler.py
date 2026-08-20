@@ -32,6 +32,28 @@ def start_scheduler() -> None:
             replace_existing=True,
         )
         logger.info("APScheduler started. Daily digest scheduled at 08:00 UTC.")
+        # Phase 5: nightly stats aggregation at 07:00 UTC (safe default for 02:00 local)
+        if settings.owner_dashboard_v2:
+            _scheduler.add_job(
+                _nightly_aggregation_job,
+                trigger="cron",
+                hour=7,
+                minute=0,
+                id="nightly_stats_aggregation",
+                replace_existing=True,
+            )
+            logger.info("Phase 5: Nightly stats aggregation scheduled at 07:00 UTC.")
+            # Monthly summary email: first day of month at 08:00 UTC
+            _scheduler.add_job(
+                _monthly_summary_email_job,
+                trigger="cron",
+                day=1,
+                hour=8,
+                minute=0,
+                id="monthly_summary_email",
+                replace_existing=True,
+            )
+            logger.info("Phase 5: Monthly summary email scheduled on day 1 at 08:00 UTC.")
 
 
 def shutdown_scheduler() -> None:
@@ -536,6 +558,74 @@ async def _appointment_reminder_lifecycle_job(appointment_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Job: daily call quality digest (fires 08:00 UTC)
 # ---------------------------------------------------------------------------
+
+async def schedule_nightly_aggregation() -> None:
+    """
+    Phase 5: Manually trigger nightly aggregation (e.g. for testing or backfill).
+    Normally called by the 07:00 UTC cron job.
+    """
+    from datetime import date as _date
+    stat_date = _date.today()
+    logger.info("schedule_nightly_aggregation: manually triggered for %s", stat_date)
+    await _nightly_aggregation_job(stat_date=stat_date.isoformat())
+
+
+async def _nightly_aggregation_job(stat_date: str | None = None) -> None:
+    """Phase 5: Aggregate daily_call_stats for all active tenants."""
+    from app.database import async_session_factory
+    from app.services.stats_aggregator import StatsAggregator
+    from datetime import date as _date
+    import datetime as _dt
+
+    if stat_date:
+        try:
+            target_date = _date.fromisoformat(stat_date)
+        except ValueError:
+            target_date = _date.today()
+    else:
+        # Default: yesterday (since nightly runs at 07:00 UTC)
+        target_date = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=1)).date()
+
+    logger.info("Phase 5: Nightly aggregation for %s", target_date)
+    try:
+        async with async_session_factory() as db:
+            aggregator = StatsAggregator()
+            counts = await aggregator.aggregate_all_tenants(target_date, db)
+            logger.info("Phase 5: Nightly aggregation complete | ok=%d error=%d", counts["ok"], counts["error"])
+    except Exception as exc:
+        logger.error("Phase 5: Nightly aggregation job failed: %s", exc)
+
+
+async def _monthly_summary_email_job() -> None:
+    """Phase 5: Send monthly summary emails to all active tenants (first of month)."""
+    from app.database import async_session_factory
+    from app.models.contractor import Contractor
+    from app.services.monthly_summary_email import send_monthly_summary
+    from sqlalchemy import select
+    import datetime as _dt
+
+    now = _dt.datetime.now(_dt.timezone.utc)
+    # Send summary for the previous month
+    if now.month == 1:
+        year, month = now.year - 1, 12
+    else:
+        year, month = now.year, now.month - 1
+
+    logger.info("Phase 5: Monthly summary email job | period=%d-%02d", year, month)
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(Contractor).where(Contractor.is_active == True)  # noqa: E712
+            )
+            contractors = result.scalars().all()
+            for contractor in contractors:
+                try:
+                    await send_monthly_summary(contractor, year, month, db)
+                except Exception as exc:
+                    logger.warning("Monthly summary email failed | tenant=%s err=%s", contractor.id, exc)
+    except Exception as exc:
+        logger.error("Phase 5: Monthly summary email job failed: %s", exc)
+
 
 async def _daily_digest_job() -> None:
     from app.services.quality import daily_digest

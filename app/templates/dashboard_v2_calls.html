@@ -1,0 +1,135 @@
+{% extends "portal_base.html" %}
+{% block title %} — Call Analytics{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Call Analytics</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Detailed call breakdown and filters</p>
+    </div>
+    <a href="/dashboard/v2" class="text-sm text-blue-600 hover:underline">← Overview</a>
+  </div>
+
+  <!-- Summary metrics -->
+  {% if monthly %}
+  <div class="grid grid-cols-2 gap-3">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Booking Rate</p>
+      <p class="text-2xl font-bold text-green-600 mt-1">{{ monthly.booking_rate_pct }}%</p>
+      <p class="text-xs text-gray-400 mt-0.5">This month</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Calls Answered</p>
+      <p class="text-2xl font-bold text-blue-600 mt-1">{{ monthly.calls_answered }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">This month</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Filters -->
+  <form method="GET" action="/dashboard/v2/calls" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Filter Calls</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
+        <input type="date" name="date_from" value="{{ filters.date_from or '' }}"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
+        <input type="date" name="date_to" value="{{ filters.date_to or '' }}"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Trade</label>
+        <select name="trade" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">All trades</option>
+          {% for t in available_trades %}
+          <option value="{{ t }}" {% if filters.trade == t %}selected{% endif %}>{{ t | title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+        <select name="status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">All</option>
+          <option value="booked" {% if filters.status == 'booked' %}selected{% endif %}>Booked</option>
+          <option value="not_booked" {% if filters.status == 'not_booked' %}selected{% endif %}>Not booked</option>
+          <option value="urgent" {% if filters.status == 'urgent' %}selected{% endif %}>Urgent</option>
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm transition">
+      Apply Filters
+    </button>
+  </form>
+
+  <!-- Call detail (drill-down view) -->
+  {% if detail_lead %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+    <h2 class="text-base font-semibold text-gray-900">Call Detail</h2>
+    <div class="divide-y divide-gray-100">
+      <div class="py-2 flex justify-between"><span class="text-sm text-gray-500">Caller</span><span class="text-sm font-medium">{{ detail_lead.caller_name or '—' }}</span></div>
+      <div class="py-2 flex justify-between"><span class="text-sm text-gray-500">Phone</span><span class="text-sm font-medium">{{ detail_lead.phone or '—' }}</span></div>
+      <div class="py-2 flex justify-between"><span class="text-sm text-gray-500">Trade</span><span class="text-sm font-medium">{{ detail_lead.trade or '—' }}</span></div>
+      <div class="py-2 flex justify-between"><span class="text-sm text-gray-500">Status</span><span class="text-sm font-medium capitalize">{{ detail_lead.appointment_status }}</span></div>
+      <div class="py-2 flex justify-between"><span class="text-sm text-gray-500">Date</span><span class="text-sm font-medium">{{ detail_lead.created_at.strftime('%b %d, %Y %H:%M') if detail_lead.created_at else '—' }}</span></div>
+    </div>
+    {% if detail_lead.raw_transcript %}
+    <div class="mt-2">
+      <p class="text-xs font-semibold text-gray-500 mb-1">Transcript (AI summary)</p>
+      <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{{ detail_lead.ai_summary or 'No summary available.' }}</p>
+    </div>
+    {% endif %}
+    {% if detail_lead.recording_url %}
+    <div class="mt-2">
+      <audio controls src="{{ detail_lead.recording_url }}" class="w-full"></audio>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Call list -->
+  {% if leads %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+      <p class="text-sm font-semibold text-gray-700">{{ leads|length }} call(s)</p>
+    </div>
+    <div class="divide-y divide-gray-100">
+      {% for lead in leads %}
+      <a href="/dashboard/v2/calls/{{ lead.call_id }}"
+         class="block px-4 py-3 hover:bg-gray-50 transition">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">{{ lead.caller_name or lead.phone or 'Unknown' }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ lead.trade or '—' }} · {{ lead.created_at.strftime('%b %d') if lead.created_at else '' }}</p>
+          </div>
+          <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+            {% if lead.appointment_status == 'booked' %}
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Booked</span>
+            {% elif lead.priority_level in ['emergency', 'critical'] %}
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Urgent</span>
+            {% else %}
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{{ lead.appointment_status | replace('_', ' ') | title }}</span>
+            {% endif %}
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% elif not detail_lead %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+    <p class="text-gray-500 text-sm">No calls match your filters.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

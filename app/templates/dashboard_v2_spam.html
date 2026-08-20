@@ -1,0 +1,94 @@
+{% extends "portal_base.html" %}
+{% block title %} — Spam Shield{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Spam Shield</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Blocked callers · Last 30 days</p>
+    </div>
+    <a href="/dashboard/v2" class="text-sm text-blue-600 hover:underline">← Overview</a>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 gap-3">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Spam Blocked</p>
+      <p class="text-2xl font-bold text-red-500 mt-1">{{ shield_stats.total_blocked or 0 }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">Last 30 days</p>
+    </div>
+    <!-- False positive rate surfaced prominently per spec -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">False Positive Rate</p>
+      <p class="text-2xl font-bold {% if (shield_stats.false_positive_rate_pct or 0) > 10 %}text-red-500{% elif (shield_stats.false_positive_rate_pct or 0) > 5 %}text-amber-500{% else %}text-green-600{% endif %} mt-1">
+        {{ shield_stats.false_positive_rate_pct or 0 }}%
+      </p>
+      <p class="text-xs text-gray-400 mt-0.5">{{ shield_stats.false_positives or 0 }} unblocked as false positives</p>
+    </div>
+  </div>
+
+  <!-- By reason breakdown -->
+  {% if shield_stats.by_reason %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Blocked By Reason</p>
+    <div class="space-y-2">
+      {% for reason, count in shield_stats.by_reason.items() %}
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-gray-700 capitalize">{{ reason | replace('_', ' ') }}</span>
+        <span class="text-sm font-semibold text-gray-900">{{ count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Blocked number list -->
+  {% if blocks %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-4 py-3 bg-gray-50 border-b border-gray-100">
+      <p class="text-sm font-semibold text-gray-700">{{ blocks|length }} blocked number(s)</p>
+    </div>
+    <div class="divide-y divide-gray-100">
+      {% for block in blocks %}
+      <div class="px-4 py-3 flex items-center justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900 truncate">{{ block.phone_number }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">
+            {{ block.block_reason | replace('_', ' ') | title }}
+            · {{ block.created_at.strftime('%b %d, %Y') if block.created_at else '' }}
+          </p>
+          {% if block.false_positive_reported_at %}
+          <p class="text-xs text-green-600 mt-0.5 font-medium">Unblocked (false positive)</p>
+          {% endif %}
+        </div>
+        <div class="flex-shrink-0">
+          {% if block.is_active %}
+          <!-- One-tap unblock — POSTs to /dashboard/v2/spam/{id}/unblock -->
+          <form method="POST" action="/dashboard/v2/spam/{{ block.id }}/unblock"
+                onsubmit="return confirm('Mark {{ block.phone_number }} as a false positive and unblock?')">
+            <button type="submit"
+                    class="px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition">
+              Unblock
+            </button>
+          </form>
+          {% else %}
+          <span class="px-3 py-1.5 text-xs font-semibold text-gray-400 border border-gray-200 rounded-lg">
+            Unblocked
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+    <p class="text-gray-500 text-sm">No blocked numbers in the last 30 days.</p>
+    <p class="text-gray-400 text-xs mt-1">Spam Shield is monitoring your calls.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

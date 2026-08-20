@@ -374,6 +374,36 @@ async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
     contractor = result.scalar_one_or_none()
 
     if contractor and contractor.retell_agent_id:
+        # Phase 5: Spam Shield — check BEFORE routing to agent.
+        # Gated behind spam_shield feature flag (default OFF).
+        from app.config import settings as _settings
+        if _settings.spam_shield:
+            try:
+                from app.services.spam_shield import SpamShield
+                from app.services.feature_flags import is_enabled as _ff
+                shield_enabled = await _ff(str(contractor.id), "spam_shield", db)
+                if shield_enabled:
+                    shield = SpamShield()
+                    should_block, block_reason = await shield.check_call(
+                        from_number=from_number,
+                        to_number=to_number,
+                        tenant_id=contractor.id,
+                        db=db,
+                    )
+                    if should_block:
+                        await db.commit()
+                        logger.warning(
+                            "spam_shield: BLOCKED inbound call | from=%s tenant=%s reason=%s",
+                            from_number, contractor.id, block_reason,
+                        )
+                        # Return no agent_id — Retell will not connect the call
+                        # Returning empty dict (no agent_id) causes Retell to reject the call
+                        return {}
+                    await db.commit()
+            except Exception as _shield_exc:
+                # Never let spam shield failure crash the call path
+                logger.warning("spam_shield: check_call failed (non-fatal): %s", _shield_exc)
+
         logger.info(
             "Routing inbound call to agent %s for contractor %s",
             contractor.retell_agent_id, contractor.name,

@@ -105,5 +105,12 @@ class Settings(BaseSettings):
     estimate_followup: bool = False        # Estimate drip follow-up campaign
     reactivation_campaigns: bool = False   # Seasonal reactivation campaigns
 
+    # Phase 5 feature flags — all default OFF; flip via Railway env vars.
+    owner_dashboard_v2: bool = False   # ROI dashboard, call analytics, spam shield UI
+    spam_shield: bool = False          # Spam Shield call blocking (gated per flag)
+
+    # Phase 5: VAPID web push — if empty, push sending is skipped (no crash)
+    vapid_private_key: str = ""
+
 
 settings = Settings()

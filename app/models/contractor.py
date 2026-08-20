@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Float, Integer, JSON, String, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -59,7 +58,7 @@ class Contractor(Base):
     # avg_ticket_cents: integer cents fallback for revenue attribution (no floats)
     avg_ticket_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # {"plumbing": 25000, "hvac": 35000} — integer cents per trade
-    avg_ticket_cents_by_trade: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    avg_ticket_cents_by_trade: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Phase 1 feature flags per contractor
     emergency_triage_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
