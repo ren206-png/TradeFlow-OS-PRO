@@ -1,8 +1,8 @@
 name: Build base image
 
-# Rebuilds the pip-layer base image and pushes to GHCR.
-# Triggers ONLY when requirements.txt changes (or manually).
-# Normal code pushes never run this — they just inherit the cached image.
+# Rebuilds the pip-layer base image and pushes to GHCR whenever
+# requirements.txt changes, then automatically triggers a Railway redeploy
+# so the new base is picked up without a manual push.
 
 on:
   push:
@@ -10,11 +10,11 @@ on:
     paths:
       - requirements.txt
       - Dockerfile.base
-  workflow_dispatch: {}   # allow manual trigger from GitHub Actions UI
+  workflow_dispatch: {}   # manual trigger from GitHub Actions UI
 
 permissions:
   contents: read
-  packages: write          # needed to push to ghcr.io
+  packages: write          # push to ghcr.io
 
 jobs:
   build-base:
@@ -38,9 +38,24 @@ jobs:
           context: .
           file: Dockerfile.base
           push: true
-          # Tag with both :latest and the SHA of requirements.txt so you can pin
           tags: |
             ghcr.io/${{ github.repository_owner }}/tradeflow-base:latest
             ghcr.io/${{ github.repository_owner }}/tradeflow-base:${{ hashFiles('requirements.txt') }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Trigger Railway redeploy
+        # Redeploys the tradeflow-api service so it picks up the new base image.
+        # Requires RAILWAY_TOKEN secret — see setup instructions in README or ask Claude.
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          curl --silent --fail --show-error \
+            --request POST \
+            --header "Authorization: Bearer $RAILWAY_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data '{
+              "query": "mutation { serviceInstanceRedeploy(environmentId: \"c1136540-8b55-45b5-a33b-012613c10e74\", serviceId: \"6dc74200-ee98-480c-9857-74ec252b9eed\") }"
+            }' \
+            https://backboard.railway.com/graphql/v2
+          echo "Railway redeploy triggered."
