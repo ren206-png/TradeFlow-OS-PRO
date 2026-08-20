@@ -62,6 +62,10 @@ class Lead(Base):
     detected_language: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     translation_status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     original_field_values: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Phase 2: Speed-to-lead metrics (all nullable — additive only)
+    lead_received_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_contact_attempted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    speed_to_lead_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -577,6 +577,23 @@ async def missed_call(request: Request, db: AsyncSession = Depends(get_db)):
             await BillingService().increment_usage(contractor, "sms", db)
         lead.sms_confirmation_sent = True
 
+    # Phase 2: feature-flagged missed-call textback via OutboundGateway
+    # Purely additive — only fires when missed_call_textback flag is ON for the tenant
+    if from_number and call_id:
+        try:
+            import asyncio as _asyncio_p2
+            from app.services.missed_call import handle_missed_call as _handle_missed_call
+            _asyncio_p2.create_task(
+                _handle_missed_call(
+                    contractor=contractor,
+                    caller_phone=from_number,
+                    call_id=call_id,
+                    db=db,
+                )
+            )
+        except Exception as _p2_exc:
+            logger.warning("Phase 2 handle_missed_call dispatch error | %s", _p2_exc)
+
     try:
         from app.services.scheduler import schedule_missed_call_recovery
         schedule_missed_call_recovery(

@@ -48,6 +48,10 @@ class Contractor(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    # Phase 2 columns (additive only)
+    webhook_secret: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    booking_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+
     # Phase 1 feature flags per contractor
     emergency_triage_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     live_transfer_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

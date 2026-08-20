@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     fsm_sync: bool = False
     intake_flows_v2: bool = False
 
+    # Phase 2 feature flags — all default OFF; flip via Railway env vars.
+    missed_call_textback: bool = False
+    webform_callback: bool = False
+    lead_source_ingest: bool = False
+
     # Phase 3 feature flags
     followup_sms_enabled: bool = False
 
