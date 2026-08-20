@@ -2,7 +2,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from functools import lru_cache
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +57,10 @@ logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="app/templates")
 
+# Simple in-process cache for /api/public/metrics — keyed by 5-min bucket.
+# Avoids a DB hit on every marketing page load. Reset on process restart (acceptable).
+_metrics_cache: dict[str, Any] = {}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -104,12 +108,17 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Middleware
 # ---------------------------------------------------------------------------
 
+_CORS_ORIGINS = (
+    ["*"]
+    if settings.debug
+    else ["https://tradesflowos.com", "https://www.tradesflowos.com"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.debug else [],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -322,14 +331,11 @@ async def public_metrics():
             "live": False,
         })
 
-    # Cache key is just time-bucketed to 5-minute windows
+    # Cache results per 5-minute bucket to avoid DB hits on every page load.
     bucket = int(time.time()) // 300
-
-    @lru_cache(maxsize=1)
-    def _cache_key(b: int):
-        return b  # forces lru_cache to re-run when bucket changes
-
-    _cache_key(bucket)  # advance bucket
+    cached = _metrics_cache.get("data")
+    if cached and cached.get("bucket") == bucket:
+        return JSONResponse(cached)
 
     try:
         from app.database import get_db as _get_db
@@ -348,13 +354,15 @@ async def public_metrics():
             )).scalar() or 0
             break
 
-        return JSONResponse({
+        payload: dict[str, Any] = {
             "total_calls_handled": int(total_calls),
             "total_appointments_booked": int(booked),
             "contractors_active": int(active_contractors),
             "live": True,
             "bucket": bucket,
-        })
+        }
+        _metrics_cache["data"] = payload
+        return JSONResponse(payload)
     except Exception as exc:
         logger.warning("public_metrics DB error: %s", exc)
         return JSONResponse({"live": False, "error": "metrics unavailable"}, status_code=503)
@@ -390,7 +398,10 @@ async def health():
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    # Never expose internal exception details (table names, SQL, stack frames) in
+    # production — they are an information-disclosure vulnerability.
+    detail = str(exc) if settings.debug else "Internal server error"
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal server error", "detail": str(exc), "success": False},
+        content={"error": "Internal server error", "detail": detail, "success": False},
     )

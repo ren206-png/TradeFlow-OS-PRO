@@ -32,9 +32,18 @@ logger = logging.getLogger(__name__)
 
 
 def _require_admin(x_admin_key: str = Header(...)) -> None:
-    """Dependency: verify X-Admin-Key matches admin_password (falls back to secret_key)."""
-    expected = settings.admin_password or settings.secret_key
-    if not expected or not secrets.compare_digest(x_admin_key, expected):
+    """
+    Dependency: verify X-Admin-Key matches settings.admin_password.
+    Fails closed — returns 503 if ADMIN_PASSWORD is not set in env vars,
+    rather than silently falling back to secret_key (which signs session tokens).
+    """
+    expected = settings.admin_password
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin password not configured. Set ADMIN_PASSWORD in Railway env vars.",
+        )
+    if not secrets.compare_digest(x_admin_key, expected):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid admin key.",

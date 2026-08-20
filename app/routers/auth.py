@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import hashlib
 import secrets
 import logging
-import time
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -23,21 +22,54 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
 
-
-def _make_reset_token(email: str) -> str:
-    """Simple time-based reset token (valid 1 hour)."""
-    secret = settings.secret_key
-    hour = int(time.time() // 3600)
-    return hashlib.sha256(f"{email}:{hour}:{secret}".encode()).hexdigest()
+_RESET_TOKEN_TTL_HOURS = 1
 
 
-def _verify_reset_token(email: str, token: str) -> bool:
-    hour = int(time.time() // 3600)
-    # valid for current hour or previous hour (up to ~2hrs)
-    return any(
-        hashlib.sha256(f"{email}:{hour - i}:{settings.secret_key}".encode()).hexdigest()[:32] == token
-        for i in range(2)
-    )
+async def _issue_reset_token(contractor: Contractor, db: AsyncSession) -> str:
+    """
+    Generate a cryptographically secure single-use reset token, store it on the
+    contractor record (hashed), and return the raw token for inclusion in the
+    reset URL.  Token expires in _RESET_TOKEN_TTL_HOURS hours.
+    """
+    raw_token = secrets.token_urlsafe(48)  # 48-byte → 64-char URL-safe string
+    contractor.reset_token = raw_token
+    contractor.reset_token_expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=_RESET_TOKEN_TTL_HOURS)
+    await db.flush()
+    return raw_token
+
+
+async def _verify_and_consume_reset_token(
+    contractor: Contractor,
+    token: str,
+    db: AsyncSession,
+) -> bool:
+    """
+    Verify the reset token using constant-time comparison.
+    Consumes (clears) the token on success so it cannot be reused.
+    Returns True if valid, False otherwise.
+    """
+    stored = contractor.reset_token
+    expires_at = contractor.reset_token_expires_at
+
+    if not stored or not expires_at:
+        return False
+
+    if datetime.now(tz=timezone.utc) > expires_at:
+        # Expired — clear it
+        contractor.reset_token = None
+        contractor.reset_token_expires_at = None
+        await db.flush()
+        return False
+
+    # Constant-time comparison to prevent timing attacks
+    if not secrets.compare_digest(stored, token):
+        return False
+
+    # Valid — consume (single-use)
+    contractor.reset_token = None
+    contractor.reset_token_expires_at = None
+    await db.flush()
+    return True
 
 
 @router.get("/signup", response_class=HTMLResponse)
@@ -212,7 +244,8 @@ async def forgot_password_post(
     result = await db.execute(select(Contractor).where(Contractor.email == email))
     contractor = result.scalar_one_or_none()
     if contractor:
-        token = _make_reset_token(email)
+        token = await _issue_reset_token(contractor, db)
+        await db.commit()
         reset_url = f"https://tradesflowos.com/auth/reset-password?email={email}&token={token}"
         logger.info("Password reset requested for email=%s", email)
         # Send reset email (no-op if SMTP not configured)
@@ -272,9 +305,6 @@ async def reset_password_post(
             status_code=400,
         )
 
-    if not _verify_reset_token(email, token):
-        return error("This reset link is invalid or has expired. Please request a new one.")
-
     if new_password != confirm_password:
         return error("Passwords do not match.")
 
@@ -285,6 +315,10 @@ async def reset_password_post(
     contractor = result.scalar_one_or_none()
     if contractor is None:
         return error("Account not found.")
+
+    # Verify and consume the single-use token (constant-time comparison)
+    if not await _verify_and_consume_reset_token(contractor, token, db):
+        return error("This reset link is invalid or has expired. Please request a new one.")
 
     contractor.hashed_password = hash_password(new_password)
     await db.commit()

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password
+from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, create_session_token
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ async def onboarding_submit(
     db: AsyncSession = Depends(get_db),
     # Step 1 — Company Info
     company_name: str = Form(""),
+
     agent_name: str = Form(""),
     email: str = Form(""),
     password: str = Form(""),
@@ -57,6 +59,19 @@ async def onboarding_submit(
     # Step 2 — Services
     service_areas: Optional[str] = Form(None),
 ) -> HTMLResponse:
+    # Rate-limit signups to 5 per IP per hour (same policy as /auth/signup)
+    allowed, retry_after = check_rate_limit(request, "onboarding", max_requests=5, window_seconds=3600)
+    if not allowed:
+        return templates.TemplateResponse(
+            "onboarding.html",
+            {
+                "request": request,
+                "errors": {"company_name": f"Too many signup attempts. Try again in {retry_after} seconds."},
+                "form": {},
+            },
+            status_code=429,
+        )
+
     form_data = await request.form()
     selected_trades: list[str] = list(form_data.getlist("trades"))
 

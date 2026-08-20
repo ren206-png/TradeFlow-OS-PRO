@@ -90,6 +90,10 @@ class Contractor(Base):
     # primary_trade — may already exist from earlier phases via getattr; add column here
     primary_trade: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
+    # Migration 0018: secure single-use password reset token (replaces SHA-256 time token)
+    reset_token: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    reset_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     leads: Mapped[list[Lead]] = relationship("Lead", back_populates="contractor", lazy="select")
     call_sessions: Mapped[list[CallSession]] = relationship(
         "CallSession", back_populates="contractor", lazy="select"

@@ -1,6 +1,15 @@
 """
 Phase 5: Web push notification service.
-Stores subscriptions; defers actual push sending until a VAPID provider is configured.
+
+STATUS: Push *sending* is not yet implemented — a VAPID provider has not been
+selected.  Subscription storage (PushSubscription model) and the service
+scaffolding are complete.  The send methods are intentionally no-ops and log a
+clear warning so the absence of push delivery is always visible in logs.
+
+To implement:
+  1. Pick a provider (pywebpush, web-push, etc.)
+  2. Set VAPID_PRIVATE_KEY in Railway env vars
+  3. Replace the _NOT_IMPLEMENTED bodies below with real send logic
 """
 from __future__ import annotations
 
@@ -10,6 +19,11 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+_PUSH_NOT_IMPLEMENTED_MSG = (
+    "Web push sending is not yet implemented — no VAPID provider configured. "
+    "Subscription stored but no push will be delivered."
+)
 
 
 class PushNotificationService:
@@ -49,16 +63,17 @@ class PushNotificationService:
         urgency_level: str,
         db: AsyncSession,
     ) -> None:
-        """Send urgent call alert push. Deferred if no VAPID key configured."""
-        from app.config import settings
-        if not getattr(settings, "vapid_private_key", ""):
-            logger.info(
-                "push: vapid_private_key not configured — skipping urgent alert | tenant=%s call=%s",
-                tenant_id, call_id,
-            )
-            return
-        # TODO: implement actual push send when VAPID provider decided
-        logger.info("push: urgent alert stub | tenant=%s call=%s urgency=%s", tenant_id, call_id, urgency_level)
+        """
+        Send urgent call alert push notification.
+        NOT YET IMPLEMENTED — logs a warning and returns without sending.
+        """
+        logger.warning(
+            "push.send_urgent_alert: %s | tenant=%s call=%s urgency=%s",
+            _PUSH_NOT_IMPLEMENTED_MSG,
+            tenant_id,
+            call_id,
+            urgency_level,
+        )
 
     async def send_daily_digest(
         self,
@@ -66,12 +81,12 @@ class PushNotificationService:
         stats: dict,
         db: AsyncSession,
     ) -> None:
-        """Send daily digest push. Deferred if no VAPID key configured."""
-        from app.config import settings
-        if not getattr(settings, "vapid_private_key", ""):
-            logger.info(
-                "push: vapid_private_key not configured — skipping daily digest | tenant=%s", tenant_id
-            )
-            return
-        # TODO: implement actual push send when VAPID provider decided
-        logger.info("push: daily digest stub | tenant=%s", tenant_id)
+        """
+        Send daily digest push notification.
+        NOT YET IMPLEMENTED — logs a warning and returns without sending.
+        """
+        logger.warning(
+            "push.send_daily_digest: %s | tenant=%s",
+            _PUSH_NOT_IMPLEMENTED_MSG,
+            tenant_id,
+        )

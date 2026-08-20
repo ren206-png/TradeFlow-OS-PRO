@@ -9,15 +9,58 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Form, Request, Response
+from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.services.sms_compliance import handle_inbound_keyword
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/twilio", tags=["twilio"])
+
+
+async def _verify_twilio_signature(
+    request: Request,
+    x_twilio_signature: str = Header(default=""),
+) -> None:
+    """
+    Verify the X-Twilio-Signature header to ensure the request is from Twilio.
+    Skipped when TWILIO_AUTH_TOKEN is not configured (dev/test environments).
+    Raises HTTP 403 if the signature is invalid.
+    """
+    auth_token = settings.twilio_auth_token
+    if not auth_token:
+        # No auth token configured — skip verification (local dev / missing config)
+        logger.debug("twilio: auth_token not set, skipping signature verification")
+        return
+
+    try:
+        from twilio.request_validator import RequestValidator
+        validator = RequestValidator(auth_token)
+
+        # Reconstruct the full URL that Twilio signed
+        url = str(request.url)
+
+        # Form params must be passed as a dict for signature validation
+        form_data = await request.form()
+        params = dict(form_data)
+
+        if not validator.validate(url, params, x_twilio_signature):
+            logger.warning("twilio: invalid signature from %s", request.client)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid Twilio signature.",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("twilio: signature validation error: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Signature validation failed.",
+        )
 
 
 @router.post("/sms")
@@ -26,6 +69,7 @@ async def inbound_sms(
     From: str = Form(...),
     Body: str = Form(...),
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(_verify_twilio_signature),
 ):
     """
     Handles inbound SMS from Twilio.

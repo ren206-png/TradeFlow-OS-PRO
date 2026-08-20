@@ -33,5 +33,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Intentionally a no-op at runtime — Alembic migrations are the sole
+    # authoritative schema source.  create_all is kept only in the test
+    # conftest (SQLite in-memory) so it doesn't run in production and cause
+    # schema drift or mask missing migrations.
+    pass
