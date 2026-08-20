@@ -3,23 +3,14 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Convert async DB URL to sync for APScheduler's SQLAlchemy jobstore
-_sync_db_url = (
-    settings.database_url
-    .replace("postgresql+asyncpg://", "postgresql://")
-    .replace("sqlite+aiosqlite://", "sqlite:///")
-)
-
-_scheduler = AsyncIOScheduler(
-    jobstores={"default": SQLAlchemyJobStore(url=_sync_db_url)},
-    timezone="UTC",
-)
+# TODO: Upgrade to SQLAlchemyJobStore once psycopg2-binary is stable on Railway.
+# For now, MemoryJobStore is used (jobs are re-added on startup so restarts are safe).
+_scheduler = AsyncIOScheduler(timezone="UTC")
 
 
 def get_scheduler() -> AsyncIOScheduler:

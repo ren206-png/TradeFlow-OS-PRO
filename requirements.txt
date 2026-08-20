@@ -21,7 +21,6 @@ twilio==9.3.7
 
 # Scheduler
 apscheduler==3.10.4
-psycopg2-binary==2.9.10
 
 # Crypto (webhook signature verification + password hashing)
 cryptography==44.0.0
