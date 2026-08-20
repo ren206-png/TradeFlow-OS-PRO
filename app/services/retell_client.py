@@ -300,3 +300,53 @@ class RetellClient:
             )
             response.raise_for_status()
             return response.json()
+
+    # ------------------------------------------------------------------
+    # Phase 6: Bilingual voice support
+    # ------------------------------------------------------------------
+
+    async def ensure_french_voice(self, contractor, db) -> bool:
+        """
+        Phase 6 — Lazily configure the contractor's Retell agent for French voice
+        when a French outbound call is needed.
+
+        Called only when french_bilingual flag is ON and language == "fr".
+
+        Steps:
+        1. If contractor.french_voice_id is not set → log warning, return False (use English).
+        2. If contractor.retell_agent_id is not set → log warning, return False.
+        3. Call update_agent() to set voice_id = contractor.french_voice_id.
+        4. On success return True; on failure log error, return False (fail open — use English voice).
+
+        Never raises. Always returns bool.
+        """
+        agent_id = getattr(contractor, "retell_agent_id", None)
+        french_voice_id = getattr(contractor, "french_voice_id", None)
+
+        if not french_voice_id:
+            logger.info(
+                "retell_client: french_voice_id not configured | tenant=%s — using English voice",
+                getattr(contractor, "id", "?"),
+            )
+            return False
+
+        if not agent_id:
+            logger.warning(
+                "retell_client: retell_agent_id not set | tenant=%s — cannot configure French voice",
+                getattr(contractor, "id", "?"),
+            )
+            return False
+
+        try:
+            await self.update_agent(agent_id, {"voice_id": french_voice_id})
+            logger.info(
+                "retell_client: French voice configured | tenant=%s agent=%s voice=%s",
+                getattr(contractor, "id", "?"), agent_id, french_voice_id,
+            )
+            return True
+        except Exception as exc:
+            logger.error(
+                "retell_client: ensure_french_voice failed (fail open) | tenant=%s err=%s",
+                getattr(contractor, "id", "?"), exc,
+            )
+            return False

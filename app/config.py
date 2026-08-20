@@ -112,5 +112,10 @@ class Settings(BaseSettings):
     # Phase 5: VAPID web push — if empty, push sending is skipped (no crash)
     vapid_private_key: str = ""
 
+    # Phase 6 feature flags — all default OFF; flip via Railway env vars.
+    weather_surge_mode: bool = False   # Surge intelligence (weather alerts → surge activation)
+    french_bilingual: bool = False     # Full EN/FR bilingual outbound SMS & calls
+    commercial_intake: bool = False    # Commercial/mechanical intake mode
+
 
 settings = Settings()

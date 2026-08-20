@@ -19,6 +19,7 @@ from app.routers import lead_ingest as lead_ingest_router  # Phase 2: lead inges
 from app.routers import triage_admin as triage_admin_router  # Phase 3: triage admin API
 from app.routers import campaigns as campaigns_router         # Phase 4: campaign management
 from app.routers import dashboard_v2 as dashboard_v2_router  # Phase 5: owner dashboard v2
+from app.routers import surge_portal as surge_portal_router  # Phase 6: surge portal API
 # Phase 1: register new models so SQLAlchemy/Base.metadata knows about them
 import app.models.feature_flag       # noqa: F401 — registers FeatureFlag
 import app.models.outbound_ledger    # noqa: F401 — registers OutboundLedger
@@ -36,6 +37,12 @@ import app.models.on_call_rotation   # noqa: F401 — registers OnCallRotation
 import app.models.daily_call_stats         # noqa: F401 — registers DailyCallStats
 import app.models.spam_block               # noqa: F401 — registers SpamBlock
 import app.models.push_subscription        # noqa: F401 — registers PushSubscription
+# Phase 6: register new models
+import app.models.weather_alert            # noqa: F401 — registers WeatherAlert
+import app.models.surge_mode_record        # noqa: F401 — registers SurgeModeRecord
+import app.models.contact_language_preference  # noqa: F401 — registers ContactLanguagePreference
+import app.models.service_agreement        # noqa: F401 — registers ServiceAgreement
+import app.models.commercial_intake        # noqa: F401 — registers CommercialIntake
 # Phase 4: register new models
 import app.models.appointment              # noqa: F401 — registers Appointment
 import app.models.estimate                 # noqa: F401 — registers Estimate
@@ -141,6 +148,7 @@ app.include_router(lead_ingest_router.router)      # Phase 2: lead ingest
 app.include_router(triage_admin_router.router)     # Phase 3: triage admin API
 app.include_router(campaigns_router.router)        # Phase 4: campaign kill switch + stats
 app.include_router(dashboard_v2_router.router)     # Phase 5: owner dashboard v2
+app.include_router(surge_portal_router.router)     # Phase 6: surge portal API
 
 
 # ---------------------------------------------------------------------------

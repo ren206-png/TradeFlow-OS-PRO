@@ -122,6 +122,10 @@ class ClaudeAgent:
                 if settings.safety_coaching:
                     from app.tools.deliver_coaching import get_deliver_coaching_tool_schema
                     tools.append(get_deliver_coaching_tool_schema())
+                # Phase 6: commercial intake tool — gated behind flag
+                if settings.commercial_intake:
+                    from app.tools.commercial_intake_tool import get_collect_commercial_intake_tool_schema
+                    tools.append(get_collect_commercial_intake_tool_schema())
                 return await self._client.messages.create(
                     model=settings.claude_model,
                     max_tokens=settings.claude_max_tokens,

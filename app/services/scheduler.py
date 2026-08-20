@@ -32,6 +32,16 @@ def start_scheduler() -> None:
             replace_existing=True,
         )
         logger.info("APScheduler started. Daily digest scheduled at 08:00 UTC.")
+        # Phase 6: Weather surge polling + expiry — every 30 minutes when flag ON
+        if settings.weather_surge_mode:
+            _scheduler.add_job(
+                _weather_surge_poll_and_expire_job,
+                trigger="interval",
+                minutes=30,
+                id="weather_surge_poll_expire",
+                replace_existing=True,
+            )
+            logger.info("Phase 6: Weather surge poll + expiry job scheduled every 30 minutes.")
         # Phase 5: nightly stats aggregation at 07:00 UTC (safe default for 02:00 local)
         if settings.owner_dashboard_v2:
             _scheduler.add_job(
@@ -625,6 +635,108 @@ async def _monthly_summary_email_job() -> None:
                     logger.warning("Monthly summary email failed | tenant=%s err=%s", contractor.id, exc)
     except Exception as exc:
         logger.error("Phase 5: Monthly summary email job failed: %s", exc)
+
+
+async def poll_weather_alerts_job() -> None:
+    """
+    Phase 6: Poll weather alerts for all contractors with weather_surge_mode flag enabled
+    and service_area_postal_codes configured. Also runs check_and_expire().
+    Public entry point for manual triggering / testing.
+    """
+    await _weather_surge_poll_and_expire_job()
+
+
+async def _weather_surge_poll_and_expire_job() -> None:
+    """
+    Phase 6: Weather surge scheduler job — runs every 30 minutes.
+    1. For each contractor with weather_surge_mode enabled and postal codes set: poll alerts.
+    2. Activate surge for new triggering alerts.
+    3. check_and_expire() all tenants.
+
+    API failure → log, continue, never crash or leave tenant stuck in surge.
+    """
+    from app.database import async_session_factory
+    from app.models.contractor import Contractor
+    from app.models.weather_alert import WeatherAlert
+    from app.services.feature_flags import is_enabled as _flag_enabled
+    from app.services.weather_surge import WeatherSurgeService
+    from sqlalchemy import select
+
+    logger.info("Phase 6: Weather surge poll starting")
+    svc = WeatherSurgeService()
+
+    try:
+        async with async_session_factory() as db:
+            # Run expiry first
+            expired = await svc.check_and_expire(db)
+            logger.info("Phase 6: surge expiry check complete | expired=%d", expired)
+
+            # Poll all active contractors
+            result = await db.execute(
+                select(Contractor).where(
+                    Contractor.is_active == True,  # noqa: E712
+                    Contractor.service_area_postal_codes.isnot(None),
+                )
+            )
+            contractors = result.scalars().all()
+
+            for contractor in contractors:
+                try:
+                    # Per-tenant flag check
+                    flag_on = await _flag_enabled(
+                        str(contractor.id), "weather_surge_mode", db
+                    )
+                    if not flag_on:
+                        continue
+
+                    alerts = await svc.poll_alerts(contractor, db)
+                    for alert in alerts:
+                        # Check if already processed this alert
+                        existing = await db.execute(
+                            select(WeatherAlert).where(
+                                WeatherAlert.alert_id == alert.alert_id
+                            )
+                        )
+                        if existing.scalar_one_or_none() is not None:
+                            continue  # Already know about this alert
+
+                        # Activate surge
+                        if not contractor.surge_mode_active:
+                            await svc.activate_surge(contractor, alert, db)
+                            await db.commit()
+                            logger.info(
+                                "Phase 6: surge activated via polling | tenant=%s alert=%s",
+                                contractor.id, alert.alert_id,
+                            )
+                        else:
+                            # Still log the alert even if already in surge
+                            from app.models.weather_alert import WeatherAlert as _WA
+                            import uuid as _uuid
+                            wa = _WA(
+                                id=_uuid.uuid4(),
+                                tenant_id=contractor.id,
+                                alert_id=alert.alert_id,
+                                surge_type=alert.surge_type,
+                                title=alert.title,
+                                effective_at=alert.effective_at,
+                                expires_at=alert.expires_at,
+                                source=alert.source,
+                                postal_codes=alert.postal_codes,
+                                raw_payload=alert.raw_payload,
+                            )
+                            db.add(wa)
+                            await db.flush()
+                            await db.commit()
+
+                except Exception as exc:
+                    logger.error(
+                        "Phase 6: surge poll failed for contractor | tenant=%s err=%s",
+                        contractor.id, exc,
+                    )
+                    # Never crash the whole job over one tenant's failure
+
+    except Exception as exc:
+        logger.error("Phase 6: weather surge poll job failed | err=%s", exc)
 
 
 async def _daily_digest_job() -> None:

@@ -26,6 +26,15 @@ _TOOL_MAP_BASE = {
 _TOOL_MAP = {
     **_TOOL_MAP_BASE,
     **({"deliver_coaching": deliver_coaching} if settings.safety_coaching else {}),
+    # Phase 6: commercial intake — gated behind commercial_intake flag
+    **(
+        {"collect_commercial_intake": __import__(
+            "app.tools.commercial_intake_tool",
+            fromlist=["collect_commercial_intake"],
+        ).collect_commercial_intake}
+        if settings.commercial_intake
+        else {}
+    ),
 }
 
 

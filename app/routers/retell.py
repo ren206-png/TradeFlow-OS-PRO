@@ -202,12 +202,39 @@ async def llm_websocket(
                         if tmpl:
                             intake_section = await IntakeService().format_questions_for_prompt(tmpl)
 
+                # Phase 6: Membership / caller-ID lookup — gated behind flags, fail open
+                _membership_context: dict = {}
+                if settings.commercial_intake or settings.french_bilingual:
+                    try:
+                        from app.services.membership import MembershipService
+                        _ms = MembershipService()
+                        _matched_lead, _confidence = await _ms.lookup_caller(
+                            from_number, contractor, db
+                        )
+                        _greeting_addition = _ms.get_member_greeting_addition(
+                            _matched_lead, contractor, _confidence
+                        )
+                        if _matched_lead is not None and _confidence >= 75:
+                            _membership_context = {
+                                "matched_lead_id": str(getattr(_matched_lead, "id", "")),
+                                "match_confidence": _confidence,
+                                "greeting_addition": _greeting_addition,
+                            }
+                    except Exception as _me:
+                        logger.warning(
+                            "retell: membership lookup failed (fail open) | call_id=%s err=%s",
+                            call_id, _me,
+                        )
+
                 agent = ClaudeAgent(
                     contractor=contractor,
                     call_session=call_session,
                     db=db,
                     intake_section=intake_section,
                 )
+                # Attach membership context for downstream tools
+                if _membership_context:
+                    agent._tool_context["membership"] = _membership_context
                 # Phase 3: inject triage prompt section async (no-op when flag OFF)
                 await agent.initialise_async_prompt()
                 _active_agents[call_id] = agent

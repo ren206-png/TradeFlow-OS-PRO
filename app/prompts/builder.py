@@ -68,8 +68,17 @@ async def build_system_prompt_async(
     Appends a TRIAGE_INSTRUCTIONS section when triage_library_v2 is ON
     and an active triage tree exists for the contractor's primary trade.
     Flag OFF (default) → byte-for-byte identical to build_system_prompt().
+
+    Phase 6 additive: if weather_surge_mode flag is ON and contractor.surge_mode_active,
+    prepend the surge greeting before the standard system prompt.
     """
     base = build_system_prompt(contractor, intake_section=intake_section)
+
+    # Phase 6: Surge greeting injection — additive only, flag OFF = zero change
+    if settings.weather_surge_mode and getattr(contractor, "surge_mode_active", False) and db is not None:
+        surge_prefix = await _build_surge_greeting(contractor, db)
+        if surge_prefix:
+            base = surge_prefix + "\n\n" + base
 
     if not settings.triage_library_v2 or db is None:
         return base
@@ -79,6 +88,41 @@ async def build_system_prompt_async(
         base += "\n\n" + triage_section
 
     return base
+
+
+async def _build_surge_greeting(
+    contractor: Contractor,
+    db: "AsyncSession",
+) -> str:
+    """
+    Phase 6: Build surge greeting prefix when surge_mode_active and weather_surge_mode flag ON.
+    Looks up active SurgeModeRecord to get surge_type. Returns fixed string — no LLM.
+    Returns empty string on any error (fail safe).
+    """
+    try:
+        from sqlalchemy import select
+        from app.models.surge_mode_record import SurgeModeRecord
+        from app.services.weather_surge import WeatherSurgeService
+
+        result = await db.execute(
+            select(SurgeModeRecord).where(
+                SurgeModeRecord.tenant_id == contractor.id,
+                SurgeModeRecord.deactivated_at.is_(None),
+            ).order_by(SurgeModeRecord.activated_at.desc()).limit(1)
+        )
+        record = result.scalar_one_or_none()
+        if record is None:
+            return ""
+
+        svc = WeatherSurgeService()
+        return svc.get_surge_greeting(record.surge_type, contractor.name)
+
+    except Exception as exc:
+        logger.warning(
+            "builder: surge greeting build failed (non-fatal) | contractor=%s err=%s",
+            getattr(contractor, "id", "?"), exc,
+        )
+        return ""
 
 
 async def _build_triage_section(

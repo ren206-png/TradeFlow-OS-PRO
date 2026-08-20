@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, JSON, String, func
+from sqlalchemy import Boolean, DateTime, Float, Integer, JSON, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -66,6 +67,28 @@ class Contractor(Base):
     fsm_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     intake_flows_v2_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     emergency_config: Mapped[dict] = mapped_column(JSON, nullable=True)
+
+    # Phase 6 columns (additive only — surge, bilingual, commercial intake)
+    surge_mode_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    # Numeric(3,1) — stored as Decimal; int*10 comparisons avoid floats. Max 1.5.
+    surge_overbooking_multiplier: Mapped[Decimal] = mapped_column(
+        Numeric(3, 1), nullable=False, default=Decimal("1.0"), server_default="1.0"
+    )
+    service_area_postal_codes: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # default "en"; "fr" for Quebec-first tenants
+    default_language: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="en", server_default="en"
+    )
+    # Retell voice ID for French outbound calls
+    french_voice_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # residential|commercial_mechanical
+    tenant_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="residential", server_default="residential"
+    )
+    # primary_trade — may already exist from earlier phases via getattr; add column here
+    primary_trade: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     leads: Mapped[list[Lead]] = relationship("Lead", back_populates="contractor", lazy="select")
     call_sessions: Mapped[list[CallSession]] = relationship(
