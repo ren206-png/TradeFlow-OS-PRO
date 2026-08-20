@@ -206,16 +206,15 @@ def upgrade() -> None:
         "contractors",
         sa.Column("tenant_type", sa.String(50), nullable=False, server_default="residential"),
     )
-    # primary_trade — add only if not already present (phase 3 may have added via getattr)
-    op.add_column(
-        "contractors",
-        sa.Column("primary_trade", sa.String(50), nullable=True),
+    # primary_trade — idempotent: migration 0014 already adds this column
+    op.execute(
+        "ALTER TABLE contractors ADD COLUMN IF NOT EXISTS primary_trade VARCHAR(50)"
     )
 
 
 def downgrade() -> None:
     # Remove contractor columns (reverse order)
-    op.drop_column("contractors", "primary_trade")
+    # primary_trade is owned by migration 0014 — do NOT drop here
     op.drop_column("contractors", "tenant_type")
     op.drop_column("contractors", "french_voice_id")
     op.drop_column("contractors", "default_language")
