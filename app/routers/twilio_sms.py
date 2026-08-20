@@ -63,11 +63,90 @@ async def inbound_sms(
         except Exception as _exc:
             logger.warning("CALL keyword handler failed | from=%s err=%s", phone, _exc)
 
+    # Phase 4: CONFIRM keyword — mark appointment confirmed
+    if body.strip().upper() == "CONFIRM":
+        try:
+            await _handle_confirm_keyword(phone, request, db)
+        except Exception as _exc:
+            logger.warning("CONFIRM keyword handler failed | from=%s err=%s", phone, _exc)
+        # Return empty TwiML (no reply SMS on confirm)
+        return Response(
+            content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+            media_type="application/xml",
+        )
+
+    # Phase 4: RESCHEDULE keyword — trigger outbound call to offer new slots
+    if body.strip().upper() == "RESCHEDULE":
+        try:
+            await _handle_reschedule_keyword(phone, request, db)
+        except Exception as _exc:
+            logger.warning("RESCHEDULE keyword handler failed | from=%s err=%s", phone, _exc)
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            "<Response><Message>We're arranging a call to find you a new time. "
+            "We'll call you shortly!</Message></Response>"
+        )
+        return Response(content=twiml, media_type="application/xml")
+
     # No keyword matched — return empty TwiML (no reply)
     return Response(
         content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
         media_type="application/xml",
     )
+
+
+async def _resolve_tenant_from_to(request: Request, db: AsyncSession):
+    """Resolve contractor from the Twilio 'To' number in form data."""
+    from app.models.contractor import Contractor
+    form_data = await request.form()
+    to_number: str = str(form_data.get("To", "")).strip()
+    if not to_number:
+        return None, None
+    from sqlalchemy import select as _select
+    result = await db.execute(
+        _select(Contractor).where(
+            Contractor.phone_number == to_number,
+            Contractor.is_active.is_(True),
+        )
+    )
+    contractor = result.scalar_one_or_none()
+    return contractor, to_number
+
+
+async def _handle_confirm_keyword(
+    caller_phone: str,
+    request: Request,
+    db: AsyncSession,
+) -> None:
+    """
+    Phase 4: Handle CONFIRM keyword — mark appointment confirmed.
+    Gated behind appointment_lifecycle feature flag per tenant.
+    """
+    from app.services.appointment_lifecycle import AppointmentLifecycleService
+    contractor, _ = await _resolve_tenant_from_to(request, db)
+    if not contractor:
+        return
+    svc = AppointmentLifecycleService()
+    await svc.handle_confirm_keyword(caller_phone, str(contractor.id), db)
+    await db.commit()
+
+
+async def _handle_reschedule_keyword(
+    caller_phone: str,
+    request: Request,
+    db: AsyncSession,
+) -> None:
+    """
+    Phase 4: Handle RESCHEDULE keyword — trigger outbound call to offer new slots.
+    Gated behind appointment_lifecycle feature flag per tenant.
+    """
+    from app.services.appointment_lifecycle import AppointmentLifecycleService
+    contractor, _ = await _resolve_tenant_from_to(request, db)
+    if not contractor:
+        return
+    svc = AppointmentLifecycleService()
+    await svc.handle_reschedule_keyword(caller_phone, str(contractor.id), db)
+    await db.commit()
 
 
 async def _handle_call_keyword(

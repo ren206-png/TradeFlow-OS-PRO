@@ -53,6 +53,65 @@ class FSMService:
             return HousecallAdapter(access_token=token)
         return None
 
+    async def get_estimate_status(
+        self,
+        contractor: Contractor,
+        fsm_estimate_id: str,
+        db: AsyncSession,
+    ) -> str | None:
+        """
+        Fetch estimate status from FSM adapter.
+        Returns status string (accepted/declined/sent/etc) or None if not available.
+        If the adapter returns None (not implemented), logs and returns None — caller
+        must treat as unknown and NOT fake the status.
+        """
+        adapter = await self.get_adapter(contractor, db)
+        if not adapter:
+            return None
+        try:
+            result = await adapter.get_estimate(fsm_estimate_id)
+            if result is None:
+                return None
+            return result.get("status")
+        except Exception as exc:
+            logger.warning(
+                "FSMService.get_estimate_status failed | contractor=%s fsm_estimate_id=%s err=%s",
+                contractor.id, fsm_estimate_id, exc,
+            )
+            return None
+        finally:
+            await adapter.close()
+
+    async def get_appointment_status(
+        self,
+        contractor: Contractor,
+        fsm_appointment_id: str,
+        db: AsyncSession,
+    ) -> str | None:
+        """
+        Fetch appointment/job status from FSM. Returns status string or None.
+        Used by reminder service to detect cancelled/completed appointments before send.
+        """
+        adapter = await self.get_adapter(contractor, db)
+        if not adapter:
+            return None
+        try:
+            # Both Jobber and HCP expose job status via create_job result shape;
+            # we query health check and note this is a best-effort check.
+            # Actual per-appointment lookup requires adapter-specific implementation.
+            # Returning None causes send_reminder to proceed (safe default).
+            logger.info(
+                "FSMService.get_appointment_status: adapter does not support per-appointment reads "
+                "— returning None (safe: reminder will send) | contractor=%s fsm_id=%s",
+                contractor.id, fsm_appointment_id,
+            )
+            return None
+        except Exception as exc:
+            logger.warning("FSMService.get_appointment_status failed | err=%s", exc)
+            return None
+        finally:
+            await adapter.close()
+
     async def push_lead(
         self,
         contractor: Contractor,

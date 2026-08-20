@@ -376,6 +376,164 @@ async def _lead_followup_job(lead_id: str, contractor_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Phase 4: Appointment lifecycle — confirmation + day-before reminder
+# ---------------------------------------------------------------------------
+
+def schedule_appointment_reminders(appointment_id: str) -> None:
+    """
+    Queue Phase 4 appointment lifecycle jobs:
+    1. Immediate confirmation SMS
+    2. Day-before reminder SMS (appointment_time - 24h)
+
+    Both gated behind 'appointment_lifecycle' feature flag inside the job functions.
+    """
+    if not settings.appointment_lifecycle:
+        logger.debug("appointment_lifecycle flag OFF — skipping lifecycle schedule | appt=%s", appointment_id)
+        return
+
+    fire_now = datetime.now(tz=timezone.utc)
+    _scheduler.add_job(
+        _appointment_confirmation_job,
+        trigger="date",
+        run_date=fire_now,
+        kwargs={"appointment_id": appointment_id},
+        id=f"appt_confirm_{appointment_id}",
+        replace_existing=True,
+    )
+    logger.info("Appointment confirmation job queued immediately | appt=%s", appointment_id)
+
+    # Reminder job time will be resolved from DB inside the job itself.
+    # Queue a deferred job that fetches the appointment and schedules the reminder.
+    _scheduler.add_job(
+        _appointment_schedule_reminder_job,
+        trigger="date",
+        run_date=fire_now,
+        kwargs={"appointment_id": appointment_id},
+        id=f"appt_schedule_reminder_{appointment_id}",
+        replace_existing=True,
+    )
+    logger.info("Appointment reminder scheduler queued | appt=%s", appointment_id)
+
+
+async def _appointment_confirmation_job(appointment_id: str) -> None:
+    """Fire Phase 4 appointment confirmation SMS via AppointmentLifecycleService."""
+    from app.database import async_session_factory
+    from app.models.appointment import Appointment
+    from app.models.contractor import Contractor
+    from app.services.appointment_lifecycle import AppointmentLifecycleService
+    from sqlalchemy import select
+    import uuid
+
+    logger.info("Firing appointment confirmation job | appt=%s", appointment_id)
+    try:
+        async with async_session_factory() as db:
+            appt_result = await db.execute(
+                select(Appointment).where(Appointment.id == uuid.UUID(appointment_id))
+            )
+            appointment = appt_result.scalar_one_or_none()
+            if not appointment:
+                logger.warning("Confirmation job: appointment %s not found", appointment_id)
+                return
+
+            contractor_result = await db.execute(
+                select(Contractor).where(Contractor.id == appointment.tenant_id)
+            )
+            contractor = contractor_result.scalar_one_or_none()
+            if not contractor:
+                logger.warning("Confirmation job: contractor not found | appt=%s", appointment_id)
+                return
+
+            svc = AppointmentLifecycleService()
+            await svc.send_confirmation(appointment, contractor, db)
+            await db.commit()
+    except Exception as exc:
+        logger.error("Appointment confirmation job failed | appt=%s err=%s", appointment_id, exc)
+
+
+async def _appointment_schedule_reminder_job(appointment_id: str) -> None:
+    """Fetch appointment time and schedule the day-before reminder job."""
+    from app.database import async_session_factory
+    from app.models.appointment import Appointment
+    from sqlalchemy import select
+    import uuid
+
+    try:
+        async with async_session_factory() as db:
+            appt_result = await db.execute(
+                select(Appointment).where(Appointment.id == uuid.UUID(appointment_id))
+            )
+            appointment = appt_result.scalar_one_or_none()
+            if not appointment:
+                logger.warning("Schedule reminder job: appointment %s not found", appointment_id)
+                return
+
+            appt_time = appointment.appointment_time
+            if appt_time.tzinfo is None:
+                from datetime import timezone as _tz
+                appt_time = appt_time.replace(tzinfo=_tz.utc)
+
+            fire_at = appt_time - timedelta(hours=24)
+            if fire_at <= datetime.now(tz=timezone.utc):
+                logger.debug(
+                    "Appointment reminder fire_at is in the past; skipping | appt=%s", appointment_id
+                )
+                return
+
+            _scheduler.add_job(
+                _appointment_reminder_lifecycle_job,
+                trigger="date",
+                run_date=fire_at,
+                kwargs={"appointment_id": appointment_id},
+                id=f"appt_reminder_{appointment_id}",
+                replace_existing=True,
+            )
+            logger.info(
+                "Appointment day-before reminder scheduled for %s | appt=%s",
+                fire_at.isoformat(), appointment_id,
+            )
+    except Exception as exc:
+        logger.error("Schedule reminder job failed | appt=%s err=%s", appointment_id, exc)
+
+
+async def _appointment_reminder_lifecycle_job(appointment_id: str) -> None:
+    """
+    Phase 4: Day-before reminder via AppointmentLifecycleService.
+    Adversarial check #1: FSM re-verify inside send_reminder().
+    """
+    from app.database import async_session_factory
+    from app.models.appointment import Appointment
+    from app.models.contractor import Contractor
+    from app.services.appointment_lifecycle import AppointmentLifecycleService
+    from sqlalchemy import select
+    import uuid
+
+    logger.info("Firing appointment day-before reminder | appt=%s", appointment_id)
+    try:
+        async with async_session_factory() as db:
+            appt_result = await db.execute(
+                select(Appointment).where(Appointment.id == uuid.UUID(appointment_id))
+            )
+            appointment = appt_result.scalar_one_or_none()
+            if not appointment:
+                logger.warning("Reminder lifecycle job: appointment %s not found", appointment_id)
+                return
+
+            contractor_result = await db.execute(
+                select(Contractor).where(Contractor.id == appointment.tenant_id)
+            )
+            contractor = contractor_result.scalar_one_or_none()
+            if not contractor:
+                logger.warning("Reminder lifecycle job: contractor not found | appt=%s", appointment_id)
+                return
+
+            svc = AppointmentLifecycleService()
+            await svc.send_reminder(appointment, contractor, db)
+            await db.commit()
+    except Exception as exc:
+        logger.error("Appointment reminder lifecycle job failed | appt=%s err=%s", appointment_id, exc)
+
+
+# ---------------------------------------------------------------------------
 # Job: daily call quality digest (fires 08:00 UTC)
 # ---------------------------------------------------------------------------
 

@@ -52,6 +52,19 @@ class JobberAdapter(FSMAdapter):
         """For Jobber, a job flows from a Request — we create the Request and let the tech convert it."""
         return await self.create_lead(lead_data)
 
+    async def get_estimate(self, fsm_estimate_id: str) -> dict | None:
+        """
+        HONEST CAPABILITY ASSESSMENT: Jobber's GraphQL API v2024-01 does not expose
+        a public estimate read endpoint via the documented partner API scope.
+        This stub returns None and logs the gap so callers fall back to manual source.
+        Implementation: NOT IMPLEMENTED — returns None always.
+        """
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "jobber_estimate_read_not_implemented | fsm_estimate_id=%s", fsm_estimate_id
+        )
+        return None
+
     async def health_check(self) -> bool:
         query = "{ account { id } }"
         try:

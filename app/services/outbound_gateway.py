@@ -310,6 +310,41 @@ class OutboundGateway:
         # ------------------------------------------------------------------
 
         # ------------------------------------------------------------------
+        # Step 2.5: Campaign kill switch (Phase 4)
+        # Enforced within 60 seconds of toggle — checked on every send.
+        # ------------------------------------------------------------------
+        try:
+            from app.models.contractor import Contractor as _Contractor
+            import uuid as _uuid_mod
+            _ks_result = await db.execute(
+                select(_Contractor).where(
+                    _Contractor.id == _uuid_mod.UUID(request.tenant_id)
+                )
+            )
+            _ks_contractor = _ks_result.scalar_one_or_none()
+            if _ks_contractor and getattr(_ks_contractor, "outbound_paused", False):
+                logger.info(
+                    "outbound_gateway: blocked tenant_outbound_paused | tenant=%s",
+                    request.tenant_id,
+                )
+                await _write_ledger(
+                    db, ledger_id=ledger_id,
+                    tenant_id=request.tenant_id,
+                    idempotency_key=request.idempotency_key,
+                    recipient_phone=request.recipient_phone,
+                    channel=request.channel,
+                    status="blocked",
+                    block_reason="tenant_outbound_paused",
+                    template_id=request.template_id,
+                    campaign_id=request.campaign_id,
+                    message_preview=preview,
+                )
+                return _blocked("tenant_outbound_paused")
+        except Exception as exc:
+            logger.error("outbound_gateway: kill switch check failed | err=%s", exc)
+            # Fail open — don't crash the send pipeline on kill switch check failure
+
+        # ------------------------------------------------------------------
         # Step 3: Opt-out check
         # ------------------------------------------------------------------
         try:

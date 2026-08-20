@@ -100,5 +100,10 @@ class Settings(BaseSettings):
     triage_library_v2: bool = False   # Enables versioned triage tree prompt injection
     safety_coaching: bool = False     # Enables deliver_coaching tool in agent tool list
 
+    # Phase 4 feature flags — all default OFF; flip via Railway env vars.
+    appointment_lifecycle: bool = False    # Appointment confirmation + reminder SMS
+    estimate_followup: bool = False        # Estimate drip follow-up campaign
+    reactivation_campaigns: bool = False   # Seasonal reactivation campaigns
+
 
 settings = Settings()

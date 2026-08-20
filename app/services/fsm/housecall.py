@@ -51,6 +51,19 @@ class HousecallAdapter(FSMAdapter):
             payload_extra["scheduled_start"] = appointment_time
         return await self.create_lead({**lead_data, **payload_extra})
 
+    async def get_estimate(self, fsm_estimate_id: str) -> dict | None:
+        """
+        HONEST CAPABILITY ASSESSMENT: HousecallPro REST API v1 estimate endpoints
+        require an 'estimates' OAuth scope not available on all partner integrations.
+        This stub returns None and logs so callers fall back to manual source.
+        Implementation: NOT IMPLEMENTED — returns None always.
+        """
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "hcp_estimate_read_not_implemented | fsm_estimate_id=%s", fsm_estimate_id
+        )
+        return None
+
     async def health_check(self) -> bool:
         try:
             headers = {"Authorization": f"Token token={self.access_token}"}

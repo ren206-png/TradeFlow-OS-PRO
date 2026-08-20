@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Float, Integer, JSON, String, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +52,14 @@ class Contractor(Base):
     # Phase 2 columns (additive only)
     webhook_secret: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     booking_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+
+    # Phase 4 columns (additive only — campaign kill switch & revenue attribution)
+    outbound_paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    outbound_paused_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # avg_ticket_cents: integer cents fallback for revenue attribution (no floats)
+    avg_ticket_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # {"plumbing": 25000, "hvac": 35000} — integer cents per trade
+    avg_ticket_cents_by_trade: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Phase 1 feature flags per contractor
     emergency_triage_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

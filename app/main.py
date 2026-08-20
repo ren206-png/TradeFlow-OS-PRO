@@ -17,6 +17,7 @@ from app.routers import a2p as a2p_router  # Phase 1: A2P admin API
 from app.routers import webform as webform_router          # Phase 2: webform callback
 from app.routers import lead_ingest as lead_ingest_router  # Phase 2: lead ingest
 from app.routers import triage_admin as triage_admin_router  # Phase 3: triage admin API
+from app.routers import campaigns as campaigns_router         # Phase 4: campaign management
 # Phase 1: register new models so SQLAlchemy/Base.metadata knows about them
 import app.models.feature_flag       # noqa: F401 — registers FeatureFlag
 import app.models.outbound_ledger    # noqa: F401 — registers OutboundLedger
@@ -30,6 +31,12 @@ import app.models.triage_node        # noqa: F401 — registers TriageNode
 import app.models.coaching_script    # noqa: F401 — registers CoachingScript
 import app.models.safety_action_ledger  # noqa: F401 — registers SafetyActionLedger
 import app.models.on_call_rotation   # noqa: F401 — registers OnCallRotation
+# Phase 4: register new models
+import app.models.appointment              # noqa: F401 — registers Appointment
+import app.models.estimate                 # noqa: F401 — registers Estimate
+import app.models.revenue_attribution_ledger  # noqa: F401 — registers RevenueAttributionLedger
+import app.models.campaign                 # noqa: F401 — registers Campaign
+import app.models.campaign_contact         # noqa: F401 — registers CampaignContact
 from app.services.scheduler import shutdown_scheduler, start_scheduler
 from app.utils.logging import configure_logging
 
@@ -127,6 +134,7 @@ app.include_router(a2p_router.router)  # Phase 1: A2P admin API
 app.include_router(webform_router.router)          # Phase 2: webform callback
 app.include_router(lead_ingest_router.router)      # Phase 2: lead ingest
 app.include_router(triage_admin_router.router)     # Phase 3: triage admin API
+app.include_router(campaigns_router.router)        # Phase 4: campaign kill switch + stats
 
 
 # ---------------------------------------------------------------------------
