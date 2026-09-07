@@ -82,10 +82,9 @@ async def portal_leads(
 
     flash = "Welcome to TradeFlow! Your account is ready." if welcome == "1" else None
 
-    return templates.TemplateResponse(
-        "portal_leads.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_leads.html",
+{
             "contractor_name": contractor.name,
             "contractor": contractor,
             "contractor_verified": contractor.is_verified,
@@ -95,7 +94,7 @@ async def portal_leads(
             "search": search,
             "status_filter": status_filter,
         },
-    )
+)
 
 
 @router.get("/leads/export/csv")
@@ -171,10 +170,9 @@ async def portal_lead_detail(
         (lead.sentiment or "neutral").lower(), "😐"
     )
 
-    return templates.TemplateResponse(
-        "portal_lead_detail.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_lead_detail.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "leads",
@@ -182,7 +180,7 @@ async def portal_lead_detail(
             "sentiment_emoji": sentiment_emoji,
             "back_url": "/portal/leads",
         },
-    )
+)
 
 
 @router.post("/leads/{lead_id}/update", response_class=RedirectResponse)
@@ -323,10 +321,9 @@ async def portal_analytics(
     # Top leads by revenue score
     top_leads = sorted(leads_month, key=lambda l: l.revenue_score or 0, reverse=True)[:5]
 
-    return templates.TemplateResponse(
-        "portal_analytics.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_analytics.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "analytics",
@@ -349,7 +346,7 @@ async def portal_analytics(
             "weekly_booked": weekly_booked,
             "top_leads": top_leads,
         },
-    )
+)
 
 
 @router.get("/live", response_class=HTMLResponse)
@@ -360,16 +357,15 @@ async def portal_live(
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
 
-    return templates.TemplateResponse(
-        "portal_live.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_live.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "live",
             "back_url": "/portal/leads",
         },
-    )
+)
 
 
 @router.get("/settings", response_class=HTMLResponse)
@@ -383,10 +379,9 @@ async def portal_settings(
 
     limits = PLAN_LIMITS.get(contractor.plan, PLAN_LIMITS["starter"])
 
-    return templates.TemplateResponse(
-        "portal_settings.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_settings.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "settings",
@@ -394,7 +389,7 @@ async def portal_settings(
             "plan_limits": limits,
             "saved": saved == "1",
         },
-    )
+)
 
 
 @router.post("/settings/update", response_class=RedirectResponse)
@@ -484,16 +479,15 @@ async def portal_setup(
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
 
-    return templates.TemplateResponse(
-        "portal_setup.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_setup.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "setup",
             "contractor": contractor,
         },
-    )
+)
 
 
 _DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -516,10 +510,9 @@ async def portal_oncall_get(
     )
     schedules = result.scalars().all()
 
-    return templates.TemplateResponse(
-        "portal_oncall.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_oncall.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "setup",
@@ -528,7 +521,7 @@ async def portal_oncall_get(
             "day_names": _DAY_NAMES,
             "flash": flash,
         },
-    )
+)
 
 
 @router.post("/setup/oncall", response_class=RedirectResponse)
@@ -600,10 +593,9 @@ async def portal_intake_get(
     questions = tmpl.questions if tmpl else []
     is_custom = tmpl is not None and not tmpl.is_system if tmpl else False
 
-    return templates.TemplateResponse(
-        "portal_intake.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_intake.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "setup",
@@ -613,7 +605,7 @@ async def portal_intake_get(
             "is_custom": is_custom,
             "flash": flash,
         },
-    )
+)
 
 
 @router.post("/setup/intake", response_class=RedirectResponse)
@@ -697,10 +689,9 @@ async def portal_integrations_get(
     jobber_connected = cred is not None and cred.vendor == "jobber"
     hcp_connected = cred is not None and cred.vendor == "housecall_pro"
 
-    return templates.TemplateResponse(
-        "portal_integrations.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"portal_integrations.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "setup",
@@ -709,7 +700,7 @@ async def portal_integrations_get(
             "hcp_connected": hcp_connected,
             "flash": flash,
         },
-    )
+)
 
 
 @router.post("/setup/integrations/connect", response_class=RedirectResponse)

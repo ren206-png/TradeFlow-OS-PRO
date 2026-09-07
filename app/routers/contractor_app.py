@@ -129,16 +129,15 @@ async def leads_list(request: Request, db: AsyncSession = Depends(get_db)):
 
     api_key = ""  # no longer passed in URLs — navigation uses session cookies
 
-    return templates.TemplateResponse(
-        "app_leads.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"app_leads.html",
+{
             "contractor_name": contractor.name,
             "api_key": api_key,
             "active_nav": "leads",
             "leads": leads,
         },
-    )
+)
 
 
 @router.get("/leads/{lead_id}", response_class=HTMLResponse)
@@ -161,17 +160,16 @@ async def lead_detail(lead_id: str, request: Request, db: AsyncSession = Depends
         (lead.sentiment or "neutral").lower(), "😐"
     )
 
-    return templates.TemplateResponse(
-        "app_lead_detail.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"app_lead_detail.html",
+{
             "contractor_name": contractor.name,
             "api_key": api_key,
             "active_nav": "leads",
             "lead": lead,
             "sentiment_emoji": sentiment_emoji,
         },
-    )
+)
 
 
 @router.get("/live", response_class=HTMLResponse)
@@ -183,15 +181,14 @@ async def live_calls(request: Request, db: AsyncSession = Depends(get_db)):
 
     api_key = ""  # no longer passed in URLs — navigation uses session cookies
 
-    return templates.TemplateResponse(
-        "app_live.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"app_live.html",
+{
             "contractor_name": contractor.name,
             "api_key": api_key,
             "active_nav": "live",
         },
-    )
+)
 
 
 @router.get("/events")

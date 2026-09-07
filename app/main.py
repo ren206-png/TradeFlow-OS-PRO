@@ -180,8 +180,9 @@ async def landing_page(request: Request):
 
     ab_variant = "A" if hash(visitor_token) % 2 == 0 else "B"
 
-    response = templates.TemplateResponse("landing.html", {
-        "request": request,
+    response = templates.TemplateResponse(request,
+"landing.html",
+{
         "demo_phone": settings.demo_phone_number or None,
         "ff_trust_v2": settings.trust_v2,
         "ff_mobile_hero_v2": settings.mobile_hero_v2,
@@ -235,12 +236,12 @@ async def sitemap_xml():
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 async def privacy_policy(request: Request):
-    return templates.TemplateResponse("privacy.html", {"request": request})
+    return templates.TemplateResponse(request, "privacy.html")
 
 
 @app.get("/terms", response_class=HTMLResponse, include_in_schema=False)
 async def terms_and_conditions(request: Request):
-    return templates.TemplateResponse("terms.html", {"request": request})
+    return templates.TemplateResponse(request, "terms.html")
 
 
 @app.get("/signup", include_in_schema=False)

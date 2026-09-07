@@ -30,14 +30,13 @@ TRADES = ["Plumbing", "HVAC", "Electrical", "Heating", "Cooling", "General"]
 
 @router.get("", response_class=HTMLResponse)
 async def onboarding_form(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        "onboarding.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"onboarding.html",
+{
             "errors": {},
             "form": {},
         },
-    )
+)
 
 
 # ---------------------------------------------------------------------------
@@ -62,15 +61,14 @@ async def onboarding_submit(
     # Rate-limit signups to 5 per IP per hour (same policy as /auth/signup)
     allowed, retry_after = check_rate_limit(request, "onboarding", max_requests=5, window_seconds=3600)
     if not allowed:
-        return templates.TemplateResponse(
-            "onboarding.html",
-            {
-                "request": request,
+        return templates.TemplateResponse(request,
+"onboarding.html",
+{
                 "errors": {"company_name": f"Too many signup attempts. Try again in {retry_after} seconds."},
                 "form": {},
             },
-            status_code=429,
-        )
+status_code=429,
+)
 
     form_data = await request.form()
     selected_trades: list[str] = list(form_data.getlist("trades"))
@@ -99,15 +97,14 @@ async def onboarding_submit(
 
     def _re_render(extra: Optional[dict] = None) -> HTMLResponse:
         all_errors = {**errors, **(extra or {})}
-        return templates.TemplateResponse(
-            "onboarding.html",
-            {
-                "request": request,
+        return templates.TemplateResponse(request,
+"onboarding.html",
+{
                 "errors": all_errors,
                 "form": dict(form_data),
             },
-            status_code=422,
-        )
+status_code=422,
+)
 
     if errors:
         return _re_render()

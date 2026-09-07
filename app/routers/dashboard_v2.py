@@ -100,10 +100,9 @@ async def dashboard_v2_overview(
 
     avg_ticket_set = contractor.avg_ticket_cents is not None and contractor.avg_ticket_cents > 0
 
-    return templates.TemplateResponse(
-        "dashboard_v2_overview.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_v2_overview.html",
+{
             "contractor_name": contractor.name,
             "contractor": contractor,
             "contractor_verified": contractor.is_verified,
@@ -117,7 +116,7 @@ async def dashboard_v2_overview(
             "year": year,
             "month": month,
         },
-    )
+)
 
 
 @router.get("/dashboard/v2/calls", response_class=HTMLResponse)
@@ -179,10 +178,9 @@ async def dashboard_v2_calls(
     )
     available_trades = [r for r in trades_result.scalars().all() if r]
 
-    return templates.TemplateResponse(
-        "dashboard_v2_calls.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_v2_calls.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "dashboard",
@@ -196,7 +194,7 @@ async def dashboard_v2_calls(
                 "status": status,
             },
         },
-    )
+)
 
 
 @router.get("/dashboard/v2/calls/{call_id}", response_class=HTMLResponse)
@@ -221,10 +219,9 @@ async def dashboard_v2_call_detail(
     if lead is None:
         return HTMLResponse(content="<h1>Call not found</h1>", status_code=404)
 
-    return templates.TemplateResponse(
-        "dashboard_v2_calls.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_v2_calls.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "dashboard",
@@ -234,7 +231,7 @@ async def dashboard_v2_call_detail(
             "available_trades": [],
             "filters": {},
         },
-    )
+)
 
 
 @router.get("/dashboard/v2/campaigns", response_class=HTMLResponse)
@@ -255,10 +252,9 @@ async def dashboard_v2_campaigns(
     )
     campaigns = result.scalars().all()
 
-    return templates.TemplateResponse(
-        "dashboard_v2_overview.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_v2_overview.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "dashboard",
@@ -269,7 +265,7 @@ async def dashboard_v2_campaigns(
             "spam_stats": {},
             "avg_ticket_set": False,
         },
-    )
+)
 
 
 @router.get("/dashboard/v2/spam", response_class=HTMLResponse)
@@ -298,17 +294,16 @@ async def dashboard_v2_spam(
     )
     blocks = blocks_result.scalars().all()
 
-    return templates.TemplateResponse(
-        "dashboard_v2_spam.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_v2_spam.html",
+{
             "contractor_name": contractor.name,
             "contractor_verified": contractor.is_verified,
             "active_nav": "dashboard",
             "shield_stats": shield_stats,
             "blocks": blocks,
         },
-    )
+)
 
 
 @router.post("/dashboard/v2/spam/{block_id}/unblock")

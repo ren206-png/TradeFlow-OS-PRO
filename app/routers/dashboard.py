@@ -175,10 +175,9 @@ async def dashboard_overview(
     _q_hangups = sum(1 for l in quality_leads if getattr(l, "hang_up_early", False))
     _q_rate = round(_q_booked / len(quality_leads) * 100, 1) if quality_leads else 0.0
 
-    return templates.TemplateResponse(
-        "dashboard_overview.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_overview.html",
+{
             "active_nav": "overview",
             "stats": {
                 "total_leads": total_leads,
@@ -202,7 +201,7 @@ async def dashboard_overview(
             "trade_counts": trade_counts,
             "funnel": funnel,
         },
-    )
+)
 
 
 @router.get("/leads", response_class=HTMLResponse)
@@ -272,10 +271,9 @@ async def leads_page(
     avg_val = avg_res.scalar_one()
     stats["avg_close"] = round(avg_val) if avg_val is not None else 0
 
-    return templates.TemplateResponse(
-        "leads.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"leads.html",
+{
             "active_nav": "leads",
             "leads": leads,
             "stats": stats,
@@ -285,7 +283,7 @@ async def leads_page(
             "total": total,
             "total_pages": max(1, (total + page_size - 1) // page_size),
         },
-    )
+)
 
 
 @router.get("/leads/{lead_id}", response_class=HTMLResponse)
@@ -315,16 +313,15 @@ async def lead_detail_page(
     elif lead.raw_transcript:
         conversation = lead.raw_transcript if isinstance(lead.raw_transcript, list) else []
 
-    return templates.TemplateResponse(
-        "lead_detail.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"lead_detail.html",
+{
             "active_nav": "leads",
             "lead": lead,
             "call_session": call_session,
             "conversation": conversation,
         },
-    )
+)
 
 
 @router.post("/leads/{lead_id}/update", response_class=RedirectResponse)
@@ -362,14 +359,13 @@ async def calls_page(
     )
     sessions = result.scalars().all()
 
-    return templates.TemplateResponse(
-        "calls.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"calls.html",
+{
             "active_nav": "calls",
             "sessions": sessions,
         },
-    )
+)
 
 
 @router.get("/live", response_class=HTMLResponse)
@@ -385,14 +381,13 @@ async def live_dashboard(
         f"ws:{minute}".encode(),
         "sha256",
     ).hexdigest()
-    return templates.TemplateResponse(
-        "live.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"live.html",
+{
             "active_nav": "live",
             "ws_token": ws_token,
         },
-    )
+)
 
 
 @router.websocket("/ws/calls")
@@ -460,14 +455,13 @@ async def billing_page(
             "trial_ends_at": c.trial_ends_at,
         })
 
-    return templates.TemplateResponse(
-        "billing.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"billing.html",
+{
             "active_nav": "billing",
             "rows": rows,
         },
-    )
+)
 
 
 @router.get("/contractors", response_class=HTMLResponse)
@@ -497,14 +491,13 @@ async def contractors_page(
             "api_key_tail": c.api_key[-8:] if c.api_key else "",
         })
 
-    return templates.TemplateResponse(
-        "contractors.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"contractors.html",
+{
             "active_nav": "contractors",
             "rows": rows,
         },
-    )
+)
 
 
 @router.post("/contractors/{contractor_id}/provision-agent", response_class=RedirectResponse)
@@ -575,10 +568,9 @@ async def contractor_detail_page(
     plan = contractor.plan or "starter"
     limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["starter"])
 
-    return templates.TemplateResponse(
-        "contractor_detail.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"contractor_detail.html",
+{
             "active_nav": "contractors",
             "contractor": contractor,
             "leads": leads,
@@ -589,7 +581,7 @@ async def contractor_detail_page(
             "plan": plan,
             "flash": msg,
         },
-    )
+)
 
 
 @router.get("/impersonate/{contractor_id}", response_class=RedirectResponse)
@@ -629,10 +621,9 @@ async def admin_settings(
         "openai": bool(app_settings.openai_api_key if hasattr(app_settings, "openai_api_key") else False),
         "anthropic": bool(app_settings.anthropic_api_key if hasattr(app_settings, "anthropic_api_key") else False),
     }
-    return templates.TemplateResponse(
-        "dashboard_settings.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"dashboard_settings.html",
+{
             "active_nav": "settings",
             "configured": configured,
             # NOTE: never pass the full settings object — it contains all secrets.
@@ -640,7 +631,7 @@ async def admin_settings(
             "demo_phone": app_settings.demo_phone_number,
             "multilang_enabled": app_settings.multilang_enabled,
         },
-    )
+)
 
 
 @router.get("/logout")

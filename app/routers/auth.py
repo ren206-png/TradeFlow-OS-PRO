@@ -74,10 +74,10 @@ async def _verify_and_consume_reset_token(
 
 @router.get("/signup", response_class=HTMLResponse)
 async def signup_get(request: Request):
-    return templates.TemplateResponse(
-        "auth_signup.html",
-        {"request": request, "error": None},
-    )
+    return templates.TemplateResponse(request,
+"auth_signup.html",
+{"error": None},
+)
 
 
 @router.post("/signup", response_class=HTMLResponse)
@@ -94,18 +94,18 @@ async def signup_post(
 ):
     allowed, retry_after = check_rate_limit(request, "signup", max_requests=5, window_seconds=3600)
     if not allowed:
-        return templates.TemplateResponse(
-            "auth_signup.html",
-            {"request": request, "error": f"Too many signup attempts. Try again in {retry_after} seconds."},
-            status_code=429,
-        )
+        return templates.TemplateResponse(request,
+"auth_signup.html",
+{"error": f"Too many signup attempts. Try again in {retry_after} seconds."},
+status_code=429,
+)
 
     def error(msg: str):
-        return templates.TemplateResponse(
-            "auth_signup.html",
-            {"request": request, "error": msg},
-            status_code=400,
-        )
+        return templates.TemplateResponse(request,
+"auth_signup.html",
+{"error": msg},
+status_code=400,
+)
 
     if password != confirm_password:
         return error("Passwords do not match.")
@@ -175,10 +175,10 @@ async def signup_post(
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request):
-    return templates.TemplateResponse(
-        "auth_login.html",
-        {"request": request, "error": None},
-    )
+    return templates.TemplateResponse(request,
+"auth_login.html",
+{"error": None},
+)
 
 
 @router.post("/login", response_class=HTMLResponse)
@@ -190,21 +190,21 @@ async def login_post(
 ):
     allowed, retry_after = check_rate_limit(request, "login", max_requests=10, window_seconds=600)
     if not allowed:
-        return templates.TemplateResponse(
-            "auth_login.html",
-            {"request": request, "error": f"Too many login attempts. Try again in {retry_after} seconds."},
-            status_code=429,
-        )
+        return templates.TemplateResponse(request,
+"auth_login.html",
+{"error": f"Too many login attempts. Try again in {retry_after} seconds."},
+status_code=429,
+)
 
     result = await db.execute(select(Contractor).where(Contractor.email == email))
     contractor = result.scalar_one_or_none()
 
     if contractor is None or not contractor.hashed_password or not verify_password(password, contractor.hashed_password):
-        return templates.TemplateResponse(
-            "auth_login.html",
-            {"request": request, "error": "Invalid email or password"},
-            status_code=401,
-        )
+        return templates.TemplateResponse(request,
+"auth_login.html",
+{"error": "Invalid email or password"},
+status_code=401,
+)
 
     # Silently upgrade legacy PBKDF2 hashes to argon2id on successful login
     if needs_rehash(contractor.hashed_password):
@@ -226,10 +226,10 @@ async def login_post(
 
 @router.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_get(request: Request):
-    return templates.TemplateResponse(
-        "auth_forgot_password.html",
-        {"request": request, "error": None, "success": None},
-    )
+    return templates.TemplateResponse(request,
+"auth_forgot_password.html",
+{"error": None, "success": None},
+)
 
 
 @router.post("/forgot-password", response_class=HTMLResponse)
@@ -267,14 +267,13 @@ async def forgot_password_post(
             loop.run_in_executor(None, _send_email, email, "Reset your TradeFlow password", html, text)
         except Exception as exc:
             logger.error("Failed to send password reset email: %s", exc)
-    return templates.TemplateResponse(
-        "auth_forgot_password.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request,
+"auth_forgot_password.html",
+{
             "error": None,
             "success": "If an account with that email exists, a reset link has been sent.",
         },
-    )
+)
 
 
 @router.get("/reset-password", response_class=HTMLResponse)
@@ -283,10 +282,10 @@ async def reset_password_get(
     email: str = "",
     token: str = "",
 ):
-    return templates.TemplateResponse(
-        "auth_reset_password.html",
-        {"request": request, "email": email, "token": token, "error": None},
-    )
+    return templates.TemplateResponse(request,
+"auth_reset_password.html",
+{"email": email, "token": token, "error": None},
+)
 
 
 @router.post("/reset-password", response_class=HTMLResponse)
@@ -299,11 +298,11 @@ async def reset_password_post(
     confirm_password: str = Form(...),
 ):
     def error(msg: str):
-        return templates.TemplateResponse(
-            "auth_reset_password.html",
-            {"request": request, "email": email, "token": token, "error": msg},
-            status_code=400,
-        )
+        return templates.TemplateResponse(request,
+"auth_reset_password.html",
+{"email": email, "token": token, "error": msg},
+status_code=400,
+)
 
     if new_password != confirm_password:
         return error("Passwords do not match.")
