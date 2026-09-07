@@ -36,7 +36,6 @@ import app.models.on_call_rotation   # noqa: F401 — registers OnCallRotation
 # Phase 5: register new models
 import app.models.daily_call_stats         # noqa: F401 — registers DailyCallStats
 import app.models.spam_block               # noqa: F401 — registers SpamBlock
-import app.models.push_subscription        # noqa: F401 — registers PushSubscription
 # Phase 6: register new models
 import app.models.weather_alert            # noqa: F401 — registers WeatherAlert
 import app.models.surge_mode_record        # noqa: F401 — registers SurgeModeRecord
