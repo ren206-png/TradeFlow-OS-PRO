@@ -62,6 +62,17 @@ def start_scheduler() -> None:
                 replace_existing=True,
             )
             logger.info("Phase 5: Monthly summary email scheduled on day 1 at 08:00 UTC.")
+        # Phase 4: Reactivation campaigns — nightly batch at 10:00 UTC
+        if settings.reactivation_campaigns:
+            _scheduler.add_job(
+                _reactivation_batch_job,
+                trigger="cron",
+                hour=10,
+                minute=0,
+                id="reactivation_nightly_batch",
+                replace_existing=True,
+            )
+            logger.info("Phase 4: Reactivation nightly batch scheduled at 10:00 UTC.")
 
 
 def shutdown_scheduler() -> None:
@@ -744,3 +755,45 @@ async def _daily_digest_job() -> None:
         await daily_digest()
     except Exception as exc:
         logger.error("Daily digest job failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Reactivation campaigns — nightly batch (10:00 UTC)
+# ---------------------------------------------------------------------------
+
+async def _reactivation_batch_job() -> None:
+    """
+    Phase 4: Run the daily send batch for every active reactivation campaign.
+    Gated globally by the 'reactivation_campaigns' feature flag setting, and
+    per-tenant by is_enabled() inside ReactivationService.run_batch().
+    Never crashes the scheduler — errors are caught and logged per campaign.
+    """
+    from app.database import async_session_factory
+    from app.models.campaign import Campaign
+    from app.services.reactivation import ReactivationService
+    from sqlalchemy import select
+
+    logger.info("Phase 4: Reactivation nightly batch starting")
+    svc = ReactivationService()
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(Campaign).where(Campaign.status == "active")
+            )
+            campaigns = result.scalars().all()
+            logger.info("Phase 4: Found %d active campaign(s)", len(campaigns))
+            for campaign in campaigns:
+                try:
+                    stats = await svc.run_batch(campaign.id, db)
+                    await db.commit()
+                    logger.info(
+                        "Phase 4: campaign batch done | campaign=%s sent=%d blocked=%d errors=%d",
+                        campaign.id, stats["sent"], stats["blocked"], stats["errors"],
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Phase 4: campaign batch failed | campaign=%s err=%s",
+                        campaign.id, exc,
+                    )
+    except Exception as exc:
+        logger.error("Phase 4: Reactivation batch job top-level error: %s", exc)

@@ -68,6 +68,11 @@ async def lifespan(app: FastAPI):
     await init_db()
     start_scheduler()
     logger.info("Database initialised.")
+    # Warn loudly when env vars critical to production features are missing
+    if not settings.demo_phone_number:
+        logger.warning("STARTUP: demo_phone_number not set — /demo/call endpoint will return 503")
+    if not settings.admin_password:
+        logger.warning("STARTUP: admin_password not set — admin routes fall back to secret_key")
     # Seed system intake templates on every startup (idempotent)
     if settings.intake_flows_v2:
         try:
