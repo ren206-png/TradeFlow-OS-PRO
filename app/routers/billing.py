@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -97,7 +97,6 @@ async def billing_upgrade(
         # Stripe not configured yet — send to settings with a friendly message
         return RedirectResponse(url="/portal/settings", status_code=302)
 
-    from fastapi.responses import RedirectResponse as _RR
     billing = BillingService()
     if not contractor.stripe_customer_id:
         await billing.create_customer(contractor)

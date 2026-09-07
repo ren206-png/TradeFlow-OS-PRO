@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
-from typing import Optional, Any
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, field_validator
