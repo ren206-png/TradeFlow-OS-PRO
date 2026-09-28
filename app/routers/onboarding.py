@@ -57,7 +57,12 @@ async def onboarding_submit(
     phone_number: str = Form(""),
     # Step 2 — Services
     service_areas: Optional[str] = Form(None),
+    company_website: str = Form(""),
 ) -> HTMLResponse:
+    if company_website:
+        logger.info("onboarding honeypot tripped | email=%s", email)
+        return RedirectResponse(url="/", status_code=303)
+
     # Rate-limit signups to 5 per IP per hour (same policy as /auth/signup)
     allowed, retry_after = check_rate_limit(request, "onboarding", max_requests=5, window_seconds=3600)
     if not allowed:

@@ -91,7 +91,12 @@ async def signup_post(
     trade: str = Form(...),
     phone: str = Form(...),
     service_area: str = Form(...),
+    company_website: str = Form(""),
 ):
+    if company_website:
+        logger.info("signup honeypot tripped | email=%s", email)
+        return RedirectResponse(url="/", status_code=303)
+
     allowed, retry_after = check_rate_limit(request, "signup", max_requests=5, window_seconds=3600)
     if not allowed:
         return templates.TemplateResponse(request,

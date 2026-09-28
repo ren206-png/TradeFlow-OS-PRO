@@ -249,3 +249,30 @@ async def test_onboarding_rate_limit_returns_429_after_5(db: AsyncSession):
     finally:
         app.dependency_overrides.pop(get_db, None)
         _clear_rate_limit_for(ip)
+
+
+@pytest.mark.asyncio
+async def test_honeypot_blocks_bot_signups(db):
+    from sqlalchemy import select as _select
+    from app.models.contractor import Contractor as _C
+
+    async def _dep():
+        yield db
+    app.dependency_overrides[get_db] = _dep
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False) as client:
+            r1 = await client.post("/onboarding", data={
+                "company_name": "Bot Co", "agent_name": "Bot", "email": "bot1@spam.info",
+                "password": "Password123", "confirm_password": "Password123",
+                "phone_number": "+15550001111", "company_website": "http://spam.info",
+            }, headers={"x-forwarded-for": "9.9.9.1"})
+            r2 = await client.post("/auth/signup", data={
+                "business_name": "Bot Co", "email": "bot2@spam.info", "password": "Password123",
+                "confirm_password": "Password123", "trade": "plumbing", "phone": "+15550001112",
+                "service_area": "Calgary", "company_website": "http://spam.info",
+            }, headers={"x-forwarded-for": "9.9.9.2"})
+    finally:
+        app.dependency_overrides.clear()
+    assert r1.status_code == 303 and r2.status_code == 303
+    rows = (await db.execute(_select(_C).where(_C.email.in_(["bot1@spam.info", "bot2@spam.info"])))).scalars().all()
+    assert rows == []
