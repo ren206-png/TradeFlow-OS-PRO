@@ -240,8 +240,8 @@ class BillingService:
             price_id = ""
             try:
                 price_id = event_data["items"]["data"][0]["price"]["id"]
-            except (KeyError, IndexError):
-                pass
+            except (KeyError, IndexError, TypeError):
+                logger.warning("billing: could not resolve price_id from subscription event | customer=%s", customer_id)
             plan = None
             if price_id and price_id == settings.stripe_starter_price_id:
                 plan = "starter"

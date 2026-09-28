@@ -73,6 +73,16 @@ def start_scheduler() -> None:
                 replace_existing=True,
             )
             logger.info("Phase 4: Reactivation nightly batch scheduled at 10:00 UTC.")
+        if settings.estimate_followup:
+            # Hourly at :15 — steps are due N days after enrollment; outbound gateway enforces quiet hours.
+            _scheduler.add_job(
+                _estimate_followup_job,
+                trigger="cron",
+                minute=15,
+                id="estimate_followup_drip",
+                replace_existing=True,
+            )
+            logger.info("Phase 4: Estimate follow-up drip scheduled hourly.")
 
 
 def shutdown_scheduler() -> None:
@@ -797,3 +807,49 @@ async def _reactivation_batch_job() -> None:
                     )
     except Exception as exc:
         logger.error("Phase 4: Reactivation batch job top-level error: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Estimate follow-up drip (hourly)
+# ---------------------------------------------------------------------------
+
+async def _estimate_followup_job() -> None:
+    from app.database import async_session_factory
+    from app.models.contractor import Contractor
+    from app.models.estimate import Estimate
+    from app.services.estimate_followup import _STEP_DAYS, _TERMINAL_STATUSES, EstimateFollowupService
+    from sqlalchemy import select
+
+    now = datetime.now(tz=timezone.utc)
+    svc = EstimateFollowupService()
+    try:
+        async with async_session_factory() as db:
+            result = await db.execute(
+                select(Estimate, Contractor)
+                .join(Contractor, Contractor.id == Estimate.tenant_id)
+                .where(
+                    Estimate.followup_enrolled_at.isnot(None),
+                    Estimate.followup_paused.is_(False),
+                    Estimate.followup_step < 3,
+                    Estimate.status.notin_(_TERMINAL_STATUSES),
+                    Contractor.is_active.is_(True),
+                )
+            )
+            rows = result.all()
+            due = 0
+            for estimate, contractor in rows:
+                enrolled = estimate.followup_enrolled_at
+                if enrolled.tzinfo is None:
+                    enrolled = enrolled.replace(tzinfo=timezone.utc)
+                if now < enrolled + timedelta(days=_STEP_DAYS[estimate.followup_step]):
+                    continue
+                due += 1
+                try:
+                    await svc.run_step(estimate.id, contractor, db)
+                    await db.commit()
+                except Exception as exc:
+                    await db.rollback()
+                    logger.error("Estimate drip step failed | estimate=%s err=%s", estimate.id, exc)
+            logger.info("Estimate follow-up job done | candidates=%d due=%d", len(rows), due)
+    except Exception as exc:
+        logger.error("Estimate follow-up job top-level error: %s", exc)

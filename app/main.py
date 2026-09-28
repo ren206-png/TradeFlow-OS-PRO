@@ -48,6 +48,9 @@ import app.models.estimate                 # noqa: F401 — registers Estimate
 import app.models.revenue_attribution_ledger  # noqa: F401 — registers RevenueAttributionLedger
 import app.models.campaign                 # noqa: F401 — registers Campaign
 import app.models.campaign_contact         # noqa: F401 — registers CampaignContact
+import app.models.on_call_schedule         # noqa: F401
+import app.models.demo_call                # noqa: F401
+import app.models.page_event               # noqa: F401
 from app.services.scheduler import shutdown_scheduler, start_scheduler
 from app.utils.logging import configure_logging
 

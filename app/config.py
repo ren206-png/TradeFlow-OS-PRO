@@ -109,8 +109,6 @@ class Settings(BaseSettings):
     owner_dashboard_v2: bool = False   # ROI dashboard, call analytics, spam shield UI
     spam_shield: bool = False          # Spam Shield call blocking (gated per flag)
 
-    # Phase 5: VAPID web push — if empty, push sending is skipped (no crash)
-    vapid_private_key: str = ""
 
     # Phase 6 feature flags — all default OFF; flip via Railway env vars.
     weather_surge_mode: bool = False   # Surge intelligence (weather alerts → surge activation)

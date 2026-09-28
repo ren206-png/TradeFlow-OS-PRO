@@ -15,10 +15,13 @@ from app.config import PLAN_LIMITS
 from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
+from app.models.estimate import Estimate
 from app.models.fsm_credential import FSMCredential
 from app.models.intake_template import IntakeTemplate
 from app.models.lead import Lead
 from app.models.on_call_schedule import OnCallSchedule
+from app.services.estimate_followup import EstimateFollowupService
+from app.services.feature_flags import is_enabled
 from app.utils.sessions import SESSION_COOKIE, decode_session_token
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,8 @@ async def require_contractor(
     contractor = result.scalar_one_or_none()
     if contractor is None or not contractor.is_active:
         return None
+    # Transient attribute read by portal_base.html to show the Dashboard v2 nav link.
+    contractor.owner_dashboard_v2 = await is_enabled(str(contractor.id), "owner_dashboard_v2", db)
     return contractor
 
 
@@ -151,7 +156,7 @@ async def portal_leads_export(
 
 @router.get("/leads/{lead_id}", response_class=HTMLResponse)
 async def portal_lead_detail(
-    lead_id: str,
+    lead_id: uuid.UUID,
     request: Request,
     contractor: Contractor = Depends(require_contractor),
     db: AsyncSession = Depends(get_db),
@@ -170,6 +175,14 @@ async def portal_lead_detail(
         (lead.sentiment or "neutral").lower(), "😐"
     )
 
+    estimate_result = await db.execute(
+        select(Estimate)
+        .where(Estimate.lead_id == lead.id, Estimate.tenant_id == contractor.id)
+        .order_by(Estimate.created_at.desc())
+        .limit(1)
+    )
+    estimate = estimate_result.scalar_one_or_none()
+
     return templates.TemplateResponse(request,
 "portal_lead_detail.html",
 {
@@ -177,10 +190,91 @@ async def portal_lead_detail(
             "contractor_verified": contractor.is_verified,
             "active_nav": "leads",
             "lead": lead,
+            "estimate": estimate,
             "sentiment_emoji": sentiment_emoji,
             "back_url": "/portal/leads",
         },
 )
+
+
+@router.post("/leads/{lead_id}/estimate", response_class=RedirectResponse)
+async def portal_lead_log_estimate(
+    lead_id: str,
+    amount: str = Form(""),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    try:
+        lid = uuid.UUID(lead_id)
+    except ValueError:
+        return RedirectResponse(url="/portal/leads", status_code=302)
+
+    result = await db.execute(
+        select(Lead).where(Lead.id == lid, Lead.contractor_id == contractor.id)
+    )
+    lead = result.scalar_one_or_none()
+    if lead is None or not lead.phone:
+        return RedirectResponse(url="/portal/leads", status_code=302)
+
+    value_cents: Optional[int] = None
+    cleaned = amount.replace("$", "").replace(",", "").strip()
+    if cleaned:
+        try:
+            value_cents = int(round(float(cleaned) * 100))
+        except ValueError:
+            value_cents = None
+
+    estimate = Estimate(
+        tenant_id=contractor.id,
+        lead_id=lead.id,
+        caller_phone=lead.phone,
+        caller_name=lead.caller_name,
+        estimate_value_cents=value_cents,
+        status="sent",
+        source="manual",
+    )
+    db.add(estimate)
+    await db.flush()
+    await EstimateFollowupService().enroll(estimate, contractor, db)
+    await db.commit()
+    return RedirectResponse(url=f"/portal/leads/{lead_id}", status_code=302)
+
+
+@router.post("/estimates/{estimate_id}/status", response_class=RedirectResponse)
+async def portal_estimate_status(
+    estimate_id: str,
+    status: str = Form(...),
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+
+    try:
+        eid = uuid.UUID(estimate_id)
+    except ValueError:
+        return RedirectResponse(url="/portal/leads", status_code=302)
+
+    result = await db.execute(
+        select(Estimate).where(Estimate.id == eid, Estimate.tenant_id == contractor.id)
+    )
+    estimate = result.scalar_one_or_none()
+    if estimate is None:
+        return RedirectResponse(url="/portal/leads", status_code=302)
+
+    if status in ("accepted", "declined"):
+        estimate.status = status
+    elif status == "pause":
+        estimate.followup_paused = True
+    elif status == "resume":
+        estimate.followup_paused = False
+    await db.commit()
+
+    back = f"/portal/leads/{estimate.lead_id}" if estimate.lead_id else "/portal/leads"
+    return RedirectResponse(url=back, status_code=302)
 
 
 @router.post("/leads/{lead_id}/update", response_class=RedirectResponse)

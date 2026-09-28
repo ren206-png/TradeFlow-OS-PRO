@@ -618,7 +618,6 @@ async def admin_settings(
         "twilio": bool(app_settings.twilio_account_sid and app_settings.twilio_auth_token),
         "stripe": bool(app_settings.stripe_secret_key),
         "mailchimp": bool(app_settings.mailchimp_api_key),
-        "openai": bool(app_settings.openai_api_key if hasattr(app_settings, "openai_api_key") else False),
         "anthropic": bool(app_settings.anthropic_api_key if hasattr(app_settings, "anthropic_api_key") else False),
     }
     return templates.TemplateResponse(request,
