@@ -171,13 +171,13 @@
         </a>
         <!-- Links -->
         <div class="hidden md:flex items-center space-x-8">
-          <a href="#how-it-works" class="nav-link text-gray-700 hover:text-blue-700 font-medium transition-colors">How It Works</a>
-          <a href="#pricing" class="nav-link text-gray-700 hover:text-blue-700 font-medium transition-colors">Pricing</a>
-          <a href="/auth/login" class="nav-link text-gray-700 hover:text-blue-700 font-medium transition-colors">Sign In</a>
+          <a href="#how-it-works" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">How It Works</a>
+          <a href="#pricing" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">Pricing</a>
+          <a href="/auth/login" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">Sign In</a>
           <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors shadow-sm">Start Free</a>
         </div>
         <!-- Mobile menu button -->
-        <button id="mobile-menu-btn" class="md:hidden text-gray-700 focus:outline-none">
+        <button id="mobile-menu-btn" class="nav-link md:hidden text-white focus:outline-none">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
@@ -602,13 +602,15 @@
     const navLinks = navbar.querySelectorAll('.nav-link');
 
     function updateNav() {
-      if (window.scrollY > 50) {
-        navbar.classList.add('bg-white', 'shadow-md');
-        navLinks.forEach(l => l.classList.remove('text-gray-700'));
-        navLinks.forEach(l => l.classList.add('text-gray-700'));
-      } else {
-        navbar.classList.remove('bg-white', 'shadow-md');
-      }
+      const scrolled = window.scrollY > 50;
+      navbar.classList.toggle('bg-white', scrolled);
+      navbar.classList.toggle('shadow-md', scrolled);
+      navLinks.forEach(l => {
+        l.classList.toggle('text-white', !scrolled);
+        l.classList.toggle('hover:text-blue-200', !scrolled);
+        l.classList.toggle('text-gray-700', scrolled);
+        l.classList.toggle('hover:text-blue-700', scrolled);
+      });
     }
 
     window.addEventListener('scroll', updateNav, { passive: true });
