@@ -251,8 +251,12 @@ class BillingService:
             result = await db.execute(select(Contractor).where(Contractor.stripe_customer_id == customer_id))
             contractor = result.scalar_one_or_none()
             if contractor:
+                prev_status, prev_plan = contractor.subscription_status, contractor.plan
                 contractor.subscription_status = status
                 if plan:
                     contractor.plan = plan
                 await db.commit()
                 logger.info("Stripe webhook: updated contractor %s plan=%s status=%s", contractor.name, plan, status)
+                from app.services.welcome import send_subscription_thanks_email, should_thank
+                if should_thank(prev_status, prev_plan, status, plan):
+                    await send_subscription_thanks_email(contractor.email, contractor.name, contractor.plan)

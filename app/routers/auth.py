@@ -165,6 +165,9 @@ status_code=400,
         )
     )
 
+    from app.services.welcome import send_welcome_email
+    _asyncio.create_task(send_welcome_email(email, business_name))
+
     token = create_session_token(str(contractor_id))
     response = RedirectResponse(url="/portal/leads?welcome=1", status_code=302)
     response.set_cookie(
