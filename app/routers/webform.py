@@ -216,6 +216,7 @@ async def webform_snippet(
     <input id="tf-phone" type="tel" placeholder="+15551234567" style="width:100%;margin-bottom:10px;padding:8px;box-sizing:border-box;"><br>
     <label for="tf-issue">How can we help?</label><br>
     <textarea id="tf-issue" rows="3" style="width:100%;margin-bottom:10px;padding:8px;box-sizing:border-box;"></textarea><br>
+    <p style="font-size:12px;color:#555;margin:0 0 10px">By submitting, you agree to receive calls and text messages from {agent_name} about your request, sent via TradeFlow. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. <a href="https://tradesflowos.com/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
     <button id="tf-submit" onclick="tfSubmitCallback()" style="background:#2563eb;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;width:100%">
       Request Callback
     </button>
