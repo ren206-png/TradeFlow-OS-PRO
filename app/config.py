@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
     twilio_messaging_service_sid: str = ""  # A2P 10DLC — set this in Railway
+    # Outbound SMS carrier: "twilio" (default) or "telnyx"
+    sms_provider: str = "twilio"
+    telnyx_api_key: str = ""
+    telnyx_messaging_profile_id: str = ""
+    telnyx_from_number: str = ""
+    telnyx_public_key: str = ""  # Mission Control → Keys & Credentials → Public Key (webhook signing)
     database_url: str
     secret_key: str
     debug: bool = False

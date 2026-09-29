@@ -185,7 +185,7 @@ async def test_call_keyword_triggers_outbound_call(db: AsyncSession):
             with patch("app.services.retell_client.RetellClient.create_phone_call",
                        new_callable=AsyncMock, return_value=mock_call_result) as mock_create_call:
 
-                reply = await _handle_call_keyword("+15559998888", mock_request, db)
+                reply = await _handle_call_keyword("+15559998888", contractor.phone_number, db)
 
         assert reply is not None
         assert "calling" in reply.lower()

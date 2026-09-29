@@ -3,9 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-import httpx
-
-from app.config import settings
+from app.services.sms_provider import send_sms, send_sms_sync
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +12,13 @@ COMPLIANCE_FOOTER = " Msg&data rates may apply. Reply STOP to opt out."
 
 class SMSService:
     """
-    Send SMS messages via Twilio.
-    - Routes through Messaging Service SID when configured (A2P 10DLC compliant).
-    - Falls back to from_number for dev/testing.
+    Send SMS messages via the configured provider (see sms_provider.py).
     - Checks opt-out table before every send.
     - Appends compliance footer on first message to each number.
     """
 
     def __init__(self, contractor) -> None:
         self.contractor = contractor
-        self._client = None
         self._db = None  # injected by async callers that need compliance checks
 
     def with_db(self, db):
@@ -31,70 +26,11 @@ class SMSService:
         self._db = db
         return self
 
-    def _get_client(self):
-        if self._client is None:
-            from twilio.rest import Client as TwilioClient
-            self._client = TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
-        return self._client
-
-    # ------------------------------------------------------------------
-    # Internal send — synchronous (Twilio SDK is sync)
-    # ------------------------------------------------------------------
-
     def _send(self, to: str, body: str, message_type: str) -> dict:
-        """Dispatch a single SMS. Uses Messaging Service SID if configured."""
-        if not settings.twilio_account_sid or not settings.twilio_auth_token:
-            logger.warning("Twilio not configured — SMS skipped [%s]", message_type)
-            return {"success": False, "error": "Twilio not configured"}
-        try:
-            params: dict = {"body": body, "to": to}
-            if settings.twilio_messaging_service_sid:
-                # A2P compliant path — Messaging Service handles sender selection
-                params["messaging_service_sid"] = settings.twilio_messaging_service_sid
-            else:
-                # Dev fallback — direct from_number
-                params["from_"] = settings.twilio_from_number
-            message = self._get_client().messages.create(**params)
-            logger.info(
-                "SMS sent | sid=%s to=%s type=%s", message.sid, to, message_type
-            )
-            return {"success": True, "sid": message.sid}
-        except Exception as exc:
-            logger.error("SMS send failed [%s]: %s", message_type, exc)
-            return {"success": False, "error": str(exc)}
-
-    # ------------------------------------------------------------------
-    # Async send — uses httpx to avoid blocking the event loop
-    # ------------------------------------------------------------------
+        return send_sms_sync(to, body, message_type)
 
     async def _send_async(self, to: str, body: str, message_type: str) -> dict:
-        """Dispatch a single SMS via httpx (non-blocking). Uses Messaging Service SID if configured."""
-        if not settings.twilio_account_sid or not settings.twilio_auth_token:
-            logger.warning("Twilio not configured — SMS skipped [%s]", message_type)
-            return {"success": False, "error": "Twilio not configured"}
-        try:
-            url = (
-                f"https://api.twilio.com/2010-04-01/Accounts/"
-                f"{settings.twilio_account_sid}/Messages.json"
-            )
-            data: dict = {"To": to, "Body": body}
-            if settings.twilio_messaging_service_sid:
-                data["MessagingServiceSid"] = settings.twilio_messaging_service_sid
-            else:
-                data["From"] = settings.twilio_from_number
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(
-                    url,
-                    data=data,
-                    auth=(settings.twilio_account_sid, settings.twilio_auth_token),
-                )
-                resp.raise_for_status()
-                sid = resp.json().get("sid", "")
-            logger.info("SMS sent | sid=%s to=%s type=%s", sid, to, message_type)
-            return {"success": True, "sid": sid}
-        except Exception as exc:
-            logger.error("SMS send failed [%s]: %s", message_type, exc)
-            return {"success": False, "error": str(exc)}
+        return await send_sms(to, body, message_type)
 
     # ------------------------------------------------------------------
     # Async compliance-aware send (use this from async routes/services)
@@ -105,7 +41,7 @@ class SMSService:
         Async wrapper that:
         1. Checks opt-out table — blocks send if opted out
         2. Appends compliance footer on first message to this number
-        3. Dispatches via _send (sync Twilio SDK)
+        3. Dispatches via the configured SMS provider
         """
         if self._db is not None:
             from app.services.sms_compliance import is_opted_out, needs_compliance_footer, mark_first_sms_sent

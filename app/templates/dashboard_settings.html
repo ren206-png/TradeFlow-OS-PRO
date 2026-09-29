@@ -15,6 +15,7 @@
       {% set integrations = [
         ("retell", "Retell AI", "Voice call handling"),
         ("twilio", "Twilio", "SMS follow-ups"),
+        ("telnyx", "Telnyx", "SMS follow-ups (when SMS_PROVIDER=telnyx)"),
         ("stripe", "Stripe", "Billing & subscriptions"),
         ("mailchimp", "Mailchimp", "Email drip automation"),
         ("anthropic", "Anthropic (Claude)", "AI lead scoring"),
@@ -50,6 +51,9 @@
         ("TWILIO_ACCOUNT_SID", "Twilio Console → Account SID", configured.get("twilio")),
         ("TWILIO_AUTH_TOKEN", "Twilio Console → Auth Token", configured.get("twilio")),
         ("TWILIO_FROM_NUMBER", "Twilio Console → Phone Numbers", configured.get("twilio")),
+        ("TELNYX_API_KEY", "Telnyx Mission Control → API Keys", configured.get("telnyx")),
+        ("TELNYX_MESSAGING_PROFILE_ID", "Telnyx → Messaging → Profiles", configured.get("telnyx")),
+        ("TELNYX_PUBLIC_KEY", "Telnyx → Keys & Credentials → Public Key", configured.get("telnyx")),
         ("STRIPE_SECRET_KEY", "Stripe Dashboard → Developers → API Keys", configured.get("stripe")),
         ("STRIPE_WEBHOOK_SECRET", "Stripe Dashboard → Webhooks", configured.get("stripe")),
         ("STRIPE_STARTER_PRICE_ID", "Stripe Dashboard → Products → Starter Plan", configured.get("stripe")),

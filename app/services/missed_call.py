@@ -21,9 +21,10 @@ async def send_missed_call_sms(
     db=None,
 ) -> dict:
     """Send an SMS to a missed caller. Checks opt-out if db is provided."""
-    if not settings.twilio_account_sid or not settings.twilio_auth_token:
-        logger.info("Twilio not configured — skipping missed call SMS to %s", to_number)
-        return {"success": False, "error": "Twilio not configured"}
+    from app.services import sms_provider
+    if not sms_provider.is_configured():
+        logger.info("SMS provider not configured — skipping missed call SMS to %s", to_number)
+        return {"success": False, "error": "SMS provider not configured"}
 
     # Opt-out check
     if db is not None:
@@ -33,8 +34,6 @@ async def send_missed_call_sms(
             return {"success": False, "error": "opted_out"}
 
     try:
-        from twilio.rest import Client
-        client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
         body = (
             f"Hi! You recently called {contractor_name}. "
             f"Sorry we missed you — our AI assistant is available 24/7 at {ai_number}. "
@@ -48,15 +47,7 @@ async def send_missed_call_sms(
                 body += " Msg&data rates may apply. Reply STOP to opt out."
                 await mark_first_sms_sent(to_number, db)
 
-        params: dict = {"body": body, "to": to_number}
-        if settings.twilio_messaging_service_sid:
-            params["messaging_service_sid"] = settings.twilio_messaging_service_sid
-        else:
-            params["from_"] = settings.twilio_from_number
-
-        message = client.messages.create(**params)
-        logger.info("Missed call SMS sent | to=%s sid=%s", to_number, message.sid)
-        return {"success": True, "sid": message.sid}
+        return await sms_provider.send_sms(to_number, body, "missed_call")
     except Exception as exc:
         logger.error("Missed call SMS failed | to=%s error=%s", to_number, exc)
         return {"success": False, "error": str(exc)}

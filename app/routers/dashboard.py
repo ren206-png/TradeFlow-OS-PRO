@@ -616,6 +616,7 @@ async def admin_settings(
     configured = {
         "retell": bool(app_settings.retell_api_key),
         "twilio": bool(app_settings.twilio_account_sid and app_settings.twilio_auth_token),
+        "telnyx": bool(app_settings.telnyx_api_key),
         "stripe": bool(app_settings.stripe_secret_key),
         "mailchimp": bool(app_settings.mailchimp_api_key),
         "anthropic": bool(app_settings.anthropic_api_key if hasattr(app_settings, "anthropic_api_key") else False),

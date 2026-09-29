@@ -1,6 +1,6 @@
 """
-Inbound Twilio SMS webhook — handles STOP / UNSTOP / HELP keywords.
-Phase 2: also handles CALL keyword for missed-call textback callback.
+Inbound SMS keyword handling (STOP / START / HELP / CALL / CONFIRM / RESCHEDULE)
+plus the Twilio webhook. Telnyx inbound lives in telnyx_sms.py and reuses handle_inbound_sms.
 Configure this URL in your Twilio Messaging Service:
   https://tradesflowos.com/twilio/sms
 """
@@ -63,103 +63,123 @@ async def _verify_twilio_signature(
         )
 
 
+_EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+
+
+def _twiml(reply: str | None) -> Response:
+    if not reply:
+        return Response(content=_EMPTY_TWIML, media_type="application/xml")
+    safe = reply.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return Response(
+        content=f'<?xml version="1.0" encoding="UTF-8"?><Response><Message>{safe}</Message></Response>',
+        media_type="application/xml",
+    )
+
+
+async def handle_inbound_sms(phone: str, body: str, to_number: str, db: AsyncSession) -> str | None:
+    """
+    Carrier-agnostic inbound SMS handling. Returns the reply text, or None for no reply.
+    - STOP / START / HELP       → compliance keywords
+    - CALL                      → AI callback (missed_call_textback)
+    - CONFIRM / RESCHEDULE      → appointment lifecycle
+    """
+    phone = phone.strip()
+    body = body.strip()
+    logger.info("Inbound SMS | from=%s to=%s body=%r", phone, to_number, body[:80])
+
+    reply = await handle_inbound_keyword(phone, body, db)
+    if reply:
+        return reply
+
+    keyword = body.upper()
+    if keyword == "CALL":
+        try:
+            return await _handle_call_keyword(phone, to_number, db)
+        except Exception as _exc:
+            logger.warning("CALL keyword handler failed | from=%s err=%s", phone, _exc)
+            return None
+
+    if keyword == "CONFIRM":
+        try:
+            await _handle_confirm_keyword(phone, to_number, db)
+        except Exception as _exc:
+            logger.warning("CONFIRM keyword handler failed | from=%s err=%s", phone, _exc)
+        return None
+
+    if keyword == "RESCHEDULE":
+        try:
+            await _handle_reschedule_keyword(phone, to_number, db)
+        except Exception as _exc:
+            logger.warning("RESCHEDULE keyword handler failed | from=%s err=%s", phone, _exc)
+        return "We're arranging a call to find you a new time. We'll call you shortly!"
+
+    return None
+
+
 @router.post("/sms")
 async def inbound_sms(
     request: Request,
     From: str = Form(...),
     Body: str = Form(...),
+    To: str = Form(""),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(_verify_twilio_signature),
 ):
+    return _twiml(await handle_inbound_sms(From, Body, To.strip(), db))
+
+
+async def _resolve_tenant_from_to(to_number: str, db: AsyncSession, caller_phone: str = ""):
     """
-    Handles inbound SMS from Twilio.
-    - STOP / STOPALL / UNSUBSCRIBE → opt-out, reply confirmation
-    - START / UNSTOP / YES         → opt back in, reply confirmation
-    - HELP / INFO                  → send help message
-    - Anything else                → log and ignore (no reply)
+    Resolve the contractor an inbound SMS belongs to.
+    1. Contractor whose own number received it.
+    2. Outbound texts come from a shared sender number, so fall back to the contractor
+       that most recently texted this caller, then the most recent lead from this caller.
     """
-    phone = From.strip()
-    To_number = request.form  # accessed below after form parsing
-    body = Body.strip()
-    logger.info("Inbound SMS | from=%s body=%r", phone, body[:80])
-
-    reply = await handle_inbound_keyword(phone, body, db)
-
-    if reply:
-        # Return TwiML response
-        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Message>{reply}</Message>
-</Response>"""
-        return Response(content=twiml, media_type="application/xml")
-
-    # Phase 2: CALL keyword — missed-call textback callback request
-    # Only fires when missed_call_textback flag is ON for the tenant
-    if body.strip().upper() == "CALL":
-        try:
-            call_reply = await _handle_call_keyword(phone, request, db)
-            if call_reply:
-                twiml = (
-                    '<?xml version="1.0" encoding="UTF-8"?>'
-                    f"<Response><Message>{call_reply}</Message></Response>"
-                )
-                return Response(content=twiml, media_type="application/xml")
-        except Exception as _exc:
-            logger.warning("CALL keyword handler failed | from=%s err=%s", phone, _exc)
-
-    # Phase 4: CONFIRM keyword — mark appointment confirmed
-    if body.strip().upper() == "CONFIRM":
-        try:
-            await _handle_confirm_keyword(phone, request, db)
-        except Exception as _exc:
-            logger.warning("CONFIRM keyword handler failed | from=%s err=%s", phone, _exc)
-        # Return empty TwiML (no reply SMS on confirm)
-        return Response(
-            content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-            media_type="application/xml",
-        )
-
-    # Phase 4: RESCHEDULE keyword — trigger outbound call to offer new slots
-    if body.strip().upper() == "RESCHEDULE":
-        try:
-            await _handle_reschedule_keyword(phone, request, db)
-        except Exception as _exc:
-            logger.warning("RESCHEDULE keyword handler failed | from=%s err=%s", phone, _exc)
-        twiml = (
-            '<?xml version="1.0" encoding="UTF-8"?>'
-            "<Response><Message>We're arranging a call to find you a new time. "
-            "We'll call you shortly!</Message></Response>"
-        )
-        return Response(content=twiml, media_type="application/xml")
-
-    # No keyword matched — return empty TwiML (no reply)
-    return Response(
-        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-        media_type="application/xml",
-    )
-
-
-async def _resolve_tenant_from_to(request: Request, db: AsyncSession):
-    """Resolve contractor from the Twilio 'To' number in form data."""
     from app.models.contractor import Contractor
-    form_data = await request.form()
-    to_number: str = str(form_data.get("To", "")).strip()
-    if not to_number:
-        return None, None
-    from sqlalchemy import select as _select
-    result = await db.execute(
-        _select(Contractor).where(
-            Contractor.phone_number == to_number,
-            Contractor.is_active.is_(True),
+    from app.models.lead import Lead
+    from app.models.outbound_ledger import OutboundLedger
+    import uuid as _uuid
+
+    if to_number:
+        result = await db.execute(
+            select(Contractor).where(Contractor.phone_number == to_number, Contractor.is_active.is_(True))
         )
-    )
-    contractor = result.scalar_one_or_none()
+        contractor = result.scalar_one_or_none()
+        if contractor:
+            return contractor, to_number
+
+    if not caller_phone:
+        return None, to_number
+
+    tenant_id = (await db.execute(
+        select(OutboundLedger.tenant_id)
+        .where(OutboundLedger.recipient_phone == caller_phone, OutboundLedger.channel == "sms",
+               OutboundLedger.status == "sent")
+        .order_by(OutboundLedger.created_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    contractor_id = None
+    if tenant_id:
+        try:
+            contractor_id = _uuid.UUID(tenant_id)
+        except ValueError:
+            contractor_id = None
+    if contractor_id is None:
+        contractor_id = (await db.execute(
+            select(Lead.contractor_id).where(Lead.phone == caller_phone)
+            .order_by(Lead.created_at.desc()).limit(1)
+        )).scalar_one_or_none()
+    if contractor_id is None:
+        return None, to_number
+
+    contractor = (await db.execute(
+        select(Contractor).where(Contractor.id == contractor_id, Contractor.is_active.is_(True))
+    )).scalar_one_or_none()
     return contractor, to_number
 
 
 async def _handle_confirm_keyword(
     caller_phone: str,
-    request: Request,
+    to_number: str,
     db: AsyncSession,
 ) -> None:
     """
@@ -167,7 +187,7 @@ async def _handle_confirm_keyword(
     Gated behind appointment_lifecycle feature flag per tenant.
     """
     from app.services.appointment_lifecycle import AppointmentLifecycleService
-    contractor, _ = await _resolve_tenant_from_to(request, db)
+    contractor, _ = await _resolve_tenant_from_to(to_number, db, caller_phone)
     if not contractor:
         return
     svc = AppointmentLifecycleService()
@@ -177,7 +197,7 @@ async def _handle_confirm_keyword(
 
 async def _handle_reschedule_keyword(
     caller_phone: str,
-    request: Request,
+    to_number: str,
     db: AsyncSession,
 ) -> None:
     """
@@ -185,7 +205,7 @@ async def _handle_reschedule_keyword(
     Gated behind appointment_lifecycle feature flag per tenant.
     """
     from app.services.appointment_lifecycle import AppointmentLifecycleService
-    contractor, _ = await _resolve_tenant_from_to(request, db)
+    contractor, _ = await _resolve_tenant_from_to(to_number, db, caller_phone)
     if not contractor:
         return
     svc = AppointmentLifecycleService()
@@ -195,12 +215,12 @@ async def _handle_reschedule_keyword(
 
 async def _handle_call_keyword(
     caller_phone: str,
-    request: Request,
+    to_number: str,
     db: AsyncSession,
 ) -> str | None:
     """
     Handle incoming CALL keyword SMS — trigger outbound AI callback.
-    Returns a TwiML message string, or None if call cannot be placed.
+    Returns the reply text, or None if the call cannot be placed.
 
     Idempotency: if a CallbackRequest from the same phone to the same
     contractor exists within the last 10 minutes, skip.
@@ -210,23 +230,19 @@ async def _handle_call_keyword(
     from app.services.feature_flags import is_enabled
     from app.services.retell_client import RetellClient
 
-    # Determine which contractor owns the Twilio To number
-    form_data = await request.form()
-    to_number: str = str(form_data.get("To", "")).strip()
-
-    if not to_number:
-        logger.warning("CALL keyword: no To number in form data")
-        return None
-
-    result = await db.execute(
-        select(Contractor).where(
-            Contractor.phone_number == to_number,
-            Contractor.is_active.is_(True),
+    contractor = None
+    if to_number:
+        result = await db.execute(
+            select(Contractor).where(
+                Contractor.phone_number == to_number,
+                Contractor.is_active.is_(True),
+            )
         )
-    )
-    contractor = result.scalar_one_or_none()
+        contractor = result.scalar_one_or_none()
     if not contractor:
-        logger.warning("CALL keyword: no contractor for To=%s", to_number)
+        contractor, _ = await _resolve_tenant_from_to("", db, caller_phone)
+    if not contractor:
+        logger.warning("CALL keyword: no contractor for to=%s from=%s", to_number, caller_phone)
         return None
 
     tenant_id = str(contractor.id)
@@ -267,7 +283,7 @@ async def _handle_call_keyword(
         client = RetellClient()
         call_result = await client.create_phone_call(
             to_number=caller_phone,
-            from_number=to_number,
+            from_number=contractor.phone_number,
             override_agent_id=contractor.retell_agent_id,
             metadata={
                 "tenant_id": tenant_id,
