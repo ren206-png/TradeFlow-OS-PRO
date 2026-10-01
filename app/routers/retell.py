@@ -527,6 +527,7 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         pass  # CallSession is created in the WebSocket handler
 
     elif event == "call_ended":
+        await _ensure_partial_lead(call_id, call_info, db)
         await _finalise_session(call_id, call_info, db)
         await _schedule_post_call_jobs(call_id, db)
 
@@ -613,11 +614,8 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         # Fire translation pass after 2xx — does not block the response
         try:
             import asyncio as _asyncio
-            from app.services.translation import normalize_lead_fields
             _retell_lang = call_info.get("call_analysis", {}).get("detected_language")
-            _asyncio.create_task(
-                normalize_lead_fields(call_id, _retell_lang, db)
-            )
+            _asyncio.create_task(_normalize_lead_fields_in_own_session(call_id, _retell_lang))
         except Exception as _te:
             logger.warning("multilang: failed to schedule translation task | call_id=%s error=%s", call_id, _te)
 
@@ -810,6 +808,52 @@ async def _rebuild_agent(call_id: str, db: AsyncSession) -> ClaudeAgent:
     if contractor is None:
         raise HTTPException(status_code=404, detail="Contractor not found.")
     return ClaudeAgent(contractor=contractor, call_session=call_session, db=db)
+
+
+PARTIAL_LEAD_MIN_SECONDS = 10  # shorter calls get the missed-call text instead
+
+
+async def _ensure_partial_lead(call_id: str, call_info: dict, db: AsyncSession) -> None:
+    """A caller who talked but hung up before the agent saved a lead still becomes a callback lead."""
+    from app.models.lead import Lead
+
+    start_ts, end_ts = call_info.get("start_timestamp") or 0, call_info.get("end_timestamp") or 0
+    duration_s = (end_ts - start_ts) // 1000 if (start_ts and end_ts) else 0
+    outbound = call_info.get("direction") == "outbound"
+    customer_number = call_info.get("to_number" if outbound else "from_number") or ""
+    if duration_s < PARTIAL_LEAD_MIN_SECONDS or not customer_number:
+        return
+
+    call_session = (await db.execute(
+        select(CallSession).where(CallSession.retell_call_id == call_id)
+    )).scalar_one_or_none()
+    if call_session is None or call_session.lead_id:
+        return
+    if (await db.execute(select(Lead.id).where(Lead.call_id == call_id))).first():
+        return
+
+    lead = Lead(
+        contractor_id=call_session.contractor_id,
+        call_id=call_id,
+        phone=customer_number,
+        call_direction="outbound" if outbound else "inbound",
+        lead_source="retell_partial_call",
+        appointment_status="callback_required",
+        notes="Caller hung up before booking details were collected.",
+    )
+    db.add(lead)
+    await db.flush()
+    call_session.lead_id = lead.id
+    logger.info("Partial lead created | call_id=%s lead=%s duration=%ss", call_id, lead.id, duration_s)
+
+
+async def _normalize_lead_fields_in_own_session(call_id: str, retell_language) -> None:
+    # Runs after the webhook response; the request's session is closed by then.
+    from app.database import async_session_factory
+    from app.services.translation import normalize_lead_fields
+    async with async_session_factory() as session:
+        await normalize_lead_fields(call_id, retell_language, session)
+        await session.commit()
 
 
 async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> None:

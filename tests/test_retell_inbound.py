@@ -129,3 +129,47 @@ async def test_signature_verified_with_webhook_secret(db, monkeypatch):
     digest = hmac.new(b"key_webhookbadge123", body + ts.encode(), hashlib.sha256).hexdigest()
     headers = {"x-retell-signature": f"v={ts},d={digest}", "content-type": "application/json"}
     assert (await _post(db, body, headers)).status_code == 200
+
+
+async def _call_ended(db, call_id: str, seconds: int, lead_id=None):
+    from app.models.call import CallSession
+    demo, _ = await _seed(db)
+    db.add(CallSession(retell_call_id=call_id, contractor_id=demo.id, status="active",
+                       conversation_history=[], lead_id=lead_id))
+    await db.commit()
+    start = 1_790_000_000_000
+    body = json.dumps({"event": "call_ended", "call": {
+        "call_id": call_id, "direction": "inbound", "from_number": "+18075550000",
+        "to_number": "+15875550101", "call_status": "ended",
+        "start_timestamp": start, "end_timestamp": start + seconds * 1000}}).encode()
+
+    async def _dep():
+        yield db
+    app.dependency_overrides[get_db] = _dep
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            resp = await c.post("/retell/webhook", content=body, headers=_sign(body))
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    return demo
+
+
+@pytest.mark.asyncio
+async def test_conversation_without_lead_becomes_callback_lead(db):
+    from sqlalchemy import select
+    from app.models.lead import Lead
+    demo = await _call_ended(db, "call_partial1", seconds=40)
+    lead = (await db.execute(select(Lead).where(Lead.call_id == "call_partial1"))).scalar_one()
+    assert lead.contractor_id == demo.id
+    assert lead.phone == "+18075550000"
+    assert lead.lead_source == "retell_partial_call"
+    assert lead.appointment_status == "callback_required"
+
+
+@pytest.mark.asyncio
+async def test_very_short_call_does_not_create_lead(db):
+    from sqlalchemy import select
+    from app.models.lead import Lead
+    await _call_ended(db, "call_short1", seconds=4)
+    assert (await db.execute(select(Lead).where(Lead.call_id == "call_short1"))).first() is None
