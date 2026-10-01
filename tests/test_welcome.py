@@ -72,3 +72,25 @@ async def test_stripe_activation_sends_thanks_once(db):
         await handler(event, db)  # renewal-style update: no second email
     assert send.call_count == 1
     assert send.call_args.args[0] == "owner@example.com"
+
+
+@pytest.mark.parametrize("addr,ok", [
+    ("owner@example.com", True),
+    ("rencoenterprise25@gmail.com", True),
+    ("demo-e22ef66a@tradesflowos.internal", False),
+    ("a@b.test", False),
+    ("", False),
+    ("not-an-email", False),
+    ("a@@b.com", False),
+])
+def test_is_deliverable_address(addr, ok):
+    from app.services.notifications import is_deliverable_address
+    assert is_deliverable_address(addr) is ok
+
+
+def test_placeholder_address_never_hits_smtp():
+    from app.services import notifications
+    with patch.object(notifications, "_smtp_enabled", return_value=True), \
+         patch("smtplib.SMTP") as smtp:
+        assert notifications._send_email("demo-e22ef66a@tradesflowos.internal", "s", "<p>h</p>", "t") is False
+    smtp.assert_not_called()

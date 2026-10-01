@@ -16,8 +16,23 @@ def _smtp_enabled() -> bool:
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
 
 
+_UNDELIVERABLE_TLDS = (".internal", ".test", ".example", ".invalid", ".localhost", ".local")
+
+
+def is_deliverable_address(addr: str) -> bool:
+    """False for empty, malformed, or reserved-domain placeholders (e.g. demo accounts)."""
+    addr = (addr or "").strip().lower()
+    if addr.count("@") != 1:
+        return False
+    domain = addr.split("@")[1]
+    return "." in domain and not domain.endswith(_UNDELIVERABLE_TLDS)
+
+
 def _send_email(to: str, subject: str, html: str, text: str) -> bool:
     """Send an email via SMTP. Returns True on success."""
+    if not is_deliverable_address(to):
+        logger.info("Email skipped — undeliverable address | to=%s subject=%s", to, subject)
+        return False
     if not _smtp_enabled():
         logger.debug("SMTP not configured — skipping email to %s", to)
         return False
