@@ -159,19 +159,7 @@ async def llm_websocket(
                 contractor = await _get_contractor_by_phone(tenant_number, db)
 
                 # Retell reconnects with the same call_id (auto_reconnect); reuse the session row.
-                call_session = (await db.execute(
-                    select(CallSession).where(CallSession.retell_call_id == call_id)
-                )).scalar_one_or_none()
-                if call_session is None:
-                    call_session = CallSession(
-                        retell_call_id=call_id,
-                        contractor_id=contractor.id,
-                        status="active",
-                        conversation_history=[],
-                        started_at=datetime.now(tz=timezone.utc),
-                    )
-                    db.add(call_session)
-                    await db.flush()
+                call_session = await _get_or_create_call_session(call_id, contractor.id, db)
 
                 # Demo tenant — enforce daily cap before anything else
                 from app.services.demo import check_demo_daily_cap, is_demo_call
@@ -291,6 +279,7 @@ async def llm_websocket(
                     continue
 
                 # Opening greeting — response_id 0 for the first agent turn
+                await db.commit()
                 greeting = await agent.process_turn("__call_started__")
                 await websocket.send_text(json.dumps({
                     "response_type": "response",
@@ -361,6 +350,9 @@ async def llm_websocket(
                     "Turn | call_id=%s response_id=%d end_call=%s",
                     call_id, response_id, end_call,
                 )
+                # Persist after every turn: leads/bookings become visible immediately, a crash
+                # doesn't lose the call, and reconnecting WebSockets see the current state.
+                await db.commit()
 
                 # Broadcast transcript update to dashboard clients
                 lead_score: dict = {}
@@ -817,6 +809,40 @@ async def _rebuild_agent(call_id: str, db: AsyncSession) -> ClaudeAgent:
     if contractor is None:
         raise HTTPException(status_code=404, detail="Contractor not found.")
     return ClaudeAgent(contractor=contractor, call_session=call_session, db=db)
+
+
+async def _get_or_create_call_session(call_id: str, contractor_id, db: AsyncSession) -> CallSession:
+    """Retell opens extra WebSockets for the same call (auto-reconnect); all must share one row.
+
+    The row is committed immediately so concurrent connections can see it; if two race to create it,
+    the loser rolls back and reads the winner's row.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    async def _find():
+        return (await db.execute(
+            select(CallSession).where(CallSession.retell_call_id == call_id)
+        )).scalar_one_or_none()
+
+    call_session = await _find()
+    if call_session is not None:
+        return call_session
+    call_session = CallSession(
+        retell_call_id=call_id,
+        contractor_id=contractor_id,
+        status="active",
+        conversation_history=[],
+        started_at=datetime.now(tz=timezone.utc),
+    )
+    db.add(call_session)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        call_session = await _find()
+        if call_session is None:
+            raise
+    return call_session
 
 
 PARTIAL_LEAD_MIN_SECONDS = 10  # shorter calls get the missed-call text instead

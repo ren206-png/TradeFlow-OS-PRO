@@ -204,3 +204,48 @@ async def test_call_analyzed_first_still_gets_summary(db):
         app.dependency_overrides.clear()
     lead = (await db.execute(select(Lead).where(Lead.call_id == "call_order1"))).scalar_one()
     assert lead.ai_summary == "Active kitchen leak; wants a plumber."
+
+
+@pytest.mark.asyncio
+async def test_concurrent_websocket_connections_share_one_call_session(db):
+    """Retell reconnects mid-call; every connection must land on the same, already-committed row."""
+    from sqlalchemy import func, select
+    from sqlalchemy.exc import IntegrityError
+    from unittest.mock import patch
+    from app.models.call import CallSession
+    from app.routers.retell import _get_or_create_call_session
+
+    demo, _ = await _seed(db)
+    first = await _get_or_create_call_session("call_race1", demo.id, db)
+    again = await _get_or_create_call_session("call_race1", demo.id, db)
+    assert again.id == first.id
+
+    # Race: another connection commits the same call's row between our check and our commit.
+    from sqlalchemy.ext.asyncio import AsyncSession
+    real_commit = db.commit
+    state = {"raised": False}
+
+    async def commit_with_race():
+        if not state["raised"]:
+            state["raised"] = True
+            async with AsyncSession(db.bind, expire_on_commit=False) as other:
+                other.add(CallSession(retell_call_id="call_race2", contractor_id=demo.id, status="active",
+                                      conversation_history=[]))
+                await other.commit()
+            raise IntegrityError("insert", {}, Exception("duplicate retell_call_id"))
+        await real_commit()
+
+    with patch.object(db, "commit", commit_with_race):
+        winner = await _get_or_create_call_session("call_race2", demo.id, db)
+    assert winner.retell_call_id == "call_race2" and state["raised"]
+    count = (await db.execute(select(func.count()).select_from(CallSession).where(
+        CallSession.retell_call_id == "call_race2"))).scalar_one()
+    assert count == 1
+
+
+def test_websocket_turn_commits_each_turn():
+    """Source-level guard: the turn handler persists after every turn (see commit comment)."""
+    import inspect
+    from app.routers import retell
+    src = inspect.getsource(retell.llm_websocket)
+    assert src.count("await db.commit()") >= 2
