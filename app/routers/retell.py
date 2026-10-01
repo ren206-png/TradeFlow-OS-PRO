@@ -18,10 +18,10 @@ import hmac
 import json
 import logging
 import re
-import secrets
 import time
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +51,24 @@ _pending_transfers: dict[str, str] = {}
 # ---------------------------------------------------------------------------
 # WebSocket — Retell Custom LLM endpoint
 # ---------------------------------------------------------------------------
+
+_LIVE_CALL_STATUSES = {"registered", "ongoing"}
+
+
+async def _is_live_retell_call(call_id: str) -> bool:
+    if not (settings.retell_api_key and re.fullmatch(r"call_[A-Za-z0-9]+", call_id or "")):
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"https://api.retellai.com/v2/get-call/{call_id}",
+                headers={"Authorization": f"Bearer {settings.retell_api_key}"},
+            )
+        return resp.status_code == 200 and resp.json().get("call_status") in _LIVE_CALL_STATUSES
+    except Exception as exc:
+        logger.error("Retell call verification failed | call_id=%s err=%s", call_id, exc)
+        return False
+
 
 @router.websocket("/llm-websocket/{url_template}/{call_id}")
 async def llm_websocket_templated(
@@ -86,12 +104,10 @@ async def llm_websocket(
                         content_complete, end_call, transfer_number
       update_agent    — modify responsiveness/interruption_sensitivity mid-call
     """
-    # --- Verify Retell's Authorization header before accepting ---
-    # Retell sends: Authorization: Bearer <retell_api_key>
-    auth_header = websocket.headers.get("Authorization", "")
-    expected = f"Bearer {settings.retell_api_key}" if settings.retell_api_key else None
-    if expected and not secrets.compare_digest(auth_header, expected):
-        logger.warning("WebSocket rejected — invalid Authorization | call_id=%s", call_id)
+    # Retell's custom-LLM WebSocket carries no auth header, so confirm the call_id is a live
+    # call on our Retell account before accepting (a forged connection can't name one).
+    if not await _is_live_retell_call(call_id):
+        logger.warning("WebSocket rejected — not a live Retell call | call_id=%s", call_id)
         await websocket.close(code=4401)
         return
 

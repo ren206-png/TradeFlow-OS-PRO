@@ -79,3 +79,33 @@ def test_llm_websocket_accepts_templated_agent_url():
     paths = {r.path for r in app.routes if isinstance(r, APIWebSocketRoute)}
     assert "/llm-websocket/{call_id}" in paths
     assert "/llm-websocket/{url_template}/{call_id}" in paths
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("call_id,status_code,call_status,expected", [
+    ("call_abc123", 200, "ongoing", True),
+    ("call_abc123", 200, "registered", True),
+    ("call_abc123", 200, "ended", False),
+    ("call_abc123", 404, None, False),
+    ("not-a-call-id", 200, "ongoing", False),
+])
+async def test_is_live_retell_call(call_id, status_code, call_status, expected):
+    from unittest.mock import patch
+    from app.routers import retell
+
+    async def fake_get(self, url, **kwargs):
+        return httpx.Response(status_code, json={"call_status": call_status}, request=httpx.Request("GET", url))
+
+    with patch.object(httpx.AsyncClient, "get", fake_get):
+        assert await retell._is_live_retell_call(call_id) is expected
+
+
+def test_websocket_rejects_unverified_call():
+    from unittest.mock import AsyncMock, patch
+    from starlette.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    with patch("app.routers.retell._is_live_retell_call", new=AsyncMock(return_value=False)):
+        with pytest.raises(WebSocketDisconnect):
+            with TestClient(app).websocket_connect("/llm-websocket/call_forged") as ws:
+                ws.receive_json()

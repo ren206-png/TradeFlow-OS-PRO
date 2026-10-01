@@ -27,6 +27,13 @@ from app.models.contractor import Contractor
 # Helpers
 # ---------------------------------------------------------------------------
 
+
+@pytest.fixture(autouse=True)
+def _retell_call_is_live():
+    """WebSocket auth asks Retell whether the call is live; treat test calls as live."""
+    with patch("app.routers.retell._is_live_retell_call", new=AsyncMock(return_value=True)):
+        yield
+
 def _sign(body: bytes, api_key: str = "test-api-key", timestamp_ms: Optional[int] = None) -> str:
     """
     Retell signature format: v={timestamp_ms},d={hmac_sha256(body+timestamp, api_key)}
@@ -264,7 +271,7 @@ async def test_websocket_call_details_triggers_greeting(mock_contractor, mock_ca
         with patch("app.routers.retell.ClaudeAgent", return_value=mock_agent):
             from starlette.testclient import TestClient
             client = TestClient(app)
-            with client.websocket_connect("/llm-websocket/call-ws-test", headers={"Authorization": "Bearer test-api-key"}) as ws:
+            with client.websocket_connect("/llm-websocket/call-ws-test") as ws:
                 ws.receive_json()  # discard initial config event
                 ws.send_json({
                     "interaction_type": "call_details",
@@ -310,7 +317,7 @@ async def test_websocket_response_required_returns_agent_text(mock_call_session)
     try:
         from starlette.testclient import TestClient
         client = TestClient(app)
-        with client.websocket_connect(f"/llm-websocket/{call_id}", headers={"Authorization": "Bearer test-api-key"}) as ws:
+        with client.websocket_connect(f"/llm-websocket/{call_id}") as ws:
             ws.receive_json()  # discard initial config event
             ws.send_json({
                 "interaction_type": "response_required",
@@ -353,7 +360,7 @@ async def test_websocket_call_update_returns_string_response():
     try:
         from starlette.testclient import TestClient
         client = TestClient(app)
-        with client.websocket_connect(f"/llm-websocket/{call_id}", headers={"Authorization": "Bearer test-api-key"}) as ws:
+        with client.websocket_connect(f"/llm-websocket/{call_id}") as ws:
             ws.receive_json()  # discard initial config event
             ws.send_json({
                 "interaction_type": "response_required",
