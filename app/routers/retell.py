@@ -492,18 +492,8 @@ async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
         )
         return _inbound_response(contractor.retell_agent_id)
 
-    # Fallback: use the first active agent found
-    logger.warning("No contractor found for number %s — using fallback agent", to_number)
-    fallback_result = await db.execute(
-        select(Contractor).where(
-            Contractor.retell_agent_id.isnot(None),
-            Contractor.is_active == True,  # noqa: E712
-        ).limit(1)
-    )
-    fallback = fallback_result.scalar_one_or_none()
-    if fallback and fallback.retell_agent_id:
-        return _inbound_response(fallback.retell_agent_id)
-
+    # No silent fallback: routing an unknown number to an arbitrary tenant's agent misattributes calls.
+    logger.warning("Retell inbound: no active contractor for %s — rejecting", to_number)
     raise HTTPException(status_code=404, detail="No agent configured for this number")
 
 

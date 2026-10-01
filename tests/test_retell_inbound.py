@@ -109,3 +109,11 @@ def test_websocket_rejects_unverified_call():
         with pytest.raises(WebSocketDisconnect):
             with TestClient(app).websocket_connect("/llm-websocket/call_forged") as ws:
                 ws.receive_json()
+
+
+@pytest.mark.asyncio
+async def test_unknown_number_is_rejected_not_routed_to_another_tenant(db):
+    await _seed(db)
+    body = json.dumps({"call_inbound": {"to_number": "+15875559999", "from_number": "+18075550000"}}).encode()
+    resp = await _post(db, body, _sign(body))
+    assert resp.status_code == 404
