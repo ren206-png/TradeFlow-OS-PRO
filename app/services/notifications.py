@@ -28,6 +28,12 @@ def is_deliverable_address(addr: str) -> bool:
     return "." in domain and not domain.endswith(_UNDELIVERABLE_TLDS)
 
 
+def owner_alert_phone(contractor) -> str | None:
+    """Where to text the business owner. Never the AI line (contractor.phone_number)."""
+    cfg = getattr(contractor, "calendar_config", None) or {}
+    return getattr(contractor, "owner_phone", None) or cfg.get("owner_phone") or cfg.get("transfer_number") or None
+
+
 def _send_email(to: str, subject: str, html: str, text: str) -> bool:
     """Send an email via SMTP. Returns True on success."""
     if not is_deliverable_address(to):
@@ -80,7 +86,8 @@ async def notify_new_lead(contractor, lead) -> None:
     portal_url = "https://tradesflowos.com/portal/leads"
 
     # ── SMS to contractor ────────────────────────────────────────────
-    if contractor.phone_number:
+    alert_phone = owner_alert_phone(contractor)
+    if alert_phone:
         try:
             from app.services.sms import SMSService
             sms_body = (
@@ -92,7 +99,7 @@ async def notify_new_lead(contractor, lead) -> None:
                 f"View: {portal_url}"
             )
             sms = SMSService(contractor)
-            await sms._send_async(contractor.phone_number, sms_body, "new_lead")
+            await sms._send_async(alert_phone, sms_body, "new_lead")
             logger.info("Lead notification SMS sent | contractor=%s lead=%s", contractor.name, lead.id)
         except Exception as exc:
             logger.error("Lead notification SMS failed | contractor=%s error=%s", contractor.name, exc)
@@ -335,7 +342,8 @@ async def notify_appointment_booked(contractor, lead) -> None:
     portal_url = "https://tradesflowos.com/portal/leads"
 
     # SMS
-    if contractor.phone_number:
+    alert_phone = owner_alert_phone(contractor)
+    if alert_phone:
         try:
             from app.services.sms import SMSService
             sms_body = (
@@ -346,7 +354,7 @@ async def notify_appointment_booked(contractor, lead) -> None:
                 f"View: {portal_url}"
             )
             sms = SMSService(contractor)
-            await sms._send_async(contractor.phone_number, sms_body, "appointment_booked")
+            await sms._send_async(alert_phone, sms_body, "appointment_booked")
         except Exception as exc:
             logger.error("Booking notification SMS failed | contractor=%s error=%s", contractor.name, exc)
 

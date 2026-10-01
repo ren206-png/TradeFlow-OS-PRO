@@ -39,9 +39,21 @@
           <p class="text-xs text-gray-400 mt-1">Email cannot be changed — contact support</p>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Business Phone</label>
-          <input type="tel" name="phone_number" value="{{ contractor.phone_number or '' }}"
+          <label class="block text-xs font-medium text-gray-500 mb-1">Your AI receptionist number</label>
+          <input type="tel" value="{{ contractor.phone_number or '' }}" disabled
+                 class="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 cursor-not-allowed">
+          <p class="text-xs text-gray-400 mt-1">Customers call or forward to this number. It can't be changed here.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Your mobile (for new-lead and booking texts)</label>
+          <input type="tel" name="owner_phone" value="{{ contractor.owner_phone or '' }}" placeholder="(403) 555-0123"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Transfer urgent calls to</label>
+          <input type="tel" name="transfer_number" value="{{ (contractor.calendar_config or {}).get('transfer_number', '') }}" placeholder="(403) 555-0123"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <p class="text-xs text-gray-400 mt-1">When a caller needs a person, the AI transfers them here. Leave blank to take a message instead.</p>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Service Areas <span class="text-gray-400 font-normal">(comma separated)</span></label>

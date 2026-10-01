@@ -19,6 +19,8 @@ class Contractor(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     agent_name: Mapped[str] = mapped_column(String(100), nullable=False)
     phone_number: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
+    # Owner's own mobile for lead/booking alerts; phone_number is the AI line callers dial.
+    owner_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     api_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     trades: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     service_areas: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password
+from app.utils.phone import normalize_nanp
 from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, create_session_token
 
@@ -132,6 +133,7 @@ status_code=422,
         email=email.strip().lower(),
         hashed_password=hashed_pw,
         phone_number=phone_number.strip(),
+        owner_phone=normalize_nanp(phone_number.strip()) or phone_number.strip(),
         trades=selected_trades,
         service_areas=areas,
         api_key=api_key,

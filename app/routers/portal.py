@@ -22,6 +22,7 @@ from app.models.lead import Lead
 from app.models.on_call_schedule import OnCallSchedule
 from app.services.estimate_followup import EstimateFollowupService
 from app.services.feature_flags import is_enabled
+from app.utils.phone import normalize_nanp
 from app.utils.sessions import SESSION_COOKIE, decode_session_token
 
 logger = logging.getLogger(__name__)
@@ -490,7 +491,8 @@ async def portal_settings(
 async def portal_settings_update(
     request: Request,
     name: Optional[str] = Form(None),
-    phone_number: Optional[str] = Form(None),
+    owner_phone: Optional[str] = Form(None),
+    transfer_number: Optional[str] = Form(None),
     service_areas: Optional[str] = Form(None),
     timezone: Optional[str] = Form(None),
     agent_name: Optional[str] = Form(None),
@@ -505,8 +507,17 @@ async def portal_settings_update(
 
     if name and name.strip():
         contractor.name = name.strip()
-    if phone_number is not None:
-        contractor.phone_number = phone_number.strip()
+    # phone_number is the AI line callers dial and drives call routing; it is never user-editable.
+    if owner_phone is not None:
+        contractor.owner_phone = normalize_nanp(owner_phone) if owner_phone.strip() else None
+    if transfer_number is not None:
+        cfg = dict(contractor.calendar_config or {})
+        normalized = normalize_nanp(transfer_number) if transfer_number.strip() else None
+        if normalized:
+            cfg["transfer_number"] = normalized
+        else:
+            cfg.pop("transfer_number", None)
+        contractor.calendar_config = cfg
     if service_areas is not None:
         contractor.service_areas = [a.strip() for a in service_areas.split(",") if a.strip()]
     if timezone:

@@ -20,3 +20,13 @@ def format_display(e164: str) -> str:
 
 def tel_href(e164: str) -> str:
     return f"tel:{e164}" if e164 else ""
+
+
+def normalize_nanp(raw: str) -> str | None:
+    """'(587) 555-0100', '5875550100', '+1 587 555 0100' -> '+15875550100'; None if not a NANP number."""
+    digits = re.sub(r"\D", "", raw or "")
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    if len(digits) != 10:
+        return None
+    return "+1" + digits

@@ -14,6 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password, needs_rehash, verify_password
+from app.utils.phone import normalize_nanp
 from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, SESSION_MAX_AGE, create_session_token
 
@@ -128,6 +129,7 @@ status_code=400,
         trades=[trade],
         service_areas=[service_area],
         phone_number=phone,
+        owner_phone=normalize_nanp(phone) or phone,
         is_active=True,
         is_verified=False,
         plan="starter",

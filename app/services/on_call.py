@@ -56,14 +56,13 @@ class OnCallService:
         db: AsyncSession,
     ) -> None:
         """Send SMS alert to contractor when a transfer is not answered."""
+        from app.services.notifications import owner_alert_phone
         from app.services.sms import SMSService
 
         if not contractor.sms_enabled:
             return
 
-        owner_phone = None
-        if contractor.calendar_config:
-            owner_phone = contractor.calendar_config.get("owner_phone") or contractor.calendar_config.get("transfer_number")
+        owner_phone = owner_alert_phone(contractor)
 
         if not owner_phone:
             return
