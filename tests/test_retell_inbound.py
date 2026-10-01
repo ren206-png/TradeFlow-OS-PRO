@@ -157,9 +157,12 @@ async def _call_ended(db, call_id: str, seconds: int, lead_id=None):
 
 @pytest.mark.asyncio
 async def test_conversation_without_lead_becomes_callback_lead(db):
+    from unittest.mock import AsyncMock, patch
     from sqlalchemy import select
     from app.models.lead import Lead
-    demo = await _call_ended(db, "call_partial1", seconds=40)
+    with patch("app.services.notifications.notify_new_lead", new_callable=AsyncMock) as notify:
+        demo = await _call_ended(db, "call_partial1", seconds=40)
+    notify.assert_called_once()
     lead = (await db.execute(select(Lead).where(Lead.call_id == "call_partial1"))).scalar_one()
     assert lead.contractor_id == demo.id
     assert lead.phone == "+18075550000"

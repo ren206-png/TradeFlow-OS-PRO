@@ -848,6 +848,15 @@ async def _ensure_partial_lead(call_id: str, call_info: dict, db: AsyncSession) 
     call_session.lead_id = lead.id
     logger.info("Partial lead created | call_id=%s lead=%s duration=%ss", call_id, lead.id, duration_s)
 
+    contractor = (await db.execute(
+        select(Contractor).where(Contractor.id == call_session.contractor_id)
+    )).scalar_one_or_none()
+    if contractor:
+        import asyncio as _asyncio
+        from app.services.notifications import notify_new_lead
+        lead.problem_summary = "Caller hung up before booking — call them back"
+        _asyncio.create_task(notify_new_lead(contractor, lead))
+
 
 async def _normalize_lead_fields_in_own_session(call_id: str, retell_language) -> None:
     # Runs after the webhook response; the request's session is closed by then.
