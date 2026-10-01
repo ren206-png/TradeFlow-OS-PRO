@@ -149,9 +149,9 @@ class ClaudeAgent:
                 return await self._client.messages.create(
                     model=settings.claude_model,
                     max_tokens=settings.claude_max_tokens,
-                    system=self.system_prompt,
+                    system=[{"type": "text", "text": self.system_prompt, "cache_control": {"type": "ephemeral"}}],
                     tools=tools,
-                    messages=messages,
+                    messages=_with_cache_marker(messages),
                 )
             except anthropic.RateLimitError as exc:
                 last_exc = exc
@@ -196,6 +196,26 @@ class ClaudeAgent:
 
         messages.append({"role": "user", "content": tool_results})
         return messages
+
+
+def _with_cache_marker(messages: list[dict]) -> list[dict]:
+    """Copy of the conversation with a cache breakpoint on its last block.
+
+    The tools + system prompt (~7k tokens) and every earlier turn are then read from Anthropic's
+    prompt cache at ~10% of the normal input price instead of being re-billed on each request.
+    The stored history is left untouched.
+    """
+    if not messages:
+        return messages
+    last = dict(messages[-1])
+    content = last["content"]
+    if isinstance(content, str):
+        last["content"] = [{"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}]
+    elif isinstance(content, list) and content:
+        blocks = [dict(b) for b in content]
+        blocks[-1]["cache_control"] = {"type": "ephemeral"}
+        last["content"] = blocks
+    return [*messages[:-1], last]
 
 
 def _extract_text(response: anthropic.types.Message) -> str:

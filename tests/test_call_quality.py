@@ -77,3 +77,18 @@ async def test_empty_turn_after_transfer_says_connecting():
          patch("app.services.claude_agent._serialize_content",
                side_effect=lambda c: [{"type": b.type, "name": b.name, "id": b.id, "input": b.input} for b in c]):
         assert await agent.process_turn("get me a person") == "Let me connect you with someone now."
+
+
+def test_cache_marker_goes_on_last_block_without_mutating_history():
+    from app.services.claude_agent import _with_cache_marker
+
+    history = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": [{"type": "text", "text": "hi"}]},
+        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "{}"}]},
+    ]
+    out = _with_cache_marker(history)
+    assert out[-1]["content"][-1]["cache_control"] == {"type": "ephemeral"}
+    assert "cache_control" not in history[-1]["content"][-1]  # stored history untouched
+    assert _with_cache_marker([{"role": "user", "content": "hey"}])[0]["content"][0]["cache_control"]
+    assert _with_cache_marker([]) == []
