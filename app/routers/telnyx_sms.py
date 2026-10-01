@@ -16,12 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.routers.twilio_sms import handle_inbound_sms
+from app.services.sms_compliance import STOP_KEYWORDS
 from app.services.sms_provider import send_sms
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telnyx", tags=["telnyx"])
 
 _MAX_SKEW_SECONDS = 300
+TELNYX_HANDLED_KEYWORDS = STOP_KEYWORDS | {"start", "unstop", "help"}
 
 
 def verify_telnyx_signature(raw_body: bytes, signature_b64: str, timestamp: str) -> bool:
@@ -68,6 +70,8 @@ async def inbound_sms(request: Request, db: AsyncSession = Depends(get_db)):
         return {"ok": True}
 
     reply = await handle_inbound_sms(phone, text, to_number, db)
-    if reply:
+    # The Telnyx messaging profile auto-replies to opt-out/opt-in/help keywords (and blocks
+    # sends after STOP), so only record those here; replying too would double-message.
+    if reply and text.strip().lower() not in TELNYX_HANDLED_KEYWORDS:
         await send_sms(phone, reply, "inbound_reply")
     return {"ok": True}

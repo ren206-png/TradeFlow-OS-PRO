@@ -106,19 +106,25 @@ async def test_webhook_rejects_bad_and_stale_signatures(db, telnyx_settings):
 
 
 @pytest.mark.asyncio
-async def test_webhook_processes_keyword_and_replies(db, telnyx_settings):
+async def test_stop_is_recorded_but_not_double_replied(db, telnyx_settings):
+    """Telnyx auto-replies to STOP; the app must record the opt-out without sending its own reply."""
+    from app.services.sms_compliance import is_opted_out
+
     async def _dep():
         yield db
     app.dependency_overrides[get_db] = _dep
-    body = _event("STOP")
     try:
         with patch("app.routers.telnyx_sms.send_sms", new_callable=AsyncMock) as reply:
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
-                resp = await c.post("/telnyx/sms", content=body, headers=_signed(telnyx_settings, body))
+                for word in ("STOP", "info"):
+                    body = _event(word)
+                    resp = await c.post("/telnyx/sms", content=body, headers=_signed(telnyx_settings, body))
+                    assert resp.status_code == 200
     finally:
         app.dependency_overrides.clear()
-    assert resp.status_code == 200
-    reply.assert_awaited_once()
+    assert await is_opted_out("+15875550123", db)
+    # STOP: no app reply. INFO isn't a Telnyx profile keyword, so the app answers it.
+    assert reply.await_count == 1
     assert reply.await_args.args[0] == "+15875550123"
 
 
