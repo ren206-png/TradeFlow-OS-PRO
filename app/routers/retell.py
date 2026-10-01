@@ -137,7 +137,9 @@ async def llm_websocket(
                 to_number: str = call_info.get("to_number", "")
                 from_number: str = call_info.get("from_number", "")
 
-                contractor = await _get_contractor_by_phone(to_number, db)
+                # Outbound calls (callbacks, recovery) dial the customer; the tenant's number is the caller ID.
+                tenant_number = from_number if call_info.get("direction") == "outbound" else to_number
+                contractor = await _get_contractor_by_phone(tenant_number, db)
 
                 call_session = CallSession(
                     retell_call_id=call_id,
