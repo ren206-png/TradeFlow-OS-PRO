@@ -74,6 +74,9 @@ class ClaudeAgent:
 
         if user_message != "__call_started__":
             messages.append({"role": "user", "content": user_message})
+        elif not messages:
+            # The Messages API needs a user turn first; this cue produces the opening greeting.
+            messages.append({"role": "user", "content": "[The phone call has just connected. Greet the caller now.]"})
 
         iteration = 0
         while iteration < MAX_TOOL_ITERATIONS:

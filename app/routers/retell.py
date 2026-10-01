@@ -219,11 +219,12 @@ async def llm_websocket(
                     _max_call_mins = _plan_limits.get("max_call_mins", 10)
                 call_session.max_duration_seconds = _max_call_mins * 60
 
-                # Record implied SMS consent — caller initiated contact
-                if from_number:
+                # Record implied SMS consent for the customer (the dialed party on outbound calls)
+                customer_number = to_number if call_info.get("direction") == "outbound" else from_number
+                if customer_number:
                     try:
                         from app.services.sms_compliance import record_consent
-                        await record_consent(from_number, call_id, db)
+                        await record_consent(customer_number, call_id, db)
                     except Exception as _ce:
                         logger.warning("Consent recording failed: %s", _ce)
 

@@ -133,3 +133,18 @@ async def test_conversation_history_is_persisted(contractor, call_session, mock_
     assert any(m["role"] == "user" for m in history)
     assert any(m["role"] == "assistant" for m in history)
     mock_db.flush.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_opening_greeting_sends_a_user_turn(contractor, call_session, mock_db):
+    """The Messages API rejects an empty message list; the greeting must start with a user cue."""
+    call_session.conversation_history = []
+    agent = ClaudeAgent(contractor=contractor, call_session=call_session, db=mock_db)
+    call = AsyncMock(return_value=_make_text_response("Thanks for calling!"))
+
+    with patch.object(agent, "_call_claude", call):
+        greeting = await agent.process_turn("__call_started__")
+
+    sent = call.await_args.args[0]
+    assert sent and sent[0]["role"] == "user"
+    assert greeting == "Thanks for calling!"
