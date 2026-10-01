@@ -1,4 +1,6 @@
 import os
+import re
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ---------------------------------------------------------------------------
@@ -53,7 +55,16 @@ class Settings(BaseSettings):
     admin_password: str = ""  # falls back to secret_key if empty
 
     # Live demo line — set in Railway after provisioning the demo tenant
-    demo_phone_number: str = ""        # rendered on marketing site hero
+    # Single source of truth for the public demo line (E.164). Display/tel: via app.utils.phone.
+    demo_phone_number: str = ""
+
+    @field_validator("demo_phone_number")
+    @classmethod
+    def _validate_demo_phone(cls, v: str) -> str:
+        v = (v or "").strip()
+        if v and not re.match(r"^\+1\d{10}$", v):
+            raise ValueError("DEMO_PHONE_NUMBER must be E.164 NANP, e.g. +15875550100")
+        return v
     demo_contractor_id: str = ""       # UUID of the demo Contractor row
     demo_daily_call_cap: int = 50      # max demo calls per day
     demo_max_call_mins: int = 3        # max 3 min per demo call

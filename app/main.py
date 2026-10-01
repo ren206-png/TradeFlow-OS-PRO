@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.database import init_db
+from app.utils.phone import format_display, tel_href
 from app.routers import auth, billing, contractor_app, contractors, dashboard, leads, onboarding, portal, retell, telnyx_sms, twilio_sms
 from app.routers import a2p as a2p_router  # Phase 1: A2P admin API
 from app.routers import webform as webform_router          # Phase 2: webform callback
@@ -188,6 +189,8 @@ async def landing_page(request: Request):
 "landing.html",
 {
         "demo_phone": settings.demo_phone_number or None,
+        "demo_phone_display": format_display(settings.demo_phone_number),
+        "demo_phone_tel": tel_href(settings.demo_phone_number),
         "ff_trust_v2": settings.trust_v2,
         "ff_mobile_hero_v2": settings.mobile_hero_v2,
         "ff_live_metrics": settings.live_metrics,

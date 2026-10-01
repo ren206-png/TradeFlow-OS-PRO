@@ -2,7 +2,7 @@
 One-time script: create the Renco Enterprise demo contractor row in the DB.
 The Retell agent + phone number already exist.
 
-Run with:  railway run python3 scripts/seed_renco_demo.py
+Run with:  RENCO_PHONE=+1XXXXXXXXXX railway run python3 scripts/seed_renco_demo.py
 """
 import asyncio
 import secrets
@@ -12,7 +12,7 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-RENCO_PHONE    = "+15878001544"
+RENCO_PHONE    = os.environ["RENCO_PHONE"]  # E.164; pass explicitly, numbers change
 RENCO_AGENT_ID = "agent_7432c3df2dc4af9b91adea5ec4"
 RENCO_NAME     = "Renco Enterprise"
 RENCO_AGENT    = "Alex"
