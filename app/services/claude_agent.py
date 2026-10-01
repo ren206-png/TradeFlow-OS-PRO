@@ -72,11 +72,14 @@ class ClaudeAgent:
         """
         messages: list[dict] = list(self.call_session.conversation_history)
 
-        if user_message != "__call_started__":
+        # The Messages API requires the conversation to end with a non-empty user turn.
+        if user_message == "__call_started__":
+            if not messages:
+                messages.append({"role": "user", "content": "[The phone call has just connected. Greet the caller now.]"})
+        elif user_message.strip():
             messages.append({"role": "user", "content": user_message})
-        elif not messages:
-            # The Messages API needs a user turn first; this cue produces the opening greeting.
-            messages.append({"role": "user", "content": "[The phone call has just connected. Greet the caller now.]"})
+        if not messages or messages[-1]["role"] != "user":
+            messages.append({"role": "user", "content": "[The caller hasn't said anything new. Briefly check they're still there.]"})
 
         iteration = 0
         while iteration < MAX_TOOL_ITERATIONS:
@@ -185,7 +188,8 @@ def _extract_text(response: anthropic.types.Message) -> str:
     """Pull the first text block out of a Claude response."""
     for block in response.content:
         if block.type == "text":
-            return block.text
+            # The model sometimes wraps spoken lines in quotes; don't read them aloud.
+            return block.text.strip().strip('"\u201c\u201d').strip()
     return ""
 
 

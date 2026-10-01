@@ -283,6 +283,11 @@ async def llm_websocket(
                     "started_at": call_session.started_at.isoformat(),
                 })
 
+                if call_session.conversation_history:
+                    # Retell reconnect mid-call: the caller was already greeted; resume silently.
+                    logger.info("Agent resumed after reconnect | call_id=%s", call_id)
+                    continue
+
                 # Opening greeting — response_id 0 for the first agent turn
                 greeting = await agent.process_turn("__call_started__")
                 await websocket.send_text(json.dumps({
@@ -826,8 +831,9 @@ async def _ensure_partial_lead(call_id: str, call_info: dict, db: AsyncSession) 
     if duration_s < PARTIAL_LEAD_MIN_SECONDS or not customer_number:
         return
 
+    # call_ended and call_analyzed can arrive concurrently; lock the row so only one creates the lead.
     call_session = (await db.execute(
-        select(CallSession).where(CallSession.retell_call_id == call_id)
+        select(CallSession).where(CallSession.retell_call_id == call_id).with_for_update()
     )).scalar_one_or_none()
     if call_session is None or call_session.lead_id:
         return

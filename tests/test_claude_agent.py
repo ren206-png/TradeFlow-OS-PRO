@@ -148,3 +148,32 @@ async def test_opening_greeting_sends_a_user_turn(contractor, call_session, mock
     sent = call.await_args.args[0]
     assert sent and sent[0]["role"] == "user"
     assert greeting == "Thanks for calling!"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("history,user_message", [
+    ([{"role": "user", "content": "[connected]"}, {"role": "assistant", "content": [{"type": "text", "text": "Hi"}]}], "__call_started__"),
+    ([{"role": "user", "content": "[connected]"}, {"role": "assistant", "content": [{"type": "text", "text": "Hi"}]}], ""),
+    ([{"role": "user", "content": "[connected]"}, {"role": "assistant", "content": [{"type": "text", "text": "Hi"}]}], "   "),
+])
+async def test_conversation_sent_to_claude_always_ends_with_user(contractor, call_session, mock_db, history, user_message):
+    """Reconnects and silent turns must never send an assistant-final conversation (no prefill support)."""
+    call_session.conversation_history = list(history)
+    agent = ClaudeAgent(contractor=contractor, call_session=call_session, db=mock_db)
+    snapshots = []
+
+    async def fake_call(messages):
+        snapshots.append([dict(m) for m in messages])
+        return _make_text_response("Are you still there?")
+
+    with patch.object(agent, "_call_claude", fake_call):
+        await agent.process_turn(user_message)
+    sent = snapshots[0]
+    assert sent[-1]["role"] == "user" and str(sent[-1]["content"]).strip()
+
+
+@pytest.mark.asyncio
+async def test_spoken_text_has_wrapping_quotes_removed(contractor, call_session, mock_db):
+    agent = ClaudeAgent(contractor=contractor, call_session=call_session, db=mock_db)
+    with patch.object(agent, "_call_claude", AsyncMock(return_value=_make_text_response('"Alex with Renco, how can I help?"'))):
+        assert await agent.process_turn("hello") == "Alex with Renco, how can I help?"
