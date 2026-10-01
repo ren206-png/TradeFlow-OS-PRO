@@ -157,15 +157,20 @@ async def llm_websocket(
                 tenant_number = from_number if call_info.get("direction") == "outbound" else to_number
                 contractor = await _get_contractor_by_phone(tenant_number, db)
 
-                call_session = CallSession(
-                    retell_call_id=call_id,
-                    contractor_id=contractor.id,
-                    status="active",
-                    conversation_history=[],
-                    started_at=datetime.now(tz=timezone.utc),
-                )
-                db.add(call_session)
-                await db.flush()
+                # Retell reconnects with the same call_id (auto_reconnect); reuse the session row.
+                call_session = (await db.execute(
+                    select(CallSession).where(CallSession.retell_call_id == call_id)
+                )).scalar_one_or_none()
+                if call_session is None:
+                    call_session = CallSession(
+                        retell_call_id=call_id,
+                        contractor_id=contractor.id,
+                        status="active",
+                        conversation_history=[],
+                        started_at=datetime.now(tz=timezone.utc),
+                    )
+                    db.add(call_session)
+                    await db.flush()
 
                 # Demo tenant — enforce daily cap before anything else
                 from app.services.demo import check_demo_daily_cap, is_demo_call
