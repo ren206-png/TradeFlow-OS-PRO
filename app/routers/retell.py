@@ -373,6 +373,11 @@ async def llm_websocket(
 # Must return {"agent_id": "..."} to tell Retell which agent to use
 # ---------------------------------------------------------------------------
 
+def _inbound_response(agent_id: str) -> dict:
+    # Current Retell format is call_inbound.override_agent_id; agent_id kept for the legacy format.
+    return {"call_inbound": {"override_agent_id": agent_id}, "agent_id": agent_id}
+
+
 @router.post("/retell/inbound")
 async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
     """
@@ -382,14 +387,29 @@ async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
     """
     from app.models.contractor import Contractor
 
+    raw_body = await request.body()
     try:
-        payload = await request.json()
-    except Exception:
+        payload = json.loads(raw_body) if raw_body else {}
+    except ValueError:
         payload = {}
 
-    to_number: str = payload.get("to_number", "")
-    from_number: str = payload.get("from_number", "")
-    logger.info("Retell inbound | to=%s from=%s", to_number, from_number)
+    # Retell's inbound webhook nests call fields under "call_inbound"; accept the flat form too.
+    call_fields = payload.get("call_inbound") if isinstance(payload.get("call_inbound"), dict) else payload
+    to_number: str = call_fields.get("to_number", "") or ""
+    from_number: str = call_fields.get("from_number", "") or ""
+
+    signature_ok = True
+    try:
+        _verify_retell_signature(request, raw_body)
+    except HTTPException as exc:
+        signature_ok = False
+        if settings.retell_inbound_enforce_signature:
+            logger.warning("Retell inbound rejected: %s", exc.detail)
+            raise
+    logger.info(
+        "Retell inbound | to=%s from=%s signature_ok=%s keys=%s",
+        to_number, from_number, signature_ok, sorted(payload.keys()),
+    )
 
     # Look up contractor by their Retell phone number
     result = await db.execute(
@@ -435,7 +455,7 @@ async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
             "Routing inbound call to agent %s for contractor %s",
             contractor.retell_agent_id, contractor.name,
         )
-        return {"agent_id": contractor.retell_agent_id}
+        return _inbound_response(contractor.retell_agent_id)
 
     # Fallback: use the first active agent found
     logger.warning("No contractor found for number %s — using fallback agent", to_number)
@@ -447,7 +467,7 @@ async def retell_inbound(request: Request, db: AsyncSession = Depends(get_db)):
     )
     fallback = fallback_result.scalar_one_or_none()
     if fallback and fallback.retell_agent_id:
-        return {"agent_id": fallback.retell_agent_id}
+        return _inbound_response(fallback.retell_agent_id)
 
     raise HTTPException(status_code=404, detail="No agent configured for this number")
 

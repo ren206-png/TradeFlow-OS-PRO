@@ -146,3 +146,18 @@ async def test_reply_to_shared_sender_resolves_contractor(db):
     assert c1.id == via_ledger.id
     assert c2.id == via_lead.id
     assert c3 is None
+
+
+@pytest.mark.asyncio
+async def test_twilio_webhook_fails_closed_without_token(db, monkeypatch):
+    monkeypatch.setattr(settings, "twilio_auth_token", "")
+
+    async def _dep():
+        yield db
+    app.dependency_overrides[get_db] = _dep
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            resp = await c.post("/twilio/sms", data={"From": "+15875550123", "Body": "CALL", "To": "+15870000000"})
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 503

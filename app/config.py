@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     retell_api_key: str
     retell_webhook_secret: str = ""
+    # Reject /retell/inbound requests without a valid x-retell-signature (enable once verified live)
+    retell_inbound_enforce_signature: bool = False
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""

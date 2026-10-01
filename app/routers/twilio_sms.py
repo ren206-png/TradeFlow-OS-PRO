@@ -27,14 +27,13 @@ async def _verify_twilio_signature(
 ) -> None:
     """
     Verify the X-Twilio-Signature header to ensure the request is from Twilio.
-    Skipped when TWILIO_AUTH_TOKEN is not configured (dev/test environments).
+    Returns 503 when TWILIO_AUTH_TOKEN is not configured.
     Raises HTTP 403 if the signature is invalid.
     """
     auth_token = settings.twilio_auth_token
     if not auth_token:
-        # No auth token configured — skip verification (local dev / missing config)
-        logger.debug("twilio: auth_token not set, skipping signature verification")
-        return
+        # Fail closed: an unverifiable endpoint would let anyone fake STOP/CALL keywords.
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Twilio SMS not configured.")
 
     try:
         from twilio.request_validator import RequestValidator
