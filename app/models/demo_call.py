@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import String
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -20,5 +20,5 @@ class DemoCall(Base):
     from_number: Mapped[str] = mapped_column(String(32), index=True)
     duration_seconds: Mapped[int] = mapped_column(default=0)
     started_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(tz=timezone.utc), index=True
+        DateTime(timezone=True), default=lambda: datetime.now(tz=timezone.utc), index=True
     )

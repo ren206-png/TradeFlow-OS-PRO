@@ -68,3 +68,9 @@ def test_no_real_phone_literals_outside_config_and_tests():
                     continue
                 offenders.append(f"{path.relative_to(ROOT)}:{lineno}: {lit}")
     assert not offenders, "Real phone numbers must come from config/env:\n" + "\n".join(offenders)
+
+
+def test_demo_call_started_at_is_timezone_aware():
+    """check_demo_daily_cap compares against an aware datetime; the column must be TIMESTAMPTZ."""
+    from app.models.demo_call import DemoCall
+    assert DemoCall.__table__.c.started_at.type.timezone is True
