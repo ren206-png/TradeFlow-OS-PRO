@@ -71,3 +71,11 @@ async def test_unsigned_request_allowed_until_enforcement_enabled(db, monkeypatc
     monkeypatch.setattr(settings, "retell_inbound_enforce_signature", True)
     assert (await _post(db, body, {"content-type": "application/json"})).status_code == 403
     assert (await _post(db, body, _sign(body))).status_code == 200
+
+
+def test_llm_websocket_accepts_templated_agent_url():
+    """Agents configured with '/llm-websocket/{call_id}' get the real id appended after the literal."""
+    from fastapi.routing import APIWebSocketRoute
+    paths = {r.path for r in app.routes if isinstance(r, APIWebSocketRoute)}
+    assert "/llm-websocket/{call_id}" in paths
+    assert "/llm-websocket/{url_template}/{call_id}" in paths

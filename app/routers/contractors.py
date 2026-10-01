@@ -147,7 +147,7 @@ async def provision_retell_agent(
     contractor = await _get_or_404(contractor_id, db)
 
     # Retell substitutes {call_id} at connection time
-    websocket_url = f"{public_base_url.rstrip('/')}/llm-websocket/{{call_id}}"
+    websocket_url = f"{public_base_url.rstrip('/')}/llm-websocket"  # Retell appends /{call_id}
 
     retell_client = RetellClient()
 

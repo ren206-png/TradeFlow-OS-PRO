@@ -82,7 +82,7 @@ async def provision_contractor(contractor, db: AsyncSession) -> dict:
         "agent_name": f"{contractor.name} — {contractor.agent_name or 'Alex'}",
         "response_engine": {
             "type": "custom-llm",
-            "llm_websocket_url": f"wss://api.tradesflowos.com/llm-websocket/{{call_id}}",
+            "llm_websocket_url": "wss://api.tradesflowos.com/llm-websocket",  # Retell appends /{call_id}
         },
         # Multilingual mode: switch voice and language when flag is on.
         # Flag-off path is byte-identical to previous behavior.

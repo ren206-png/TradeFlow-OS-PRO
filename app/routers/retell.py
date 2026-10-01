@@ -52,6 +52,17 @@ _pending_transfers: dict[str, str] = {}
 # WebSocket — Retell Custom LLM endpoint
 # ---------------------------------------------------------------------------
 
+@router.websocket("/llm-websocket/{url_template}/{call_id}")
+async def llm_websocket_templated(
+    websocket: WebSocket,
+    url_template: str,
+    call_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Agents created with a literal '/{call_id}' in llm_websocket_url get the real id appended after it."""
+    await llm_websocket(websocket, call_id, db)
+
+
 @router.websocket("/llm-websocket/{call_id}")
 async def llm_websocket(
     websocket: WebSocket,
