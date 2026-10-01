@@ -596,6 +596,8 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 logger.warning("Missed transfer alert dispatch error | %s", _texc)
 
     elif event == "call_analyzed":
+        # Retell may deliver call_analyzed before call_ended; make sure the lead exists first.
+        await _ensure_partial_lead(call_id, call_info, db)
         await _apply_analysis(call_id, call_info, db)
         transcript = payload.get("transcript", "")
         if transcript:

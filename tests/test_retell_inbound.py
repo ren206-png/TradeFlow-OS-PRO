@@ -173,3 +173,31 @@ async def test_very_short_call_does_not_create_lead(db):
     from app.models.lead import Lead
     await _call_ended(db, "call_short1", seconds=4)
     assert (await db.execute(select(Lead).where(Lead.call_id == "call_short1"))).first() is None
+
+
+@pytest.mark.asyncio
+async def test_call_analyzed_first_still_gets_summary(db):
+    """Retell can send call_analyzed before call_ended; the summary must land on the lead."""
+    from sqlalchemy import select
+    from app.models.call import CallSession
+    from app.models.lead import Lead
+
+    demo, _ = await _seed(db)
+    db.add(CallSession(retell_call_id="call_order1", contractor_id=demo.id, status="active", conversation_history=[]))
+    await db.commit()
+    start = 1_790_000_000_000
+    body = json.dumps({"event": "call_analyzed", "call": {
+        "call_id": "call_order1", "direction": "inbound", "from_number": "+18075550000",
+        "to_number": "+15875550101", "start_timestamp": start, "end_timestamp": start + 30_000,
+        "call_analysis": {"call_summary": "Active kitchen leak; wants a plumber.", "user_sentiment": "Neutral"}}}).encode()
+
+    async def _dep():
+        yield db
+    app.dependency_overrides[get_db] = _dep
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            assert (await c.post("/retell/webhook", content=body, headers=_sign(body))).status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+    lead = (await db.execute(select(Lead).where(Lead.call_id == "call_order1"))).scalar_one()
+    assert lead.ai_summary == "Active kitchen leak; wants a plumber."
