@@ -738,7 +738,7 @@ def _verify_retell_signature(request: Request, raw_body: bytes) -> None:
     Verify the x-retell-signature header.
 
     Format:  v={timestamp_ms},d={hmac_sha256_hex}
-    Key:     Retell API key (the one with a webhook badge in the dashboard)
+    Key:     RETELL_WEBHOOK_SECRET (the Retell API key with the Webhook badge), else RETELL_API_KEY
     Data:    raw_body_string + timestamp_string   (concatenated, no separator)
     Window:  timestamp must be within 5 minutes of now
     """
@@ -761,15 +761,14 @@ def _verify_retell_signature(request: Request, raw_body: bytes) -> None:
             detail="Retell signature timestamp is stale.",
         )
 
-    # HMAC-SHA256(raw_body + timestamp_string, api_key)
+    # HMAC-SHA256(raw_body + timestamp_string, key). Retell signs with the API key that has the
+    # "Webhook" badge (RETELL_WEBHOOK_SECRET); the main API key is accepted as a fallback.
     signing_data = raw_body + str(timestamp_ms).encode()
-    expected_digest = hmac.new(
-        settings.retell_api_key.encode(),
-        signing_data,
-        hashlib.sha256,
-    ).hexdigest()
-
-    if not hmac.compare_digest(received_digest, expected_digest):
+    keys = [k for k in (settings.retell_webhook_secret, settings.retell_api_key) if k]
+    if not any(
+        hmac.compare_digest(received_digest, hmac.new(k.encode(), signing_data, hashlib.sha256).hexdigest())
+        for k in keys
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid Retell signature.",

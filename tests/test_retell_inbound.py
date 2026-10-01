@@ -117,3 +117,15 @@ async def test_unknown_number_is_rejected_not_routed_to_another_tenant(db):
     body = json.dumps({"call_inbound": {"to_number": "+15875559999", "from_number": "+18075550000"}}).encode()
     resp = await _post(db, body, _sign(body))
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_signature_verified_with_webhook_secret(db, monkeypatch):
+    await _seed(db)
+    monkeypatch.setattr(settings, "retell_webhook_secret", "key_webhookbadge123")
+    monkeypatch.setattr(settings, "retell_inbound_enforce_signature", True)
+    body = json.dumps({"call_inbound": {"to_number": "+15875550101"}}).encode()
+    ts = str(int(time.time() * 1000))
+    digest = hmac.new(b"key_webhookbadge123", body + ts.encode(), hashlib.sha256).hexdigest()
+    headers = {"x-retell-signature": f"v={ts},d={digest}", "content-type": "application/json"}
+    assert (await _post(db, body, headers)).status_code == 200
