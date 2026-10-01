@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.lead import Lead
 from app.services.billing import BillingService
 from app.services.sms import SMSService
+from app.utils.phone import normalize_nanp
 
 
 async def send_sms(tool_input: dict, context: dict) -> dict:
@@ -25,7 +26,7 @@ async def send_sms(tool_input: dict, context: dict) -> dict:
     db: AsyncSession = context["db"]
     call_session = context["call_session"]
 
-    to_number: str = tool_input["to_number"]
+    to_number: str = normalize_nanp(tool_input["to_number"]) or tool_input["to_number"]
     message_type: str = tool_input["message_type"]
     name: str = tool_input.get("name", "there")
 
@@ -33,6 +34,11 @@ async def send_sms(tool_input: dict, context: dict) -> dict:
     usage = await BillingService().check_usage_limit(contractor, "sms")
     if not usage["allowed"]:
         return {"success": False, "error": "Monthly SMS limit reached."}
+
+    if message_type == "booking_confirmation" and call_session.lead_id:
+        lead_row = (await db.execute(select(Lead).where(Lead.id == call_session.lead_id))).scalar_one_or_none()
+        if lead_row and lead_row.sms_confirmation_sent:
+            return {"success": True, "skipped": "booking confirmation already sent"}
 
     sms = SMSService(contractor)
 

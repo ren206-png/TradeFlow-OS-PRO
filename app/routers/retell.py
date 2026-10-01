@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.utils.phone import normalize_nanp
 from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
@@ -267,6 +268,7 @@ async def llm_websocket(
                     db=db,
                     intake_section=intake_section,
                 )
+                agent._tool_context["caller_phone"] = normalize_nanp(customer_number) if customer_number else None
                 # Attach membership context for downstream tools
                 if _membership_context:
                     agent._tool_context["membership"] = _membership_context

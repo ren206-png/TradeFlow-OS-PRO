@@ -9,6 +9,7 @@ from app.config import settings
 from app.models.lead import Lead
 from app.services.lead_scoring import calculate_scores
 from app.services.notifications import notify_new_lead
+from app.utils.phone import normalize_nanp
 
 
 async def create_lead_record(tool_input: dict, context: dict) -> dict:
@@ -30,6 +31,12 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
             lead_source="retell_call",
         )
         db.add(lead)
+
+    tool_input = dict(tool_input)
+    if tool_input.get("phone"):
+        tool_input["phone"] = normalize_nanp(tool_input["phone"]) or tool_input["phone"]
+    elif not lead.phone and context.get("caller_phone"):
+        tool_input["phone"] = context["caller_phone"]
 
     # Apply all provided fields
     str_fields = [

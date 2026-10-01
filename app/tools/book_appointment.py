@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead
 from app.services.notifications import notify_appointment_booked
+from app.services.lead_scoring import calculate_scores
+from app.utils.phone import normalize_nanp
 
 
 async def book_appointment(tool_input: dict, context: dict) -> dict:
@@ -21,12 +23,13 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
 
     slot_id: str = tool_input["slot_id"]
     caller_name: str = tool_input["caller_name"]
-    phone: str = tool_input["phone"]
+    phone: str = normalize_nanp(tool_input.get("phone", "")) or context.get("caller_phone") or tool_input.get("phone", "")
     service_address: str = tool_input["service_address"]
     trade: str = tool_input["trade"]
     problem_summary: str = tool_input.get("problem_summary", "")
     property_type: str = tool_input.get("property_type", "residential")
-    appointment_time_str: Optional[str] = tool_input.get("appointment_time")
+    from app.services.calendar import issued_slot
+    appointment_time_str: Optional[str] = tool_input.get("appointment_time") or issued_slot(slot_id).get("iso_start")
 
     appointment_time: Optional[datetime] = None
     if appointment_time_str:
@@ -80,6 +83,24 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     lead.appointment_status = "booked"
     lead.appointment_time = appointment_time
     lead.calendar_event_id = calendar_event_id
+
+    # Booking can happen without create_lead_record, so score priority here too.
+    if issued_slot(slot_id).get("display", "").lower().startswith("emergency") and not lead.emergency_level:
+        lead.emergency_level = "emergency"
+    if not lead.priority_level:
+        scores = calculate_scores({
+            "problem_summary": lead.problem_summary,
+            "emergency_level": lead.emergency_level,
+            "emergency_score": lead.emergency_score,
+            "revenue_score": lead.revenue_score,
+            "close_probability": lead.close_probability,
+            "life_safety_risk": lead.life_safety_risk,
+            "service_area_status": lead.service_area_status,
+        })
+        lead.priority_level = scores["priority_level"]
+        lead.emergency_score = lead.emergency_score or scores["emergency_score"]
+        lead.revenue_score = lead.revenue_score or scores["revenue_score"]
+        lead.close_probability = lead.close_probability or scores["close_probability"]
 
     await db.flush()
 

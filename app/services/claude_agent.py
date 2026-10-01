@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import logging
 
 import anthropic
@@ -100,6 +101,14 @@ class ClaudeAgent:
 
         # Extract final text response
         text_response = _extract_text(response)
+        if not text_response:
+            # Never send dead air: Claude sometimes ends a turn with only a tool call.
+            transferring = any(
+                b.get("type") == "tool_use" and b.get("name") == "transfer_call"
+                for m in messages[-3:] if isinstance(m.get("content"), list) for b in m["content"]
+            )
+            text_response = ("Let me connect you with someone now." if transferring
+                             else "Sorry, could you say that one more time?")
 
         # Append final assistant turn — use full content list to preserve tool blocks
         # and avoid sending empty string content which the API rejects
@@ -188,9 +197,25 @@ def _extract_text(response: anthropic.types.Message) -> str:
     """Pull the first text block out of a Claude response."""
     for block in response.content:
         if block.type == "text":
-            # The model sometimes wraps spoken lines in quotes; don't read them aloud.
-            return block.text.strip().strip('"\u201c\u201d').strip()
+            return to_spoken_text(block.text)
     return ""
+
+
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F]")
+
+
+def to_spoken_text(text: str) -> str:
+    """Make model output safe for text-to-speech: no markdown, list markers, emoji or wrapping quotes."""
+    t = _EMOJI.sub("", text or "")
+    t = re.sub(r"[*_`#]+", "", t)
+    t = re.sub(r"^\s*(?:[-•]|\d+[.)])\s+", "", t, flags=re.MULTILINE)
+    lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
+    joined = ""
+    for ln in lines:
+        if joined and not joined.endswith((".", "?", "!", ",", ":", ";")):
+            joined += ","
+        joined = f"{joined} {ln}".strip()
+    return joined.strip().strip('"\u201c\u201d').strip()
 
 
 def _serialize_content(content: list) -> list[dict]:

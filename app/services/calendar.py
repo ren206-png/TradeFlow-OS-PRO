@@ -11,6 +11,24 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+# slot_id -> offered slot, so book_appointment can recover the time if the model omits it.
+_ISSUED_SLOTS: Dict[str, Dict] = {}
+
+
+def issued_slot(slot_id: str) -> Dict:
+    return _ISSUED_SLOTS.get(slot_id, {})
+
+
+def _remember(slots: List[Dict]) -> List[Dict]:
+    for slot in slots:
+        if slot.get("slot_id"):
+            _ISSUED_SLOTS[slot["slot_id"]] = slot
+    if len(_ISSUED_SLOTS) > 5000:
+        for key in list(_ISSUED_SLOTS)[:1000]:
+            _ISSUED_SLOTS.pop(key, None)
+    return slots
+
+
 def _make_confirmation_number() -> str:
     return "TF-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
@@ -37,11 +55,11 @@ class CalendarService:
         """Returns list of {slot_id, display, iso_start, iso_end, technician}"""
         if self.provider == "google":
             try:
-                return await self._google_get_slots(trade, urgency, num_slots)
+                return _remember(await self._google_get_slots(trade, urgency, num_slots))
             except Exception as exc:
                 logger.warning("Google Calendar get_slots failed, falling back to manual: %s", exc)
-                return self._manual_get_slots(trade, urgency, num_slots)
-        return self._manual_get_slots(trade, urgency, num_slots)
+                return _remember(self._manual_get_slots(trade, urgency, num_slots))
+        return _remember(self._manual_get_slots(trade, urgency, num_slots))
 
     async def book_slot(
         self,
