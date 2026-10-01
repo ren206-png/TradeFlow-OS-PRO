@@ -1,0 +1,57 @@
+name: Call booking simulation
+
+# Drives the real call agent (real Claude + tools) with an AI caller against an
+# in-memory database. No calls, texts or emails leave the runner.
+on:
+  schedule:
+    - cron: "0 12 * * *"   # daily, 6 AM Mountain (12:00 UTC)
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/prompts/**"
+      - "app/tools/**"
+      - "app/services/claude_agent.py"
+      - "app/services/calendar.py"
+      - "app/services/triage*.py"
+      - "app/routers/retell.py"
+      - "scripts/simulate_booking_calls.py"
+
+concurrency:
+  group: call-simulation
+  cancel-in-progress: true
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DATABASE_URL: sqlite+aiosqlite://
+      SECRET_KEY: ci-only
+      RETELL_API_KEY: ci-only
+      SMS_PROVIDER: disabled
+      # Mirror production call-path feature flags
+      EMERGENCY_TRIAGE: "true"
+      LIVE_TRANSFER: "true"
+      INTAKE_FLOWS_V2: "true"
+      MULTILANG_ENABLED: "true"
+      APPOINTMENT_LIFECYCLE: "true"
+      FOLLOWUP_SMS_ENABLED: "true"
+      MISSED_CALL_TEXTBACK: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run simulated booking calls
+        run: python scripts/simulate_booking_calls.py --report call-simulation-report.json
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: call-simulation-report
+          path: call-simulation-report.json
+          if-no-files-found: ignore
