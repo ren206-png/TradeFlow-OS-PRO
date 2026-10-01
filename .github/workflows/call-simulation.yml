@@ -30,7 +30,6 @@ jobs:
       DATABASE_URL: sqlite+aiosqlite://
       SECRET_KEY: ci-only
       RETELL_API_KEY: ci-only
-      SMS_PROVIDER: disabled
       # Mirror production call-path feature flags
       EMERGENCY_TRIAGE: "true"
       LIVE_TRANSFER: "true"

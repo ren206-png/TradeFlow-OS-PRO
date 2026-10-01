@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.routers.twilio_sms import handle_inbound_sms
+from app.services.inbound_sms import handle_inbound_sms
 from app.services.sms_compliance import STOP_KEYWORDS
 from app.services.sms_provider import send_sms
 

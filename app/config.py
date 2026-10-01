@@ -38,12 +38,7 @@ class Settings(BaseSettings):
     retell_webhook_secret: str = ""
     # Reject /retell/inbound requests without a valid x-retell-signature (enable once verified live)
     retell_inbound_enforce_signature: bool = False
-    twilio_account_sid: str = ""
-    twilio_auth_token: str = ""
-    twilio_from_number: str = ""
-    twilio_messaging_service_sid: str = ""  # A2P 10DLC — set this in Railway
-    # Outbound SMS carrier: "twilio" (default) or "telnyx"
-    sms_provider: str = "twilio"
+    # Outbound SMS via Telnyx
     telnyx_api_key: str = ""
     telnyx_messaging_profile_id: str = ""
     telnyx_from_number: str = ""

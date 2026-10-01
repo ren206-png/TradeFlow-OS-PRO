@@ -1,5 +1,5 @@
 """
-Outbound SMS transport. SMS_PROVIDER selects the carrier ("twilio" or "telnyx").
+Outbound SMS transport via Telnyx.
 Callers get {"success": bool, "sid": str} or {"success": False, "error": str}.
 """
 from __future__ import annotations
@@ -17,42 +17,28 @@ _TIMEOUT = 10
 
 
 def provider() -> str:
-    return (settings.sms_provider or "twilio").strip().lower()
+    return "telnyx"
 
 
 def is_configured() -> bool:
-    if provider() == "telnyx":
-        return bool(settings.telnyx_api_key and (settings.telnyx_messaging_profile_id or settings.telnyx_from_number))
-    return bool(settings.twilio_account_sid and settings.twilio_auth_token)
+    return bool(settings.telnyx_api_key and (settings.telnyx_messaging_profile_id or settings.telnyx_from_number))
 
 
 def _request(to: str, body: str) -> tuple[str, dict]:
-    """Return (url, kwargs) for httpx.post for the active provider."""
-    if provider() == "telnyx":
-        payload: dict = {"to": to, "text": body}
-        if settings.telnyx_from_number:
-            payload["from"] = settings.telnyx_from_number
-        if settings.telnyx_messaging_profile_id:
-            payload["messaging_profile_id"] = settings.telnyx_messaging_profile_id
-        return _TELNYX_URL, {
-            "json": payload,
-            "headers": {"Authorization": f"Bearer {settings.telnyx_api_key}"},
-        }
-
-    data: dict = {"To": to, "Body": body}
-    if settings.twilio_messaging_service_sid:
-        data["MessagingServiceSid"] = settings.twilio_messaging_service_sid
-    else:
-        data["From"] = settings.twilio_from_number
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json"
-    return url, {"data": data, "auth": (settings.twilio_account_sid, settings.twilio_auth_token)}
+    """Return (url, kwargs) for httpx.post."""
+    payload: dict = {"to": to, "text": body}
+    if settings.telnyx_from_number:
+        payload["from"] = settings.telnyx_from_number
+    if settings.telnyx_messaging_profile_id:
+        payload["messaging_profile_id"] = settings.telnyx_messaging_profile_id
+    return _TELNYX_URL, {
+        "json": payload,
+        "headers": {"Authorization": f"Bearer {settings.telnyx_api_key}"},
+    }
 
 
 def _message_id(resp: httpx.Response) -> str:
-    body = resp.json()
-    if provider() == "telnyx":
-        return (body.get("data") or {}).get("id", "")
-    return body.get("sid", "")
+    return (resp.json().get("data") or {}).get("id", "")
 
 
 def _not_configured(message_type: str) -> dict:

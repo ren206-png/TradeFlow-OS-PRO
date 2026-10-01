@@ -14,8 +14,7 @@
     <div class="divide-y divide-gray-700">
       {% set integrations = [
         ("retell", "Retell AI", "Voice call handling"),
-        ("twilio", "Twilio", "SMS follow-ups"),
-        ("telnyx", "Telnyx", "SMS follow-ups (when SMS_PROVIDER=telnyx)"),
+        ("telnyx", "Telnyx", "SMS follow-ups"),
         ("stripe", "Stripe", "Billing & subscriptions"),
         ("mailchimp", "Mailchimp", "Email drip automation"),
         ("anthropic", "Anthropic (Claude)", "AI lead scoring"),
@@ -48,9 +47,6 @@
     <div class="p-5 space-y-3">
       {% set env_vars = [
         ("RETELL_API_KEY", "Retell AI dashboard → API Keys", configured.get("retell")),
-        ("TWILIO_ACCOUNT_SID", "Twilio Console → Account SID", configured.get("twilio")),
-        ("TWILIO_AUTH_TOKEN", "Twilio Console → Auth Token", configured.get("twilio")),
-        ("TWILIO_FROM_NUMBER", "Twilio Console → Phone Numbers", configured.get("twilio")),
         ("TELNYX_API_KEY", "Telnyx Mission Control → API Keys", configured.get("telnyx")),
         ("TELNYX_MESSAGING_PROFILE_ID", "Telnyx → Messaging → Profiles", configured.get("telnyx")),
         ("TELNYX_PUBLIC_KEY", "Telnyx → Keys & Credentials → Public Key", configured.get("telnyx")),
@@ -98,9 +94,9 @@
          class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
         🐵 Mailchimp
       </a>
-      <a href="https://console.twilio.com" target="_blank"
+      <a href="https://portal.telnyx.com" target="_blank"
          class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
-        📱 Twilio Console
+        📱 Telnyx Portal
       </a>
       <a href="https://console.anthropic.com" target="_blank"
          class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">

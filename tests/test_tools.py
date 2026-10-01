@@ -149,14 +149,14 @@ async def test_validate_service_area_us_zip_match(ctx):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_send_sms_calls_twilio_with_correct_params(ctx):
+async def test_send_sms_calls_provider_with_correct_params(ctx):
     from app.tools.send_sms import send_sms
 
-    mock_twilio_result = {"success": True, "sid": "SM_test_123"}
+    mock_sms_result = {"success": True, "sid": "SM_test_123"}
 
     with patch("app.tools.send_sms.SMSService") as MockSMS:
         instance = MagicMock()
-        instance.send_booking_confirmation = MagicMock(return_value=mock_twilio_result)
+        instance.send_booking_confirmation = MagicMock(return_value=mock_sms_result)
         MockSMS.return_value = instance
 
         result = await send_sms(

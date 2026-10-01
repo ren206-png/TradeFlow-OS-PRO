@@ -17,7 +17,7 @@ from app.database import get_db
 from app.main import app
 from app.models.lead import Lead
 from app.models.outbound_ledger import OutboundLedger
-from app.routers.twilio_sms import _resolve_tenant_from_to
+from app.services.inbound_sms import _resolve_tenant_from_to
 from app.services import sms_provider
 from tests.test_auth import _make_contractor
 
@@ -26,7 +26,6 @@ from tests.test_auth import _make_contractor
 def telnyx_settings(monkeypatch):
     key = Ed25519PrivateKey.generate()
     pub = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-    monkeypatch.setattr(settings, "sms_provider", "telnyx")
     monkeypatch.setattr(settings, "telnyx_api_key", "KEY_test")
     monkeypatch.setattr(settings, "telnyx_messaging_profile_id", "profile-1")
     monkeypatch.setattr(settings, "telnyx_from_number", "+15870000000")
@@ -65,24 +64,7 @@ async def test_telnyx_send_builds_correct_request(telnyx_settings):
 
 
 @pytest.mark.asyncio
-async def test_twilio_remains_default(monkeypatch):
-    monkeypatch.setattr(settings, "sms_provider", "twilio")
-    monkeypatch.setattr(settings, "twilio_account_sid", "AC1")
-    monkeypatch.setattr(settings, "twilio_auth_token", "tok")
-    captured = {}
-
-    async def fake_post(self, url, **kwargs):
-        captured["url"] = url
-        return httpx.Response(201, json={"sid": "SM1"}, request=httpx.Request("POST", url))
-
-    with patch.object(httpx.AsyncClient, "post", fake_post):
-        result = await sms_provider.send_sms("+15875550123", "hi")
-    assert result["sid"] == "SM1" and "api.twilio.com" in captured["url"]
-
-
-@pytest.mark.asyncio
 async def test_unconfigured_provider_skips(monkeypatch):
-    monkeypatch.setattr(settings, "sms_provider", "telnyx")
     monkeypatch.setattr(settings, "telnyx_api_key", "")
     assert (await sms_provider.send_sms("+1", "x"))["success"] is False
 
@@ -149,9 +131,7 @@ async def test_reply_to_shared_sender_resolves_contractor(db):
 
 
 @pytest.mark.asyncio
-async def test_twilio_webhook_fails_closed_without_token(db, monkeypatch):
-    monkeypatch.setattr(settings, "twilio_auth_token", "")
-
+async def test_old_twilio_webhook_is_gone(db):
     async def _dep():
         yield db
     app.dependency_overrides[get_db] = _dep
@@ -160,4 +140,4 @@ async def test_twilio_webhook_fails_closed_without_token(db, monkeypatch):
             resp = await c.post("/twilio/sms", data={"From": "+15875550123", "Body": "CALL", "To": "+15870000000"})
     finally:
         app.dependency_overrides.clear()
-    assert resp.status_code == 503
+    assert resp.status_code == 404

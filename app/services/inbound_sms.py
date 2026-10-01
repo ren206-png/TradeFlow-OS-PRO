@@ -1,78 +1,18 @@
 """
-Inbound SMS keyword handling (STOP / START / HELP / CALL / CONFIRM / RESCHEDULE)
-plus the Twilio webhook. Telnyx inbound lives in telnyx_sms.py and reuses handle_inbound_sms.
-Configure this URL in your Twilio Messaging Service:
-  https://tradesflowos.com/twilio/sms
+Carrier-agnostic inbound SMS handling: STOP / START / HELP, CALL (AI callback),
+CONFIRM / RESCHEDULE (appointments). Called by the Telnyx webhook.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.database import get_db
 from app.services.sms_compliance import handle_inbound_keyword
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/twilio", tags=["twilio"])
-
-
-async def _verify_twilio_signature(
-    request: Request,
-    x_twilio_signature: str = Header(default=""),
-) -> None:
-    """
-    Verify the X-Twilio-Signature header to ensure the request is from Twilio.
-    Returns 503 when TWILIO_AUTH_TOKEN is not configured.
-    Raises HTTP 403 if the signature is invalid.
-    """
-    auth_token = settings.twilio_auth_token
-    if not auth_token:
-        # Fail closed: an unverifiable endpoint would let anyone fake STOP/CALL keywords.
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Twilio SMS not configured.")
-
-    try:
-        from twilio.request_validator import RequestValidator
-        validator = RequestValidator(auth_token)
-
-        # Reconstruct the full URL that Twilio signed
-        url = str(request.url)
-
-        # Form params must be passed as a dict for signature validation
-        form_data = await request.form()
-        params = dict(form_data)
-
-        if not validator.validate(url, params, x_twilio_signature):
-            logger.warning("twilio: invalid signature from %s", request.client)
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Invalid Twilio signature.",
-            )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("twilio: signature validation error: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Signature validation failed.",
-        )
-
-
-_EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
-
-
-def _twiml(reply: str | None) -> Response:
-    if not reply:
-        return Response(content=_EMPTY_TWIML, media_type="application/xml")
-    safe = reply.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return Response(
-        content=f'<?xml version="1.0" encoding="UTF-8"?><Response><Message>{safe}</Message></Response>',
-        media_type="application/xml",
-    )
 
 
 async def handle_inbound_sms(phone: str, body: str, to_number: str, db: AsyncSession) -> str | None:
@@ -113,18 +53,6 @@ async def handle_inbound_sms(phone: str, body: str, to_number: str, db: AsyncSes
         return "We're arranging a call to find you a new time. We'll call you shortly!"
 
     return None
-
-
-@router.post("/sms")
-async def inbound_sms(
-    request: Request,
-    From: str = Form(...),
-    Body: str = Form(...),
-    To: str = Form(""),
-    db: AsyncSession = Depends(get_db),
-    _: None = Depends(_verify_twilio_signature),
-):
-    return _twiml(await handle_inbound_sms(From, Body, To.strip(), db))
 
 
 async def _resolve_tenant_from_to(to_number: str, db: AsyncSession, caller_phone: str = ""):

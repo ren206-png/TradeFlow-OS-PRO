@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from app.config import settings
 from app.database import init_db
 from app.utils.phone import format_display, tel_href
-from app.routers import auth, billing, contractor_app, contractors, dashboard, leads, onboarding, portal, retell, telnyx_sms, twilio_sms
+from app.routers import auth, billing, contractor_app, contractors, dashboard, leads, onboarding, portal, retell, telnyx_sms
 from app.routers import a2p as a2p_router  # Phase 1: A2P admin API
 from app.routers import webform as webform_router          # Phase 2: webform callback
 from app.routers import lead_ingest as lead_ingest_router  # Phase 2: lead ingest
@@ -158,7 +158,6 @@ app.include_router(leads.router)
 app.include_router(dashboard.router)
 app.include_router(onboarding.router)
 app.include_router(billing.router)
-app.include_router(twilio_sms.router)
 app.include_router(telnyx_sms.router)
 app.include_router(a2p_router.router)  # Phase 1: A2P admin API
 app.include_router(webform_router.router)          # Phase 2: webform callback

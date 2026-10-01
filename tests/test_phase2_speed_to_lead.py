@@ -154,7 +154,7 @@ async def test_call_keyword_triggers_outbound_call(db: AsyncSession):
     with (
         patch("app.services.feature_flags.is_enabled", return_value=True),
         patch(
-            "app.routers.twilio_sms.select",
+            "app.services.inbound_sms.select",
             wraps=__import__("sqlalchemy", fromlist=["select"]).select,
         ),
         patch("app.services.retell_client.RetellClient.create_phone_call", new_callable=AsyncMock,
@@ -162,7 +162,7 @@ async def test_call_keyword_triggers_outbound_call(db: AsyncSession):
     ):
         # Directly test _handle_call_keyword logic
         # Simulate: CallbackRequest table is empty (no prior request in 10 min)
-        from app.routers.twilio_sms import _handle_call_keyword
+        from app.services.inbound_sms import _handle_call_keyword
 
         mock_request = MagicMock()
         mock_form = AsyncMock(return_value={"To": contractor.phone_number})
@@ -170,7 +170,7 @@ async def test_call_keyword_triggers_outbound_call(db: AsyncSession):
 
         # Patch DB lookups to return contractor
         with (
-            patch("app.routers.twilio_sms.select") as mock_select,
+            patch("app.services.inbound_sms.select") as mock_select,
             patch.object(db, "execute", new_callable=AsyncMock) as mock_exec,
             patch.object(db, "flush", new_callable=AsyncMock),
             patch.object(db, "add"),

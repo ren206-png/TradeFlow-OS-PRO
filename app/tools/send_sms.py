@@ -13,7 +13,7 @@ from app.utils.phone import normalize_nanp
 
 async def send_sms(tool_input: dict, context: dict) -> dict:
     """
-    Send an SMS via Twilio using the message_type to select the right template.
+    Send an SMS using the message_type to select the right template.
 
     Supported message_type values:
         "booking_confirmation"  — confirms a booked appointment
