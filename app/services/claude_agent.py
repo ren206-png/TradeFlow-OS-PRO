@@ -103,10 +103,15 @@ class ClaudeAgent:
         text_response = _extract_text(response)
         if not text_response:
             # Never send dead air: Claude sometimes ends a turn with only a tool call.
-            transferring = any(
-                b.get("type") == "tool_use" and b.get("name") == "transfer_call"
-                for m in messages[-3:] if isinstance(m.get("content"), list) for b in m["content"]
-            )
+            transferring = False
+            for m in reversed(messages):  # this turn = everything after the caller's last words
+                if m["role"] == "user" and isinstance(m["content"], str):
+                    break
+                if isinstance(m["content"], list) and any(
+                    b.get("type") == "tool_use" and b.get("name") == "transfer_call" for b in m["content"]
+                ):
+                    transferring = True
+                    break
             text_response = ("Let me connect you with someone now." if transferring
                              else "Sorry, could you say that one more time?")
 

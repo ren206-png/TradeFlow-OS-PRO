@@ -60,3 +60,20 @@ async def test_booking_recovers_time_from_offered_slot_and_normalizes_phone(db):
     assert lead.phone == "+14035550142" and lead.priority_level
     assert len(sent) == 1 and sent[0]["phone"] == "+14035550142" and sent[0]["date_str"] and sent[0]["time_str"]
     assert dup.get("skipped")
+
+
+@pytest.mark.asyncio
+async def test_empty_turn_after_transfer_says_connecting():
+    contractor = _make_contractor()
+    session = CallSession(retell_call_id="call_t", contractor_id=contractor.id, status="active",
+                          conversation_history=[])
+    agent = ClaudeAgent(contractor=contractor, call_session=session, db=AsyncMock())
+    transfer = MagicMock(); transfer.type = "tool_use"; transfer.name = "transfer_call"; transfer.id = "tu1"
+    transfer.input = {"reason": "caller_requested"}
+    lead = MagicMock(); lead.type = "tool_use"; lead.name = "create_lead_record"; lead.id = "tu2"; lead.input = {}
+    responses = [MagicMock(content=[transfer]), MagicMock(content=[lead]), MagicMock(content=[])]
+    with patch.object(agent, "_call_claude", AsyncMock(side_effect=responses)), \
+         patch("app.services.claude_agent.execute_tool", AsyncMock(return_value={"success": True})), \
+         patch("app.services.claude_agent._serialize_content",
+               side_effect=lambda c: [{"type": b.type, "name": b.name, "id": b.id, "input": b.input} for b in c]):
+        assert await agent.process_turn("get me a person") == "Let me connect you with someone now."
