@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -12,9 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.contractor import Contractor
-from app.utils.auth import hash_password
-from app.utils.phone import normalize_nanp
-from app.utils.timefmt import DEFAULT_TZ, timezone_for_phone
+from app.services.signup import create_account, email_problem, fire_signup_side_effects, normalize_email
 from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, create_session_token
 
@@ -116,56 +113,22 @@ status_code=422,
     if errors:
         return _re_render()
 
-    # --- Check email uniqueness ---
-    existing = await db.execute(
-        select(Contractor).where(Contractor.email == email.strip().lower())
-    )
+    # --- Check email ---
+    email = normalize_email(email)
+    problem = email_problem(email)
+    if problem:
+        return _re_render({"email": problem})
+    existing = await db.execute(select(Contractor).where(Contractor.email == email))
     if existing.scalar_one_or_none() is not None:
         return _re_render({"email": "An account with this email already exists."})
 
-    # --- Build contractor record ---
-    hashed_pw = hash_password(password)
-    api_key = secrets.token_urlsafe(32)
     areas = [a.strip() for a in (service_areas or "").split(",") if a.strip()]
-
-    contractor = Contractor(
-        name=company_name.strip(),
-        agent_name=agent_name.strip(),
-        email=email.strip().lower(),
-        hashed_password=hashed_pw,
-        phone_number=phone_number.strip(),
-        owner_phone=normalize_nanp(phone_number.strip()) or phone_number.strip(),
-        timezone=timezone_for_phone(normalize_nanp(phone_number.strip())) or DEFAULT_TZ,
-        trades=selected_trades,
-        service_areas=areas,
-        api_key=api_key,
-        plan="starter",
-        is_active=True,
+    contractor = await create_account(
+        db, business_name=company_name, email=email, password=password, phone=phone_number,
+        trades=selected_trades, service_areas=areas, agent_name=agent_name.strip(), diagnostic_fee=None,
     )
-    db.add(contractor)
-    await db.commit()
-    await db.refresh(contractor)
-    contractor_id = str(contractor.id)  # capture before session closes
-
-    # --- Auto-provision Retell agent + phone number (fire-and-forget) ---
-    import asyncio
-    from app.services.provisioning import provision_contractor_by_id
-    asyncio.create_task(provision_contractor_by_id(contractor_id))
-
-    # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
-    from app.services.mailchimp import subscribe_contractor
-    asyncio.create_task(
-        subscribe_contractor(
-            email=email.strip().lower(),
-            first_name=company_name.strip(),
-            trade=", ".join(selected_trades) if selected_trades else "General",
-            phone=phone_number.strip(),
-            plan="starter",
-        )
-    )
-
-    from app.services.welcome import send_welcome_email
-    asyncio.create_task(send_welcome_email(email.strip().lower(), company_name.strip()))
+    fire_signup_side_effects(
+        contractor, ", ".join(selected_trades) if selected_trades else "General", phone_number.strip())
 
     # --- Set session cookie so they're logged in immediately ---
     session_token = create_session_token(str(contractor.id))

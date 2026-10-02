@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import PLAN_LIMITS
 from app.database import get_db
+from app.utils.rate_limit import check_rate_limit
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.models.estimate import Estimate
@@ -65,6 +66,7 @@ async def portal_leads(
     contractor: Contractor = Depends(require_contractor),
     db: AsyncSession = Depends(get_db),
     welcome: Optional[str] = None,
+    verified: Optional[str] = None,
     search: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None),
 ):
@@ -89,6 +91,8 @@ async def portal_leads(
     leads = result.scalars().all()
 
     flash = "Welcome to TradeFlow! Your account is ready." if welcome == "1" else None
+    if verified == "1":
+        flash = "Email confirmed. We're setting up your AI number now."
 
     return templates.TemplateResponse(request,
 "portal_leads.html",
@@ -103,6 +107,23 @@ async def portal_leads(
             "status_filter": status_filter,
         },
 )
+
+
+@router.post("/resend-verification")
+async def resend_verification(
+    request: Request,
+    contractor: Contractor = Depends(require_contractor),
+):
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+    allowed, _ = check_rate_limit(request, "resend_verify", max_requests=3, window_seconds=3600)
+    if allowed and contractor.email and contractor.email_verified_at is None:
+        import asyncio
+        from app.services.signup import verify_url
+        from app.services.welcome import send_welcome_email
+        asyncio.create_task(send_welcome_email(contractor.email, contractor.name,
+                                               verify_url(str(contractor.id), contractor.email)))
+    return RedirectResponse(url="/portal/leads", status_code=303)
 
 
 @router.get("/leads/export/csv")

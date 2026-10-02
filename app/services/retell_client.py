@@ -286,15 +286,20 @@ class RetellClient:
         self,
         area_code: str = "775",
         inbound_webhook_url: str = "",
+        country_code: str = "US",
+        nickname: str = "",
     ) -> dict:
         """
         POST /v2/create-phone-number
-        Purchase a new US phone number via Retell (Twilio provider).
+        Purchase a new phone number via Retell (Twilio provider). country_code is "US" or "CA".
+        Raises httpx.HTTPStatusError (404) when that area code has no stock.
         Returns the phone number object including `phone_number` (E.164).
         """
-        payload: dict = {"area_code": int(area_code)}
+        payload: dict = {"area_code": int(area_code), "country_code": country_code}
         if inbound_webhook_url:
             payload["inbound_webhook_url"] = inbound_webhook_url
+        if nickname:
+            payload["nickname"] = nickname[:60]
 
         async with httpx.AsyncClient() as client:
             response = await client.post(

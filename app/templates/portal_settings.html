@@ -40,7 +40,7 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Your AI receptionist number</label>
-          <input type="tel" value="{{ contractor.phone_number or '' }}" disabled
+          <input type="tel" value="{{ contractor.phone_number if contractor.provisioning_status == 'active' else 'Being set up…' }}" disabled
                  class="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 cursor-not-allowed">
           <p class="text-xs text-gray-400 mt-1">Customers call or forward to this number. It can't be changed here.</p>
         </div>

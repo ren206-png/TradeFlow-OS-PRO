@@ -1,0 +1,17 @@
+{% if contractor and contractor.provisioning_status != 'active' %}
+<div class="mb-4 rounded-2xl p-4 border border-amber-200 bg-amber-50 text-amber-900" id="provisioning-status">
+  {% if not contractor.email_verified_at %}
+  <p class="font-semibold">Confirm your email to get your AI number</p>
+  <p class="text-sm mt-1">We sent a link to {{ contractor.email }}. Click it and your number is set up in a minute or two.</p>
+  <form method="post" action="/portal/resend-verification" class="mt-3">
+    <button class="text-sm font-semibold underline">Resend the email</button>
+  </form>
+  {% elif contractor.provisioning_status == 'failed' and contractor.provisioning_attempts >= 4 %}
+  <p class="font-semibold">We couldn't set up your number automatically</p>
+  <p class="text-sm mt-1">Our team has been alerted and will finish it by hand. You can also reply to your welcome email.</p>
+  {% else %}
+  <p class="font-semibold">Setting up your AI number&hellip;</p>
+  <p class="text-sm mt-1">This usually takes a minute. Refresh this page shortly.</p>
+  {% endif %}
+</div>
+{% endif %}

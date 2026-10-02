@@ -21,6 +21,12 @@ class Contractor(Base):
     phone_number: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
     # Owner's own mobile for lead/booking alerts; phone_number is the AI line callers dial.
     owner_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    # Signup state: awaiting_verification -> provisioning -> active (or queued/failed, retried by the scheduler)
+    email_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    provisioning_status: Mapped[str] = mapped_column(String(24), nullable=False, default="active", server_default="active")
+    provisioned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    provisioning_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    provisioning_error: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     api_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     trades: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     service_areas: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

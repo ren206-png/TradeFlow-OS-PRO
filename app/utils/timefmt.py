@@ -43,3 +43,7 @@ def timezone_for_phone(e164: Optional[str]) -> Optional[str]:
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
     return _AREA_CODE_TZ.get(digits[:3]) if len(digits) == 10 else None
+
+
+def area_codes_in_zone(tz_name: str) -> list[str]:
+    return [code for code, z in _AREA_CODE_TZ.items() if z == tz_name]

@@ -68,6 +68,16 @@ def _send_email(to: str, subject: str, html: str, text: str) -> bool:
         return False
 
 
+async def notify_admin(subject: str, body: str) -> None:
+    """Operational alert to the TradeFlow admin (ADMIN_ALERT_EMAIL, else the SMTP account)."""
+    import html as _html
+    to = settings.admin_alert_email or settings.smtp_user
+    if not to:
+        logger.warning("admin alert not sent (no recipient): %s", subject)
+        return
+    await asyncio.to_thread(_send_email, to, f"[TradeFlow] {subject}", f"<pre>{_html.escape(body)}</pre>", body)
+
+
 # Leads the owner has already been alerted about (process-local; one alert per lead per deploy).
 _ALERTED_LEADS: set[str] = set()
 

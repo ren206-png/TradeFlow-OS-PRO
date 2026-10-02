@@ -14,8 +14,9 @@ from app.config import settings
 from app.database import get_db
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password, needs_rehash, verify_password
-from app.utils.phone import normalize_nanp
-from app.utils.timefmt import DEFAULT_TZ, timezone_for_phone
+from app.services.signup import (
+    confirm_email, create_account, email_problem, fire_signup_side_effects, normalize_email,
+)
 from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, SESSION_MAX_AGE, create_session_token
 
@@ -117,60 +118,24 @@ status_code=400,
     if password != confirm_password:
         return error("Passwords do not match.")
 
-    # Check email uniqueness
+    email = normalize_email(email)
+    problem = email_problem(email)
+    if problem:
+        return error(problem)
+    if len(password) < 8:
+        return error("Password must be at least 8 characters.")
+
     result = await db.execute(select(Contractor).where(Contractor.email == email))
     if result.scalar_one_or_none() is not None:
         return error("An account with that email already exists.")
 
-    contractor = Contractor(
-        name=business_name,
-        email=email,
-        hashed_password=hash_password(password),
-        api_key=secrets.token_hex(32),
-        trades=[trade],
-        service_areas=[service_area],
-        phone_number=phone,
-        owner_phone=normalize_nanp(phone) or phone,
-        timezone=timezone_for_phone(normalize_nanp(phone)) or DEFAULT_TZ,
-        is_active=True,
-        is_verified=False,
-        plan="starter",
-        calls_this_month=0,
-        sms_this_month=0,
-        calendar_provider="manual",
-        calendar_config={},
-        sms_enabled=True,
-        diagnostic_fee=89.0,
-        free_estimate=False,
-        agent_name="Alex",
+    contractor = await create_account(
+        db, business_name=business_name, email=email, password=password, phone=phone,
+        trades=[trade], service_areas=[service_area],
     )
-    db.add(contractor)
-    await db.flush()
     contractor_id = str(contractor.id)
-    logger.info("New signup confirmation: contractor=%s email=%s", contractor.name, email)
-
-    await db.commit()  # Commit BEFORE firing background tasks so contractor record is visible
-
-    # --- Auto-provision Retell agent + phone number (fire-and-forget) ---
-    # Use contractor_id string only — background tasks open their own DB sessions
-    import asyncio as _asyncio
-    from app.services.provisioning import provision_contractor_by_id as _provision_by_id
-    _asyncio.create_task(_provision_by_id(contractor_id))
-
-    # --- Subscribe to Mailchimp drip sequence (fire-and-forget) ---
-    from app.services.mailchimp import subscribe_contractor as _mc_subscribe
-    _asyncio.create_task(
-        _mc_subscribe(
-            email=email,
-            first_name=business_name,
-            trade=trade,
-            phone=phone,
-            plan="starter",
-        )
-    )
-
-    from app.services.welcome import send_welcome_email
-    _asyncio.create_task(send_welcome_email(email, business_name))
+    logger.info("New signup: contractor=%s email=%s (awaiting email verification)", contractor.name, email)
+    fire_signup_side_effects(contractor, trade, phone)
 
     token = create_session_token(str(contractor_id))
     response = RedirectResponse(url="/portal/leads?welcome=1", status_code=302)
@@ -185,11 +150,21 @@ status_code=400,
     return response
 
 
+@router.get("/verify-email")
+async def verify_email(token: str = "", db: AsyncSession = Depends(get_db)):
+    """Landing page of the link in the welcome email: confirms the address and starts AI-number setup."""
+    contractor = await confirm_email(db, token)
+    if contractor is None:
+        return RedirectResponse(url="/auth/login?verify=invalid", status_code=302)
+    return RedirectResponse(url="/portal/leads?verified=1", status_code=302)
+
+
 @router.get("/login", response_class=HTMLResponse)
-async def login_get(request: Request):
+async def login_get(request: Request, verify: str = ""):
+    error = "That confirmation link is invalid or has expired. Log in and use \"Resend the email\"." if verify == "invalid" else None
     return templates.TemplateResponse(request,
 "auth_login.html",
-{"error": None},
+{"error": error},
 )
 
 
@@ -208,6 +183,7 @@ async def login_post(
 status_code=429,
 )
 
+    email = normalize_email(email)
     result = await db.execute(select(Contractor).where(Contractor.email == email))
     contractor = result.scalar_one_or_none()
 

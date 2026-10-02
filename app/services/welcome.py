@@ -31,11 +31,16 @@ def _button(url: str, label: str) -> str:
             f'text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">{label}</a></p>')
 
 
-def build_welcome_email(business_name: str) -> tuple[str, str, str]:
+def build_welcome_email(business_name: str, verify_url: str = "") -> tuple[str, str, str]:
     name = html.escape(business_name or "there")
-    subject = "Welcome to TradeFlow — your AI receptionist is being set up"
+    subject = "Welcome to TradeFlow — confirm your email to get your AI number"
+    verify_block = (
+        f"<p><strong>First, confirm your email</strong> so we can set up your dedicated AI phone number (the link is valid for 7 days):</p>"
+        f"{_button(verify_url, 'Confirm my email')}" if verify_url else "")
     body = f"""<p>Hi {name},</p>
-<p>Thanks for signing up. We're setting up your AI receptionist right now. Your dedicated phone number will appear in your portal within a few minutes.</p>
+<p>Thanks for signing up.</p>
+{verify_block}
+<p>Once confirmed, your dedicated phone number appears in your portal within a few minutes.</p>
 <p><strong>Three steps to get your first booked job:</strong></p>
 <ol>
   <li><strong>Grab your AI number</strong> from the portal and forward your business line to it after hours (or all the time).</li>
@@ -45,8 +50,9 @@ def build_welcome_email(business_name: str) -> tuple[str, str, str]:
 {_button(PORTAL_URL, "Open my portal")}
 <p>Every call is answered 24/7, qualified, and saved as a lead you can review from your phone.</p>"""
     text = (f"Hi {business_name or 'there'},\n\n"
-            "Thanks for signing up. We're setting up your AI receptionist now; your phone number will "
-            "appear in your portal within a few minutes.\n\n"
+            "Thanks for signing up.\n"
+            + (f"Confirm your email to get your AI number: {verify_url}\n" if verify_url else "")
+            + "Once confirmed, your phone number appears in your portal within a few minutes.\n\n"
             "Three steps to your first booked job:\n"
             "1. Grab your AI number from the portal and forward your business line to it.\n"
             "2. Add your booking link and Google review link in Settings.\n"
@@ -73,12 +79,36 @@ def build_subscription_thanks_email(business_name: str, plan: str) -> tuple[str,
     return subject, _wrap("Thank you! 🎉", body), text
 
 
-async def send_welcome_email(email: str, business_name: str) -> bool:
+async def send_welcome_email(email: str, business_name: str, verify_url: str = "") -> bool:
     if not email:
         return False
-    subject, html_body, text = build_welcome_email(business_name)
+    subject, html_body, text = build_welcome_email(business_name, verify_url)
     ok = await asyncio.to_thread(_send_email, email, subject, html_body, text)
     logger.info("welcome email %s | to=%s", "sent" if ok else "not sent", email)
+    return ok
+
+
+def build_number_ready_email(business_name: str, phone_number: str) -> tuple[str, str, str]:
+    from app.utils.phone import format_display
+    name = html.escape(business_name or "there")
+    shown = html.escape(format_display(phone_number))
+    subject = "Your TradeFlow AI number is ready"
+    body = f"""<p>Hi {name},</p>
+<p>Your AI receptionist is live. Your dedicated number is:</p>
+<p style="font-size:24px;font-weight:700;margin:12px 0">{shown}</p>
+<p>Call it yourself to hear what customers will hear, then forward your business line to it (see the setup page in your portal for steps).</p>
+{_button(PORTAL_URL, "Open my portal")}"""
+    text = (f"Hi {business_name or 'there'},\n\nYour AI receptionist is live. Your number: {format_display(phone_number)}\n"
+            f"Call it yourself, then forward your business line to it.\nPortal: {PORTAL_URL}\n— The TradeFlow team")
+    return subject, _wrap("Your AI number is ready", body), text
+
+
+async def send_number_ready_email(email: str, business_name: str, phone_number: str) -> bool:
+    if not email:
+        return False
+    subject, html_body, text = build_number_ready_email(business_name, phone_number)
+    ok = await asyncio.to_thread(_send_email, email, subject, html_body, text)
+    logger.info("number-ready email %s | to=%s", "sent" if ok else "not sent", email)
     return ok
 
 

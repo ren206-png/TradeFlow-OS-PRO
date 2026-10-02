@@ -99,6 +99,9 @@ def main() -> int:
     check("call ended normally, not by an error", inbound.get("call_status") == "ended" and not reason.startswith("error"),
           f"status={inbound.get('call_status')} reason={reason}")
     check("AI greeted the caller", bool(agent_lines) and len(agent_lines[0].strip()) > 10)
+    check("greeting says it is an AI and that the call may be recorded",
+          bool(agent_lines) and bool(re.search(r"\bAI\b", agent_lines[0])) and "recorded" in agent_lines[0].lower(),
+          agent_lines[0][:120] if agent_lines else "")
     check("call length is sane (20-240s)", 20 <= duration_s <= 240, f"{duration_s}s")
     check("cost is sane (< 100 cents)", cost_cents < 100, f"{cost_cents:.0f} cents")
     spoken = " ".join(agent_lines)

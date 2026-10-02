@@ -227,7 +227,7 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
             agent = ClaudeAgent(contractor=contractor, call_session=session, db=db)
             agent._tool_context["caller_phone"] = CALLER_PHONE  # caller ID, as on a real call
             await agent.initialise_async_prompt()
-            res.transcript.append(("agent", await agent.process_turn("__call_started__")))
+            res.transcript.append(("agent", await agent.opening_greeting(contractor.name, contractor.agent_name or "Alex")))
 
             for _ in range(MAX_TURNS):
                 said = await _caller_reply(client, sc.persona, res.transcript)

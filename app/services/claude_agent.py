@@ -58,6 +58,21 @@ class ClaudeAgent:
                 "ClaudeAgent: async prompt init failed, using base prompt | err=%s", exc
             )
 
+    async def opening_greeting(self, company_name: str, agent_name: str) -> str:
+        """
+        Fixed opening line, identical on every call: discloses that this is an AI and that the call may be
+        recorded (required in many jurisdictions), then hands over. Costs no Claude call and no latency.
+        The line is saved as the first assistant turn so the model knows it has already greeted the caller.
+        """
+        greeting = (f"Thanks for calling {company_name}, this is {agent_name}, an AI assistant. "
+                    "This call may be recorded. How can I help you today?")
+        self.call_session.conversation_history = [
+            {"role": "user", "content": "[The phone call has just connected.]"},
+            {"role": "assistant", "content": [{"type": "text", "text": greeting}]},
+        ]
+        await self.db.flush()
+        return greeting
+
     async def process_turn(self, user_message: str) -> str:
         """
         Process one conversation turn and return the agent's spoken response.

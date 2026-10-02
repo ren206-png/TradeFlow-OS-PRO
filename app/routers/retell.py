@@ -273,7 +273,7 @@ async def llm_websocket(
 
         # Opening greeting — response_id 0 for the first agent turn
         await db.commit()
-        greeting = await agent.process_turn("__call_started__")
+        greeting = await agent.opening_greeting(contractor.name, contractor.agent_name or "Alex")
         await websocket.send_text(json.dumps({
             "response_type": "response",
             "response_id": 0,

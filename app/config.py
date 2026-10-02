@@ -49,6 +49,10 @@ class Settings(BaseSettings):
 
     # Admin dashboard credentials (set these in Railway to change login)
     admin_username: str = "admin"
+    # Where operational alerts (provisioning failures, daily cap hit) are emailed; falls back to SMTP_USER.
+    admin_alert_email: str = ""
+    # Max new AI numbers bought per UTC day, so bot signups can't run up phone-number costs.
+    provisioning_daily_cap: int = 20
     admin_password: str = ""  # falls back to secret_key if empty
 
     # Live demo line — set in Railway after provisioning the demo tenant

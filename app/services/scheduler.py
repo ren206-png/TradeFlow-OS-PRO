@@ -29,6 +29,14 @@ def start_scheduler() -> None:
             id="daily_quality_digest",
             replace_existing=True,
         )
+        # New signups whose AI number setup was queued (daily cap) or failed: retry every 30 minutes
+        _scheduler.add_job(
+            _provisioning_retry_job,
+            trigger="interval",
+            minutes=30,
+            id="provisioning_retry",
+            replace_existing=True,
+        )
         logger.info("APScheduler started. Daily digest scheduled at 08:00 UTC.")
         # Phase 6: Weather surge polling + expiry — every 30 minutes when flag ON
         if settings.weather_surge_mode:
@@ -855,3 +863,13 @@ async def _estimate_followup_job() -> None:
             logger.info("Estimate follow-up job done | candidates=%d due=%d", len(rows), due)
     except Exception as exc:
         logger.error("Estimate follow-up job top-level error: %s", exc)
+
+
+async def _provisioning_retry_job() -> None:
+    from app.services.provisioning import retry_pending_provisioning
+    try:
+        tried = await retry_pending_provisioning()
+        if tried:
+            logger.info("Provisioning retry: attempted %d account(s)", tried)
+    except Exception as exc:
+        logger.error("Provisioning retry job failed: %s", exc)
