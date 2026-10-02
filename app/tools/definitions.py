@@ -63,8 +63,8 @@ TRADEFLOW_TOOLS = [
     {
         "name": "send_sms",
         "description": (
-            "Send an SMS to the caller. "
-            "Use for booking confirmations, reminders, and missed call recovery."
+            "Send the booking confirmation text to the caller. book_appointment already sends it "
+            "automatically; only call this to resend it. Never use it for anything else."
         ),
         "input_schema": {
             "type": "object",
@@ -72,7 +72,7 @@ TRADEFLOW_TOOLS = [
                 "to_number": {"type": "string"},
                 "message_type": {
                     "type": "string",
-                    "enum": ["booking_confirmation", "appointment_reminder", "missed_call", "review_request", "followup"],
+                    "enum": ["booking_confirmation"],
                 },
                 "appointment_time": {
                     "type": "string",

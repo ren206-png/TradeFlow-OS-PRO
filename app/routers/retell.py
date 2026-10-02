@@ -13,6 +13,7 @@ Retell AI integration — two independent surfaces:
    Reference: https://docs.retellai.com/features/secure-webhook
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -115,9 +116,10 @@ async def llm_websocket(
     await websocket.accept()
     logger.info("WebSocket opened | call_id=%s", call_id)
 
-    # Restore agent from registry on WebSocket reconnect
-    agent: ClaudeAgent | None = _active_agents.get(call_id)
-    call_session: CallSession | None = agent.call_session if agent else None
+    # Per-connection state. A reconnect gets a fresh session/agent (call_details arrives on every connect).
+    state: dict = {"agent": None, "latest_response_id": -1}
+    turn_lock = asyncio.Lock()
+    tasks: set[asyncio.Task] = set()
 
     # Send config event immediately so Retell knows to:
     # - send call_details on first message
@@ -130,250 +132,292 @@ async def llm_websocket(
         },
     }))
 
+    async def _send(payload: dict) -> bool:
+        try:
+            await websocket.send_text(json.dumps(payload))
+            return True
+        except Exception as exc:
+            logger.warning("WebSocket send failed | call_id=%s err=%s", call_id, exc)
+            return False
+
+    async def _handle_call_details(data: dict) -> None:
+        agent = state["agent"]
+        call_info: dict = data.get("call", {})
+        to_number: str = call_info.get("to_number", "")
+        from_number: str = call_info.get("from_number", "")
+
+        # Outbound calls (callbacks, recovery) dial the customer; the tenant's number is the caller ID.
+        tenant_number = from_number if call_info.get("direction") == "outbound" else to_number
+        contractor = await _get_contractor_by_phone(tenant_number, db)
+
+        # Retell reconnects with the same call_id (auto_reconnect); reuse the session row.
+        call_session = await _get_or_create_call_session(call_id, contractor.id, db)
+
+        # Demo tenant — enforce daily cap before anything else
+        from app.services.demo import check_demo_daily_cap, is_demo_call
+        if is_demo_call(str(contractor.id)):
+            cap_ok = await check_demo_daily_cap(db)
+            if not cap_ok:
+                await websocket.send_text(json.dumps({
+                    "response_type": "response",
+                    "response_id": 0,
+                    "content": (
+                        "Thanks for calling Summit Plumbing Demo! Our demo line has "
+                        "reached today's limit. Please try again tomorrow or visit "
+                        "tradesflowos.com to set up your own AI line. Have a great day!"
+                    ),
+                    "content_complete": True,
+                    "end_call": True,
+                }))
+                return
+
+        # Check monthly call limit before starting the session
+        usage = await BillingService().check_usage_limit(contractor, "calls")
+        if not usage["allowed"]:
+            logger.warning(
+                "Call limit reached | contractor=%s used=%d limit=%d",
+                contractor.name, usage["used"], usage["limit"],
+            )
+            await websocket.send_text(json.dumps({
+                "response_type": "response",
+                "response_id": 0,
+                "content": (
+                    "Thank you for calling. This business's AI line has reached its "
+                    "monthly limit. Please call back after the 1st of next month, "
+                    "or contact the business directly."
+                ),
+                "content_complete": True,
+                "end_call": True,
+            }))
+            return
+
+        # Enforce per-call max duration — demo line caps at demo_max_call_mins
+        from app.config import PLAN_LIMITS as _PLAN_LIMITS
+        if is_demo_call(str(contractor.id)):
+            _max_call_mins = settings.demo_max_call_mins
+        else:
+            _plan_limits = _PLAN_LIMITS.get(contractor.plan or "starter", _PLAN_LIMITS["starter"])
+            _max_call_mins = _plan_limits.get("max_call_mins", 10)
+        call_session.max_duration_seconds = _max_call_mins * 60
+
+        # Record implied SMS consent for the customer (the dialed party on outbound calls)
+        customer_number = to_number if call_info.get("direction") == "outbound" else from_number
+        if customer_number:
+            try:
+                from app.services.sms_compliance import record_consent
+                await record_consent(customer_number, call_id, db)
+            except Exception as _ce:
+                logger.warning("Consent recording failed: %s", _ce)
+
+        intake_section = ""
+        if settings.intake_flows_v2 and contractor.intake_flows_v2_enabled:
+            from app.services.intake import IntakeService
+            trade = (contractor.trades or [""])[0] if contractor.trades else ""
+            if trade:
+                tmpl = await IntakeService().get_template(trade, contractor.id, db)
+                if tmpl:
+                    intake_section = await IntakeService().format_questions_for_prompt(tmpl)
+
+        # Phase 6: Membership / caller-ID lookup — gated behind flags, fail open
+        _membership_context: dict = {}
+        if settings.commercial_intake or settings.french_bilingual:
+            try:
+                from app.services.membership import MembershipService
+                _ms = MembershipService()
+                _matched_lead, _confidence = await _ms.lookup_caller(
+                    from_number, contractor, db
+                )
+                _greeting_addition = _ms.get_member_greeting_addition(
+                    _matched_lead, contractor, _confidence
+                )
+                if _matched_lead is not None and _confidence >= 75:
+                    _membership_context = {
+                        "matched_lead_id": str(getattr(_matched_lead, "id", "")),
+                        "match_confidence": _confidence,
+                        "greeting_addition": _greeting_addition,
+                    }
+            except Exception as _me:
+                logger.warning(
+                    "retell: membership lookup failed (fail open) | call_id=%s err=%s",
+                    call_id, _me,
+                )
+
+        agent = ClaudeAgent(
+            contractor=contractor,
+            call_session=call_session,
+            db=db,
+            intake_section=intake_section,
+        )
+        agent._tool_context["caller_phone"] = normalize_nanp(customer_number) if customer_number else None
+        # Attach membership context for downstream tools
+        if _membership_context:
+            agent._tool_context["membership"] = _membership_context
+        # Phase 3: inject triage prompt section async (no-op when flag OFF)
+        await agent.initialise_async_prompt()
+        state["agent"] = agent
+        _active_agents[call_id] = agent
+
+        await broadcast_call_event({
+            "type": "call_started",
+            "call_id": call_id,
+            "contractor_name": contractor.name,
+            "from_number": from_number,
+            "to_number": to_number,
+            "started_at": call_session.started_at.isoformat(),
+        })
+
+        if call_session.conversation_history:
+            # Retell reconnect mid-call: the caller was already greeted; resume silently.
+            logger.info("Agent resumed after reconnect | call_id=%s", call_id)
+            return
+
+        # Opening greeting — response_id 0 for the first agent turn
+        await db.commit()
+        greeting = await agent.process_turn("__call_started__")
+        await websocket.send_text(json.dumps({
+            "response_type": "response",
+            "response_id": 0,
+            "content": greeting,
+            "content_complete": True,
+            "end_call": False,
+        }))
+        logger.info(
+            "Agent initialised | call_id=%s contractor=%s from=%s",
+            call_id, contractor.name, from_number,
+        )
+
+
+    async def _handle_response(data: dict, interaction_type: str) -> None:
+        response_id: int = data.get("response_id", 0)
+        transcript: list[dict] = data.get("transcript", [])
+        user_message = _latest_user_utterance(transcript)
+
+        async with turn_lock:
+            if response_id < state["latest_response_id"]:
+                logger.info("Skipping superseded turn | call_id=%s response_id=%s", call_id, response_id)
+                return
+            agent = state["agent"]
+            if agent is None:
+                agent = await _rebuild_agent(call_id, db)
+                state["agent"] = agent
+                _active_agents[call_id] = agent
+
+            if not user_message and interaction_type == "reminder_required":
+                await _send({
+                    "response_type": "response",
+                    "response_id": response_id,
+                    "content": "Are you still there? I'm here to help.",
+                    "content_complete": True,
+                    "end_call": False,
+                })
+                return
+
+            # Life-safety intercept — HARDCODED, never gated by any flag or tenant setting
+            from app.services.triage import classify_life_safety, LIFE_SAFETY_RESPONSE
+            if classify_life_safety(user_message):
+                await _send({
+                    "response_type": "response",
+                    "response_id": response_id,
+                    "content": LIFE_SAFETY_RESPONSE,
+                    "content_complete": True,
+                    "end_call": True,
+                })
+                return
+
+            response_text = await agent.process_turn(user_message)
+
+            # Check if the transfer_call tool fired during this turn
+            transfer_number = _pending_transfers.pop(call_id, None)
+            end_call = bool(transfer_number) or _should_end_call(agent)
+
+            payload: dict = {
+                "response_type": "response",
+                "response_id": response_id,
+                "content": response_text,
+                "content_complete": True,
+                "end_call": end_call,
+            }
+            if transfer_number:
+                payload["transfer_number"] = transfer_number
+                logger.info("Transfer initiated | call_id=%s to=%s", call_id, transfer_number)
+
+            if response_id < state["latest_response_id"]:
+                logger.info("Dropping stale response | call_id=%s response_id=%s", call_id, response_id)
+            else:
+                await _send(payload)
+                logger.info("Turn | call_id=%s response_id=%d end_call=%s", call_id, response_id, end_call)
+            # Persist after every turn: leads/bookings become visible immediately, a crash
+            # doesn't lose the call, and reconnecting WebSockets see the current state.
+            await db.commit()
+
+            # Broadcast transcript update to dashboard clients
+            lead_score: dict = {}
+            if agent.call_session and agent.call_session.lead_id:
+                cs = agent.call_session
+                lead_score = {
+                    "emergency": getattr(cs, "emergency_score", None),
+                    "revenue": getattr(cs, "revenue_score", None),
+                    "close": getattr(cs, "close_probability", None),
+                }
+            await broadcast_call_event({
+                "type": "transcript_update",
+                "call_id": call_id,
+                "role": "agent",
+                "content": response_text,
+                "lead_score": lead_score,
+            })
+
+    async def _guarded(coro) -> None:
+        """Run a handler without ever blocking the receive loop; failures are logged, not fatal."""
+        try:
+            await coro
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("Unhandled error in WebSocket | call_id=%s error=%s", call_id, exc)
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            await _send({
+                "response_type": "response",
+                "response_id": max(state["latest_response_id"], 0),
+                "content": "I'm sorry, I'm experiencing a technical issue. Please hold.",
+                "content_complete": True,
+                "end_call": False,
+            })
+
+    def _spawn(coro) -> None:
+        task = asyncio.create_task(_guarded(coro))
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
     try:
         while True:
+            # The loop only reads and dispatches. Turns take 10s+ (Claude + tools); doing that work here
+            # would stop us answering Retell's 2-second heartbeat and Retell would drop the connection.
             raw = await websocket.receive_text()
             data: dict = json.loads(raw)
             interaction_type: str = data.get("interaction_type", "")
 
-            # ------------------------------------------------------------------
-            # Ping-pong heartbeat — must respond within 5 seconds
-            # ------------------------------------------------------------------
             if interaction_type == "ping_pong":
-                await websocket.send_text(json.dumps({
+                await _send({
                     "response_type": "ping_pong",
                     "timestamp": data.get("timestamp", int(time.time() * 1000)),
-                }))
-                continue
+                })
 
-            # ------------------------------------------------------------------
-            # call_details — first real message; initialise agent + send greeting
-            # ------------------------------------------------------------------
             elif interaction_type == "call_details":
-                call_info: dict = data.get("call", {})
-                to_number: str = call_info.get("to_number", "")
-                from_number: str = call_info.get("from_number", "")
 
-                # Outbound calls (callbacks, recovery) dial the customer; the tenant's number is the caller ID.
-                tenant_number = from_number if call_info.get("direction") == "outbound" else to_number
-                contractor = await _get_contractor_by_phone(tenant_number, db)
+                async def _call_details_locked(d=data):
+                    async with turn_lock:
+                        await _handle_call_details(d)
 
-                # Retell reconnects with the same call_id (auto_reconnect); reuse the session row.
-                call_session = await _get_or_create_call_session(call_id, contractor.id, db)
+                _spawn(_call_details_locked())
 
-                # Demo tenant — enforce daily cap before anything else
-                from app.services.demo import check_demo_daily_cap, is_demo_call
-                if is_demo_call(str(contractor.id)):
-                    cap_ok = await check_demo_daily_cap(db)
-                    if not cap_ok:
-                        await websocket.send_text(json.dumps({
-                            "response_type": "response",
-                            "response_id": 0,
-                            "content": (
-                                "Thanks for calling Summit Plumbing Demo! Our demo line has "
-                                "reached today's limit. Please try again tomorrow or visit "
-                                "tradesflowos.com to set up your own AI line. Have a great day!"
-                            ),
-                            "content_complete": True,
-                            "end_call": True,
-                        }))
-                        return
-
-                # Check monthly call limit before starting the session
-                usage = await BillingService().check_usage_limit(contractor, "calls")
-                if not usage["allowed"]:
-                    logger.warning(
-                        "Call limit reached | contractor=%s used=%d limit=%d",
-                        contractor.name, usage["used"], usage["limit"],
-                    )
-                    await websocket.send_text(json.dumps({
-                        "response_type": "response",
-                        "response_id": 0,
-                        "content": (
-                            "Thank you for calling. This business's AI line has reached its "
-                            "monthly limit. Please call back after the 1st of next month, "
-                            "or contact the business directly."
-                        ),
-                        "content_complete": True,
-                        "end_call": True,
-                    }))
-                    return
-
-                # Enforce per-call max duration — demo line caps at demo_max_call_mins
-                from app.config import PLAN_LIMITS as _PLAN_LIMITS
-                if is_demo_call(str(contractor.id)):
-                    _max_call_mins = settings.demo_max_call_mins
-                else:
-                    _plan_limits = _PLAN_LIMITS.get(contractor.plan or "starter", _PLAN_LIMITS["starter"])
-                    _max_call_mins = _plan_limits.get("max_call_mins", 10)
-                call_session.max_duration_seconds = _max_call_mins * 60
-
-                # Record implied SMS consent for the customer (the dialed party on outbound calls)
-                customer_number = to_number if call_info.get("direction") == "outbound" else from_number
-                if customer_number:
-                    try:
-                        from app.services.sms_compliance import record_consent
-                        await record_consent(customer_number, call_id, db)
-                    except Exception as _ce:
-                        logger.warning("Consent recording failed: %s", _ce)
-
-                intake_section = ""
-                if settings.intake_flows_v2 and contractor.intake_flows_v2_enabled:
-                    from app.services.intake import IntakeService
-                    trade = (contractor.trades or [""])[0] if contractor.trades else ""
-                    if trade:
-                        tmpl = await IntakeService().get_template(trade, contractor.id, db)
-                        if tmpl:
-                            intake_section = await IntakeService().format_questions_for_prompt(tmpl)
-
-                # Phase 6: Membership / caller-ID lookup — gated behind flags, fail open
-                _membership_context: dict = {}
-                if settings.commercial_intake or settings.french_bilingual:
-                    try:
-                        from app.services.membership import MembershipService
-                        _ms = MembershipService()
-                        _matched_lead, _confidence = await _ms.lookup_caller(
-                            from_number, contractor, db
-                        )
-                        _greeting_addition = _ms.get_member_greeting_addition(
-                            _matched_lead, contractor, _confidence
-                        )
-                        if _matched_lead is not None and _confidence >= 75:
-                            _membership_context = {
-                                "matched_lead_id": str(getattr(_matched_lead, "id", "")),
-                                "match_confidence": _confidence,
-                                "greeting_addition": _greeting_addition,
-                            }
-                    except Exception as _me:
-                        logger.warning(
-                            "retell: membership lookup failed (fail open) | call_id=%s err=%s",
-                            call_id, _me,
-                        )
-
-                agent = ClaudeAgent(
-                    contractor=contractor,
-                    call_session=call_session,
-                    db=db,
-                    intake_section=intake_section,
-                )
-                agent._tool_context["caller_phone"] = normalize_nanp(customer_number) if customer_number else None
-                # Attach membership context for downstream tools
-                if _membership_context:
-                    agent._tool_context["membership"] = _membership_context
-                # Phase 3: inject triage prompt section async (no-op when flag OFF)
-                await agent.initialise_async_prompt()
-                _active_agents[call_id] = agent
-
-                await broadcast_call_event({
-                    "type": "call_started",
-                    "call_id": call_id,
-                    "contractor_name": contractor.name,
-                    "from_number": from_number,
-                    "to_number": to_number,
-                    "started_at": call_session.started_at.isoformat(),
-                })
-
-                if call_session.conversation_history:
-                    # Retell reconnect mid-call: the caller was already greeted; resume silently.
-                    logger.info("Agent resumed after reconnect | call_id=%s", call_id)
-                    continue
-
-                # Opening greeting — response_id 0 for the first agent turn
-                await db.commit()
-                greeting = await agent.process_turn("__call_started__")
-                await websocket.send_text(json.dumps({
-                    "response_type": "response",
-                    "response_id": 0,
-                    "content": greeting,
-                    "content_complete": True,
-                    "end_call": False,
-                }))
-                logger.info(
-                    "Agent initialised | call_id=%s contractor=%s from=%s",
-                    call_id, contractor.name, from_number,
-                )
-
-            # ------------------------------------------------------------------
-            # response_required / reminder_required — run Claude, send reply
-            # ------------------------------------------------------------------
             elif interaction_type in ("response_required", "reminder_required"):
-                response_id: int = data.get("response_id", 0)
-                transcript: list[dict] = data.get("transcript", [])
-                user_message = _latest_user_utterance(transcript)
+                state["latest_response_id"] = max(state["latest_response_id"], data.get("response_id", 0))
+                _spawn(_handle_response(data, interaction_type))
 
-                if agent is None:
-                    agent = await _rebuild_agent(call_id, db)
-                    _active_agents[call_id] = agent
-
-                if not user_message and interaction_type == "reminder_required":
-                    await websocket.send_text(json.dumps({
-                        "response_type": "response",
-                        "response_id": response_id,
-                        "content": "Are you still there? I'm here to help.",
-                        "content_complete": True,
-                        "end_call": False,
-                    }))
-                    continue
-
-                # Life-safety intercept — HARDCODED, never gated by any flag or tenant setting
-                from app.services.triage import classify_life_safety, LIFE_SAFETY_RESPONSE
-                if classify_life_safety(user_message):
-                    ws_response = {
-                        "response_type": "response",
-                        "response_id": response_id,
-                        "content": LIFE_SAFETY_RESPONSE,
-                        "content_complete": True,
-                        "end_call": True,
-                    }
-                    await websocket.send_json(ws_response)
-                    return  # stop processing this turn
-
-                response_text = await agent.process_turn(user_message)
-
-                # Check if the transfer_call tool fired during this turn
-                transfer_number = _pending_transfers.pop(call_id, None)
-                end_call = bool(transfer_number) or _should_end_call(agent)
-
-                payload: dict = {
-                    "response_type": "response",
-                    "response_id": response_id,
-                    "content": response_text,
-                    "content_complete": True,
-                    "end_call": end_call,
-                }
-                if transfer_number:
-                    payload["transfer_number"] = transfer_number
-                    logger.info("Transfer initiated | call_id=%s to=%s", call_id, transfer_number)
-
-                await websocket.send_text(json.dumps(payload))
-                logger.info(
-                    "Turn | call_id=%s response_id=%d end_call=%s",
-                    call_id, response_id, end_call,
-                )
-                # Persist after every turn: leads/bookings become visible immediately, a crash
-                # doesn't lose the call, and reconnecting WebSockets see the current state.
-                await db.commit()
-
-                # Broadcast transcript update to dashboard clients
-                lead_score: dict = {}
-                if agent and agent.call_session and agent.call_session.lead_id:
-                    cs = agent.call_session
-                    lead_score = {
-                        "emergency": getattr(cs, "emergency_score", None),
-                        "revenue": getattr(cs, "revenue_score", None),
-                        "close": getattr(cs, "close_probability", None),
-                    }
-                await broadcast_call_event({
-                    "type": "transcript_update",
-                    "call_id": call_id,
-                    "role": "agent",
-                    "content": response_text,
-                    "lead_score": lead_score,
-                })
-
-            # ------------------------------------------------------------------
-            # update_only — transcript update mid-speech; no response needed
-            # ------------------------------------------------------------------
             elif interaction_type == "update_only":
                 logger.debug("update_only | call_id=%s", call_id)
 
@@ -381,25 +425,23 @@ async def llm_websocket(
                 logger.warning("Unknown interaction_type=%s | call_id=%s", interaction_type, call_id)
 
     except WebSocketDisconnect:
+        # A disconnect is not the end of the call (Retell reconnects); the call_ended webhook finalises it.
         logger.info("WebSocket disconnected | call_id=%s", call_id)
-        await _finalise_session(call_id, {}, db)
 
     except Exception as exc:
         logger.exception("Unhandled error in WebSocket | call_id=%s error=%s", call_id, exc)
-        try:
-            await websocket.send_text(json.dumps({
-                "response_type": "response",
-                "response_id": 0,
-                "content": "I'm sorry, I'm experiencing a technical issue. Please hold.",
-                "content_complete": True,
-                "end_call": False,
-            }))
-        except Exception:
-            pass
 
     finally:
-        _active_agents.pop(call_id, None)
-        _pending_transfers.pop(call_id, None)
+        for task in list(tasks):
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            await db.rollback()  # completed turns were already committed
+        except Exception:
+            pass
+        if _active_agents.get(call_id) is state["agent"]:
+            _active_agents.pop(call_id, None)
 
 
 # ---------------------------------------------------------------------------
@@ -537,7 +579,7 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         duration_s = (end_ts - start_ts) // 1000 if (start_ts and end_ts) else 0
         from_number_wh: str = call_info.get("from_number", "")
         to_number_wh: str = call_info.get("to_number", "")
-        if from_number_wh and to_number_wh and (call_status == "error" or duration_s < 10):
+        if from_number_wh and to_number_wh and duration_s < 10:  # a real conversation that errored out gets a callback lead instead
             try:
                 _contractor_r = await db.execute(
                     select(Contractor).where(

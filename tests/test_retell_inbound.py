@@ -131,7 +131,7 @@ async def test_signature_verified_with_webhook_secret(db, monkeypatch):
     assert (await _post(db, body, headers)).status_code == 200
 
 
-async def _call_ended(db, call_id: str, seconds: int, lead_id=None):
+async def _call_ended(db, call_id: str, seconds: int, lead_id=None, call_status: str = "ended"):
     from app.models.call import CallSession
     demo, _ = await _seed(db)
     db.add(CallSession(retell_call_id=call_id, contractor_id=demo.id, status="active",
@@ -140,7 +140,7 @@ async def _call_ended(db, call_id: str, seconds: int, lead_id=None):
     start = 1_790_000_000_000
     body = json.dumps({"event": "call_ended", "call": {
         "call_id": call_id, "direction": "inbound", "from_number": "+18075550000",
-        "to_number": "+15875550101", "call_status": "ended",
+        "to_number": "+15875550101", "call_status": call_status,
         "start_timestamp": start, "end_timestamp": start + seconds * 1000}}).encode()
 
     async def _dep():
@@ -249,3 +249,111 @@ def test_websocket_turn_commits_each_turn():
     from app.routers import retell
     src = inspect.getsource(retell.llm_websocket)
     assert src.count("await db.commit()") >= 2
+
+
+def _ws_client_with_agent(process_turn):
+    """Open the LLM WebSocket against a fake agent whose turn handler is `process_turn`."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from starlette.testclient import TestClient
+    from app.database import get_db
+
+    agent = MagicMock()
+    agent.process_turn = process_turn
+    agent.call_session = MagicMock(lead_id=None, retell_call_id="call_hb1")
+    db = AsyncMock()
+
+    async def _dep():
+        yield db
+
+    app.dependency_overrides[get_db] = _dep
+    patches = [
+        patch("app.routers.retell._is_live_retell_call", new=AsyncMock(return_value=True)),
+        patch("app.routers.retell._rebuild_agent", new=AsyncMock(return_value=agent)),
+        patch("app.routers.retell._should_end_call", return_value=False),
+        patch("app.routers.retell.broadcast_call_event", new=AsyncMock()),
+    ]
+    return TestClient(app), db, patches
+
+
+def test_heartbeat_is_answered_while_a_slow_turn_runs():
+    """Retell drops the connection if ping_pong isn't answered within 5s; turns take 10s+."""
+    import asyncio
+    from contextlib import ExitStack
+
+    async def slow_turn(_msg):
+        await asyncio.sleep(1.0)
+        return "Thanks, one moment while I check."
+
+    client, db, patches = _ws_client_with_agent(slow_turn)
+    try:
+        with ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            with client.websocket_connect("/llm-websocket/call_hb1") as ws:
+                ws.receive_json()  # config
+                ws.send_json({"interaction_type": "response_required", "response_id": 1,
+                              "transcript": [{"role": "user", "content": "my faucet drips"}]})
+                ws.send_json({"interaction_type": "ping_pong", "timestamp": 12345})
+                first = ws.receive_json()
+                second = ws.receive_json()
+    finally:
+        app.dependency_overrides.clear()
+    assert first == {"response_type": "ping_pong", "timestamp": 12345}   # answered immediately
+    assert second["response_type"] == "response" and second["response_id"] == 1
+
+
+def test_superseded_turn_response_is_not_sent():
+    """If the caller speaks again while we're thinking, the older answer must not be spoken."""
+    import asyncio
+    from contextlib import ExitStack
+
+    calls = []
+
+    async def turn(msg):
+        calls.append(msg)
+        await asyncio.sleep(0.6)
+        return f"answer to {msg}"
+
+    client, db, patches = _ws_client_with_agent(turn)
+    try:
+        with ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            with client.websocket_connect("/llm-websocket/call_hb1") as ws:
+                ws.receive_json()
+                ws.send_json({"interaction_type": "response_required", "response_id": 1,
+                              "transcript": [{"role": "user", "content": "first"}]})
+                ws.send_json({"interaction_type": "response_required", "response_id": 2,
+                              "transcript": [{"role": "user", "content": "second"}]})
+                reply = ws.receive_json()
+    finally:
+        app.dependency_overrides.clear()
+    assert reply["response_id"] == 2 and reply["content"] == "answer to second"
+
+
+def test_disconnect_does_not_end_the_call():
+    """A dropped/rotated connection is not a hang-up; only the call_ended webhook finalises."""
+    from contextlib import ExitStack
+    from unittest.mock import AsyncMock, patch
+
+    client, db, patches = _ws_client_with_agent(AsyncMock(return_value="hi"))
+    try:
+        with ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            fin = stack.enter_context(patch("app.routers.retell._finalise_session", new=AsyncMock()))
+            with client.websocket_connect("/llm-websocket/call_hb1") as ws:
+                ws.receive_json()
+    finally:
+        app.dependency_overrides.clear()
+    fin.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_errored_call_after_real_conversation_gets_no_missed_call_text(db):
+    """A call that died after 40s is a lost conversation (callback lead), not a 'sorry we missed you'."""
+    from unittest.mock import AsyncMock, patch
+    with patch("app.services.notifications.notify_new_lead", new_callable=AsyncMock), \
+         patch("app.services.missed_call.send_missed_call_sms", new_callable=AsyncMock) as missed:
+        await _call_ended(db, "call_err40", seconds=40, call_status="error")
+    missed.assert_not_called()

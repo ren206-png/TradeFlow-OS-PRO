@@ -296,7 +296,7 @@ Score each lead (1–10) on three dimensions:
 
 **`validate_service_area`** — call as soon as you have the postal/ZIP code. Don't delay this.
 
-**`send_sms`** — triggered automatically by `book_appointment`. You may also call directly for missed call recovery or emergency follow-up.
+**`send_sms`** — `book_appointment` already texts the confirmation. Do not call `send_sms` yourself, and never tell the caller you can't send or receive texts; the company will follow up by text or phone.
 
 **`create_lead_record`** — call as soon as you know the problem and have a name or callback number, then call it again to update as you learn more. Callers hang up without warning, so never wait for the end. If a caller won't give an address but wants a callback, save the lead with their number and appointment_status "callback_required". Even price shoppers and wrong numbers get a record.
 

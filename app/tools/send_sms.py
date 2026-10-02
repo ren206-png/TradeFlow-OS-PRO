@@ -28,6 +28,9 @@ async def send_sms(tool_input: dict, context: dict) -> dict:
 
     to_number: str = normalize_nanp(tool_input["to_number"]) or tool_input["to_number"]
     message_type: str = tool_input["message_type"]
+    if message_type != "booking_confirmation":
+        # Reminders, follow-ups and missed-call texts are scheduled by the system, never sent by the AI mid-call.
+        return {"success": False, "error": f"The AI may only send booking confirmations, not {message_type!r}."}
     name: str = tool_input.get("name", "there")
 
     # Check SMS usage limit before sending
@@ -35,8 +38,9 @@ async def send_sms(tool_input: dict, context: dict) -> dict:
     if not usage["allowed"]:
         return {"success": False, "error": "Monthly SMS limit reached."}
 
-    if message_type == "booking_confirmation" and call_session.lead_id:
-        lead_row = (await db.execute(select(Lead).where(Lead.id == call_session.lead_id))).scalar_one_or_none()
+    if message_type == "booking_confirmation":
+        from app.tools.create_lead import resolve_call_lead
+        lead_row = await resolve_call_lead(db, call_session)
         if lead_row and lead_row.sms_confirmation_sent:
             return {"success": True, "skipped": "booking confirmation already sent"}
 

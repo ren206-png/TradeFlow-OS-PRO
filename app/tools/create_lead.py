@@ -12,6 +12,21 @@ from app.services.notifications import notify_new_lead
 from app.utils.phone import normalize_nanp
 
 
+async def resolve_call_lead(db: AsyncSession, call_session) -> Lead | None:
+    """This call's lead, if any. Looks up by call id too: Retell can hold several WebSocket connections
+    for one call, each with its own CallSession object, so call_session.lead_id may be stale."""
+    lead = None
+    if call_session.lead_id:
+        lead = (await db.execute(select(Lead).where(Lead.id == call_session.lead_id))).scalar_one_or_none()
+    if lead is None and call_session.retell_call_id:
+        lead = (await db.execute(
+            select(Lead).where(Lead.call_id == call_session.retell_call_id).order_by(Lead.created_at.asc()).limit(1)
+        )).scalar_one_or_none()
+        if lead is not None:
+            call_session.lead_id = lead.id
+    return lead
+
+
 async def create_lead_record(tool_input: dict, context: dict) -> dict:
     """Upsert the CRM Lead record. Calculates priority scores before saving."""
     db: AsyncSession = context["db"]
@@ -19,10 +34,7 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
     contractor = context["contractor"]
 
     # Resolve existing lead or create new
-    lead: Lead | None = None
-    if call_session.lead_id:
-        result = await db.execute(select(Lead).where(Lead.id == call_session.lead_id))
-        lead = result.scalar_one_or_none()
+    lead = await resolve_call_lead(db, call_session)
 
     if lead is None:
         lead = Lead(

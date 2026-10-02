@@ -60,10 +60,8 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     confirmation_number: str = booking_result.get("confirmation_number", "")
 
     # Upsert the Lead record for this call
-    lead: Optional[Lead] = None
-    if call_session.lead_id:
-        result = await db.execute(select(Lead).where(Lead.id == call_session.lead_id))
-        lead = result.scalar_one_or_none()
+    from app.tools.create_lead import resolve_call_lead
+    lead: Optional[Lead] = await resolve_call_lead(db, call_session)
 
     if lead is None:
         lead = Lead(

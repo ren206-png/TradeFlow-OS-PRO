@@ -92,3 +92,52 @@ def test_cache_marker_goes_on_last_block_without_mutating_history():
     assert "cache_control" not in history[-1]["content"][-1]  # stored history untouched
     assert _with_cache_marker([{"role": "user", "content": "hey"}])[0]["content"][0]["cache_control"]
     assert _with_cache_marker([]) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["missed_call", "followup", "review_request", "appointment_reminder"])
+async def test_ai_cannot_send_non_confirmation_texts(db, kind):
+    """A mid-call 'sorry we missed you' text went to a customer who was on the phone."""
+    from app.tools.send_sms import send_sms
+    contractor = _make_contractor()
+    session = CallSession(retell_call_id="call_sms1", contractor_id=contractor.id, status="active", conversation_history=[])
+    db.add_all([contractor, session])
+    await db.commit()
+    with patch("app.tools.send_sms.SMSService") as sms_cls:
+        result = await send_sms({"to_number": "+14035550142", "message_type": kind},
+                                {"db": db, "call_session": session, "contractor": contractor})
+    assert result["success"] is False
+    sms_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_two_connections_for_one_call_share_one_lead(db):
+    """Each Retell connection has its own CallSession object; the second must find the first one's lead."""
+    from sqlalchemy import func, select
+    from app.tools.create_lead import create_lead_record
+
+    contractor = _make_contractor()
+    db.add(contractor)
+    await db.commit()
+    await db.refresh(contractor)
+
+    def conn_session():
+        s = CallSession(retell_call_id="call_dup1", contractor_id=contractor.id, status="active", conversation_history=[])
+        return s
+
+    first = conn_session()
+    db.add(first)
+    await db.commit()
+    with patch("app.tools.create_lead.notify_new_lead", new=AsyncMock()):
+        await create_lead_record({"caller_name": "Taylor", "phone": "403-555-0142"},
+                                 {"db": db, "call_session": first, "contractor": contractor})
+        await db.commit()
+        stale = CallSession(id=first.id, retell_call_id="call_dup1", contractor_id=contractor.id,
+                            status="active", conversation_history=[], lead_id=None)
+        await create_lead_record({"caller_name": "Taylor Test", "service_address": "123 Test St"},
+                                 {"db": db, "call_session": stale, "contractor": contractor})
+        await db.commit()
+    count = (await db.execute(select(func.count()).select_from(Lead).where(Lead.call_id == "call_dup1"))).scalar_one()
+    assert count == 1
+    lead = (await db.execute(select(Lead).where(Lead.call_id == "call_dup1"))).scalar_one()
+    assert lead.caller_name == "Taylor Test" and lead.service_address == "123 Test St" and lead.phone == "+14035550142"

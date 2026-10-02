@@ -317,7 +317,8 @@ async def test_websocket_response_required_returns_agent_text(mock_call_session)
     try:
         from starlette.testclient import TestClient
         client = TestClient(app)
-        with client.websocket_connect(f"/llm-websocket/{call_id}") as ws:
+        with patch("app.routers.retell._rebuild_agent", new=AsyncMock(return_value=mock_agent)), \
+             client.websocket_connect(f"/llm-websocket/{call_id}") as ws:
             ws.receive_json()  # discard initial config event
             ws.send_json({
                 "interaction_type": "response_required",
