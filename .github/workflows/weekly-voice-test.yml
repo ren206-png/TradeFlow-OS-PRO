@@ -1,0 +1,71 @@
+name: Weekly real-voice test
+
+# A Retell "test caller" phones the Renco test tenant's AI line, books a plumbing appointment, and
+# scripts/weekly_voice_test.py verifies the call, the conversation and the resulting lead in production.
+# Costs ~35 cents and sends the test tenant's owner one text + one email.
+on:
+  schedule:
+    - cron: "0 15 * * 1"   # Mondays 15:00 UTC (9 AM Mountain in summer, 8 AM in winter)
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-voice-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  voice-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RETELL_API_KEY: ${{ secrets.RETELL_API_KEY }}
+      TENANT_API_KEY: ${{ secrets.RENCO_API_KEY }}
+      TENANT_ID: 7af9c930-aae8-4a17-adeb-b45ae7fd0ede
+      TEST_CALLER_AGENT_ID: agent_ef4dd6fa0e0baab3a22572438c
+      FROM_NUMBER: "+15878001544"
+      TO_NUMBER: "+17756183748"
+      TARGET_AGENT_ID: agent_7432c3df2dc4af9b91adea5ec4
+      BASE_URL: https://tradesflowos.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install httpx
+      - name: Run the voice test
+        run: python scripts/weekly_voice_test.py
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-voice-report
+          path: weekly-voice-report.json
+          if-no-files-found: ignore
+      - name: Open an issue when the test fails
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FAILED=$(python - <<'PY'
+          import json
+          try:
+              r = json.load(open("weekly-voice-report.json"))
+              print("\n".join(f"- {c['check']}: {c['detail']}" for c in r["checks"] if not c["passed"] and not c["soft"]) or "- (no report; see the run log)")
+          except Exception:
+              print("- (no report; see the run log)")
+          PY
+          )
+          {
+            echo "The weekly real-voice call test failed."
+            echo
+            echo "**Failed checks**"
+            echo "${FAILED}"
+            echo
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } > issue-body.md
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Weekly real-voice test failed ($(date -u +%F))" \
+            --body-file issue-body.md
