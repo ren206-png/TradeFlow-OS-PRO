@@ -291,7 +291,7 @@ class RetellClient:
         nickname: str = "",
     ) -> dict:
         """
-        POST /v2/create-phone-number
+        POST /create-phone-number
         Purchase a new phone number via Retell (Twilio provider). country_code is "US" or "CA".
         Raises httpx.HTTPStatusError (404) when that area code has no stock.
         Returns the phone number object including `phone_number` (E.164).
@@ -304,7 +304,7 @@ class RetellClient:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{_BASE}/v2/create-phone-number",
+                f"{_BASE}/create-phone-number",
                 json=payload,
                 headers=_headers(),
                 timeout=15.0,
