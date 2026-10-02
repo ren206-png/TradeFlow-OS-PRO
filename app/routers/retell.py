@@ -324,11 +324,18 @@ async def llm_websocket(
                 })
                 return
 
+            turn_started = time.monotonic()
             response_text = await agent.process_turn(user_message)
+            turn_seconds = time.monotonic() - turn_started
 
             # Check if the transfer_call tool fired during this turn
             transfer_number = _pending_transfers.pop(call_id, None)
-            end_call = bool(transfer_number) or _should_end_call(agent)
+            end_call = (
+                bool(transfer_number)
+                or _should_end_call(agent)
+                or bool(agent._tool_context.pop("end_call", False))
+                or _caller_said_goodbye(user_message, agent)
+            )
 
             payload: dict = {
                 "response_type": "response",
@@ -345,7 +352,7 @@ async def llm_websocket(
                 logger.info("Dropping stale response | call_id=%s response_id=%s", call_id, response_id)
             else:
                 await _send(payload)
-                logger.info("Turn | call_id=%s response_id=%d end_call=%s", call_id, response_id, end_call)
+                logger.info("Turn | call_id=%s response_id=%d end_call=%s took=%.1fs", call_id, response_id, end_call, turn_seconds)
             # Persist after every turn: leads/bookings become visible immediately, a crash
             # doesn't lose the call, and reconnecting WebSockets see the current state.
             await db.commit()
@@ -1111,6 +1118,21 @@ def _latest_user_utterance(transcript: list[dict]) -> str:
         if turn.get("role") == "user":
             return turn.get("content", "").strip()
     return ""
+
+
+_GOODBYE = re.compile(
+    r"\b(good\s?bye|bye|that'?s (all|it)|nothing else|no,? (that'?s|i'?m) (all|good|fine)|have a (good|great|nice) (day|one|night))\b",
+    re.IGNORECASE,
+)
+
+
+def _caller_said_goodbye(user_message: str, agent: ClaudeAgent) -> bool:
+    """Backstop: a short goodbye after the lead is saved ends the call even if the model forgets end_call."""
+    text = (user_message or "").strip()
+    return bool(
+        text and len(text) <= 60 and _GOODBYE.search(text)
+        and getattr(agent.call_session, "lead_id", None)
+    )
 
 
 def _should_end_call(agent: ClaudeAgent) -> bool:

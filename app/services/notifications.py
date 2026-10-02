@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from typing import Optional
 
 from app.config import settings
+from app.utils.timefmt import to_local
 
 logger = logging.getLogger(__name__)
 
@@ -334,7 +335,8 @@ async def notify_appointment_booked(contractor, lead) -> None:
     name = lead.caller_name or "Unknown Caller"
     phone = lead.phone or "—"
     trade = (lead.trade or "General").title()
-    apt_time = lead.appointment_time.strftime("%A, %b %d at %I:%M %p") if lead.appointment_time else "Time TBD"
+    local_apt = to_local(lead.appointment_time, getattr(contractor, "timezone", None))
+    apt_time = local_apt.strftime("%A, %b %d at %I:%M %p") if local_apt else "Time TBD"
     address = lead.service_address or ""
     if lead.city:
         address = f"{address}, {lead.city}".strip(", ")

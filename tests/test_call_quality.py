@@ -167,3 +167,24 @@ async def test_demo_line_accepts_any_address(monkeypatch):
     monkeypatch.setattr(settings, "demo_contractor_id", str(contractor.id))
     result = await validate_service_area({"postal_zip": "T2N 1A1", "city": "Calgary"}, {"contractor": contractor})
     assert result["status"] == "inside"
+
+
+def test_goodbye_backstop_only_after_a_lead_exists():
+    from types import SimpleNamespace
+    from app.routers.retell import _caller_said_goodbye
+
+    with_lead = SimpleNamespace(call_session=SimpleNamespace(lead_id="x"))
+    no_lead = SimpleNamespace(call_session=SimpleNamespace(lead_id=None))
+    assert _caller_said_goodbye("No, that's all. Thank you. Bye.", with_lead)
+    assert _caller_said_goodbye("Goodbye", with_lead)
+    assert not _caller_said_goodbye("Goodbye", no_lead)                 # never hang up before capturing the caller
+    assert not _caller_said_goodbye("My name is Bye Smith and I need a plumber for the kitchen sink please", with_lead)
+    assert not _caller_said_goodbye("", with_lead)
+
+
+@pytest.mark.asyncio
+async def test_end_call_tool_flags_the_call_for_hangup():
+    from app.tools.handlers import execute_tool
+    ctx = {}
+    result = await execute_tool("end_call", {}, ctx)
+    assert result["success"] and ctx["end_call"] is True

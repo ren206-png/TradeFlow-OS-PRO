@@ -11,7 +11,14 @@ from app.tools.validate_address import validate_service_area
 
 logger = logging.getLogger(__name__)
 
+async def end_call(tool_input: dict, context: dict) -> dict:
+    """Flag the call to be hung up once the agent's closing words have been spoken."""
+    context["end_call"] = True
+    return {"success": True, "note": "The call will end after you say goodbye."}
+
+
 _TOOL_MAP_BASE = {
+    "end_call": end_call,
     "check_availability": check_availability,
     "book_appointment": book_appointment,
     "validate_service_area": validate_service_area,

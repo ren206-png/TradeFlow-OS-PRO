@@ -8,6 +8,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from app.utils.timefmt import zone
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,7 +106,8 @@ class CalendarService:
             return default
 
     def _manual_get_slots(self, trade: str, urgency: str, num_slots: int) -> List[Dict]:
-        now = datetime.now(tz=timezone.utc)
+        # Business hours are the contractor's local hours; slots carry their UTC offset.
+        now = datetime.now(tz=zone(getattr(self.contractor, "timezone", None)))
         slot_duration = self._get_config_int("slot_duration_minutes", 60)
         biz_start_h, biz_start_m = _parse_time(self.config.get("business_hours_start", "08:00"))
         biz_end_h, biz_end_m = _parse_time(self.config.get("business_hours_end", "18:00"))

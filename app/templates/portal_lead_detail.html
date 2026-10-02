@@ -64,7 +64,7 @@
     {% if lead.appointment_time %}
     <div class="px-4 py-3 flex justify-between items-center">
       <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide">Appointment</p>
-      <p class="text-sm font-semibold text-gray-800">{{ lead.appointment_time.strftime("%b %d, %Y at %I:%M %p") }}</p>
+      <p class="text-sm font-semibold text-gray-800">{{ local_dt(lead.appointment_time, tz).strftime("%b %d, %Y at %I:%M %p") }}</p>
     </div>
     {% endif %}
 

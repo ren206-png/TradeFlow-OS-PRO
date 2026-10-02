@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.call import CallSession
 from app.models.contractor import Contractor
+from app.utils.timefmt import to_local
 from app.models.lead import Lead
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/app", tags=["contractor-app"])
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["local_dt"] = to_local
 
 # ---------------------------------------------------------------------------
 # Auth helper
@@ -167,6 +169,7 @@ async def lead_detail(lead_id: str, request: Request, db: AsyncSession = Depends
             "api_key": api_key,
             "active_nav": "leads",
             "lead": lead,
+            "tz": contractor.timezone,
             "sentiment_emoji": sentiment_emoji,
         },
 )

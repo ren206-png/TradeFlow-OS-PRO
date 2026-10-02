@@ -221,6 +221,8 @@ async def _appointment_reminder_job(
 
         lead_result = await db.execute(select(Lead).where(Lead.id == uuid.UUID(lead_id)))
         lead = lead_result.scalar_one_or_none()
+        from app.utils.timefmt import to_local
+        local_apt = to_local(datetime.fromisoformat(appointment_time), contractor.timezone)
 
         sms = SMSService(contractor).with_db(db)
         # Phase 1 fix (Risk #3): use _send_compliant to enforce opt-out checks
@@ -228,7 +230,7 @@ async def _appointment_reminder_job(
             to=phone,
             body=(
                 f"Hi {(lead.caller_name if lead else None) or 'there'}, reminder: "
-                f"your appointment is tomorrow, {appointment_time[:10]} at {appointment_time[11:16]}."
+                f"your appointment is tomorrow, {local_apt.strftime('%A, %B %-d')} at {local_apt.strftime('%-I:%M %p')}."
             ),
             message_type="appointment_reminder",
         )

@@ -90,6 +90,10 @@ SCENARIOS = [
             ("appointment booked", lambda r: r.lead is not None and r.lead.appointment_status == "booked"),
             ("owner got new-lead or booking text", lambda r: r.sms_to(OWNER_MOBILE)),
             ("no text sent to the AI line", lambda r: not r.sms_to("+15875550100")),
+            ("agent hangs up after the goodbye", lambda r: r.ended_by == "agent"),
+            ("reads details back to the caller", lambda r: any(
+                "right?" in t.lower() or "correct?" in t.lower() or "is that" in t.lower()
+                for who, t in r.transcript if who == "agent")),
         ],
     ),
     Scenario(
@@ -242,7 +246,7 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
                     res.transfer_to = transfer
                     res.ended_by = "transfer"
                     break
-                if _should_end_call(agent):
+                if _should_end_call(agent) or agent._tool_context.pop("end_call", False):
                     res.ended_by = "agent"
                     break
             else:

@@ -66,14 +66,24 @@
           <select name="timezone"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
             {% set timezones = [
-              ("America/New_York", "Eastern (ET)"),
-              ("America/Chicago", "Central (CT)"),
-              ("America/Denver", "Mountain (MT)"),
-              ("America/Los_Angeles", "Pacific (PT)"),
-              ("America/Phoenix", "Arizona (no DST)"),
-              ("America/Anchorage", "Alaska (AKT)"),
-              ("Pacific/Honolulu", "Hawaii (HST)"),
+              ("America/Edmonton", "Alberta / Mountain (Edmonton, Calgary)"),
+              ("America/Vancouver", "British Columbia / Pacific (Vancouver)"),
+              ("America/Regina", "Saskatchewan (Regina)"),
+              ("America/Winnipeg", "Manitoba / Central (Winnipeg)"),
+              ("America/Toronto", "Ontario & Quebec / Eastern (Toronto)"),
+              ("America/Halifax", "Atlantic (Halifax)"),
+              ("America/St_Johns", "Newfoundland (St. John's)"),
+              ("America/New_York", "US Eastern (ET)"),
+              ("America/Chicago", "US Central (CT)"),
+              ("America/Denver", "US Mountain (MT)"),
+              ("America/Los_Angeles", "US Pacific (PT)"),
+              ("America/Phoenix", "US Arizona (no DST)"),
+              ("America/Anchorage", "US Alaska (AKT)"),
+              ("Pacific/Honolulu", "US Hawaii (HST)"),
             ] %}
+            {% if contractor.timezone and contractor.timezone not in (timezones | map('first') | list) %}
+            <option value="{{ contractor.timezone }}" selected>{{ contractor.timezone }}</option>
+            {% endif %}
             {% for tz_val, tz_label in timezones %}
             <option value="{{ tz_val }}" {% if contractor.timezone == tz_val %}selected{% endif %}>{{ tz_label }}</option>
             {% endfor %}

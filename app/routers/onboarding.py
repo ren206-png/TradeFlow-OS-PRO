@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password
 from app.utils.phone import normalize_nanp
+from app.utils.timefmt import DEFAULT_TZ, timezone_for_phone
 from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, create_session_token
 
@@ -134,6 +135,7 @@ status_code=422,
         hashed_password=hashed_pw,
         phone_number=phone_number.strip(),
         owner_phone=normalize_nanp(phone_number.strip()) or phone_number.strip(),
+        timezone=timezone_for_phone(normalize_nanp(phone_number.strip())) or DEFAULT_TZ,
         trades=selected_trades,
         service_areas=areas,
         api_key=api_key,

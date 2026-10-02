@@ -23,12 +23,14 @@ from app.models.on_call_schedule import OnCallSchedule
 from app.services.estimate_followup import EstimateFollowupService
 from app.services.feature_flags import is_enabled
 from app.utils.phone import normalize_nanp
+from app.utils.timefmt import to_local
 from app.utils.sessions import SESSION_COOKIE, decode_session_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["local_dt"] = to_local
 
 
 async def require_contractor(
@@ -191,6 +193,7 @@ async def portal_lead_detail(
             "contractor_verified": contractor.is_verified,
             "active_nav": "leads",
             "lead": lead,
+            "tz": contractor.timezone,
             "estimate": estimate,
             "sentiment_emoji": sentiment_emoji,
             "back_url": "/portal/leads",
