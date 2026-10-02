@@ -141,3 +141,29 @@ async def test_two_connections_for_one_call_share_one_lead(db):
     assert count == 1
     lead = (await db.execute(select(Lead).where(Lead.call_id == "call_dup1"))).scalar_one()
     assert lead.caller_name == "Taylor Test" and lead.service_address == "123 Test St" and lead.phone == "+14035550142"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("areas,city,postal,expected", [
+    (["Edmonton, AB"], "Edmonton", "T5J 1A1", "inside"),        # "City, PROV" area vs plain city
+    (["Edmonton, AB"], "Edmonton, AB", "T5J 1A1", "inside"),
+    (["Calgary", "T2N"], "Banff", "T2N 1A1", "inside"),         # FSA match
+    (["Edmonton, AB"], "Calgary", "T2N 1A1", "outside"),
+])
+async def test_service_area_matching(areas, city, postal, expected):
+    from app.tools.validate_address import validate_service_area
+    contractor = _make_contractor()
+    contractor.service_areas = areas
+    result = await validate_service_area({"postal_zip": postal, "city": city}, {"contractor": contractor})
+    assert result["status"] == expected
+
+
+@pytest.mark.asyncio
+async def test_demo_line_accepts_any_address(monkeypatch):
+    from app.config import settings
+    from app.tools.validate_address import validate_service_area
+    contractor = _make_contractor()
+    contractor.service_areas = ["Demo City, CA"]
+    monkeypatch.setattr(settings, "demo_contractor_id", str(contractor.id))
+    result = await validate_service_area({"postal_zip": "T2N 1A1", "city": "Calgary"}, {"contractor": contractor})
+    assert result["status"] == "inside"
