@@ -9,8 +9,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.contractor import Contractor
+from app.utils import attribution
 from app.services.signup import create_account, email_problem, fire_signup_side_effects, normalize_email
 from app.utils.rate_limit import check_rate_limit
 from app.utils.sessions import SESSION_COOKIE, create_session_token
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["tiktok_pixel_id"] = settings.tiktok_pixel_id
 
 TRADES = ["Plumbing", "HVAC", "Electrical", "Heating", "Cooling", "General"]
 
@@ -126,6 +129,7 @@ status_code=422,
     contractor = await create_account(
         db, business_name=company_name, email=email, password=password, phone=phone_number,
         trades=selected_trades, service_areas=areas, agent_name=agent_name.strip(), diagnostic_fee=None,
+        attribution=attribution.read(request),
     )
     fire_signup_side_effects(
         contractor, ", ".join(selected_trades) if selected_trades else "General", phone_number.strip())

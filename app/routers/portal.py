@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import PLAN_LIMITS
+from app.config import PLAN_LIMITS, settings
 from app.database import get_db
 from app.utils.rate_limit import check_rate_limit
 from app.models.call import CallSession
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["tiktok_pixel_id"] = settings.tiktok_pixel_id
 templates.env.globals["local_dt"] = to_local
 
 
@@ -103,6 +104,7 @@ async def portal_leads(
             "active_nav": "leads",
             "leads": leads,
             "flash": flash,
+            "tiktok_event": "CompleteRegistration" if welcome == "1" else None,
             "search": search,
             "status_filter": status_filter,
         },

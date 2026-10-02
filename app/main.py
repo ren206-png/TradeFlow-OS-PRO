@@ -59,6 +59,7 @@ configure_logging(debug=settings.debug)
 logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["tiktok_pixel_id"] = settings.tiktok_pixel_id
 
 # Simple in-process cache for /api/public/metrics — keyed by 5-min bucket.
 # Avoids a DB hit on every marketing page load. Reset on process restart (acceptable).
@@ -227,6 +228,8 @@ async def landing_page(request: Request):
         "ff_live_metrics": settings.live_metrics,
         "ab_variant": ab_variant,
     })
+    from app.utils import attribution
+    attribution.capture(request, response)
     if not request.cookies.get(_VISITOR_COOKIE):
         response.set_cookie(_VISITOR_COOKIE, visitor_token, max_age=60 * 60 * 24 * 365, httponly=True, samesite="lax")
     return response
@@ -438,9 +441,35 @@ async def health():
 # Global exception handler (catches any unhandled exception and returns JSON)
 # ---------------------------------------------------------------------------
 
+_ERROR_ALERTS: dict[str, float] = {}
+_ERROR_ALERT_COOLDOWN = 3600  # same error at most once an hour
+_ERROR_ALERT_MAX_KEYS = 200
+
+
+def _alert_unhandled(request: Request, exc: Exception) -> None:
+    """Email the admin about a 500, deduplicated per route + exception type."""
+    import asyncio
+    import time
+    import traceback
+    key = f"{request.method} {request.url.path} {type(exc).__name__}"
+    now = time.time()
+    if now - _ERROR_ALERTS.get(key, 0) < _ERROR_ALERT_COOLDOWN:
+        return
+    if len(_ERROR_ALERTS) > _ERROR_ALERT_MAX_KEYS:
+        _ERROR_ALERTS.clear()
+    _ERROR_ALERTS[key] = now
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-1800:]
+    from app.services.notifications import notify_admin
+    try:
+        asyncio.get_running_loop().create_task(notify_admin(f"500 error: {key}", tb))
+    except RuntimeError:
+        pass
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    _alert_unhandled(request, exc)
     # Never expose internal exception details (table names, SQL, stack frames) in
     # production — they are an information-disclosure vulnerability.
     detail = str(exc) if settings.debug else "Internal server error"

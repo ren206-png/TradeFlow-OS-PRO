@@ -35,8 +35,37 @@ def owner_alert_phone(contractor) -> str | None:
     return getattr(contractor, "owner_phone", None) or cfg.get("owner_phone") or cfg.get("transfer_number") or None
 
 
+_EMAIL_DAY = {"day": "", "count": 0, "warned": False}
+EMAIL_DAILY_WARN = 400  # Gmail allows ~500 sends/day; past that the account is blocked for 24h
+
+
+def _count_email_sent() -> None:
+    """Track sends per UTC day and warn the admin once as Gmail's daily limit approaches."""
+    from datetime import datetime, timezone
+    today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    if _EMAIL_DAY["day"] != today:
+        _EMAIL_DAY.update(day=today, count=0, warned=False)
+    _EMAIL_DAY["count"] += 1
+    if _EMAIL_DAY["count"] >= EMAIL_DAILY_WARN and not _EMAIL_DAY["warned"]:
+        _EMAIL_DAY["warned"] = True
+        logger.warning("Email volume high: %d sent today", _EMAIL_DAY["count"])
+        to = settings.admin_alert_email or settings.smtp_user
+        if to:  # direct send; must not recurse into the counter
+            _send_email_raw(to, "[TradeFlow] Email sending is near Gmail's daily limit",
+                            f"<p>{_EMAIL_DAY['count']} emails sent today (UTC). Gmail blocks at about 500. "
+                            "Move to a transactional provider (Resend, Postmark).</p>",
+                            f"{_EMAIL_DAY['count']} emails sent today. Gmail blocks at about 500.")
+
+
 def _send_email(to: str, subject: str, html: str, text: str) -> bool:
     """Send an email via SMTP. Returns True on success."""
+    ok = _send_email_raw(to, subject, html, text)
+    if ok:
+        _count_email_sent()
+    return ok
+
+
+def _send_email_raw(to: str, subject: str, html: str, text: str) -> bool:
     if not is_deliverable_address(to):
         logger.info("Email skipped — undeliverable address | to=%s subject=%s", to, subject)
         return False

@@ -14,6 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password, needs_rehash, verify_password
+from app.utils import attribution
 from app.services.signup import (
     confirm_email, create_account, email_problem, fire_signup_side_effects, normalize_email,
 )
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["tiktok_pixel_id"] = settings.tiktok_pixel_id
 
 _RESET_TOKEN_TTL_HOURS = 1
 
@@ -131,7 +133,7 @@ status_code=400,
 
     contractor = await create_account(
         db, business_name=business_name, email=email, password=password, phone=phone,
-        trades=[trade], service_areas=[service_area],
+        trades=[trade], service_areas=[service_area], attribution=attribution.read(request),
     )
     contractor_id = str(contractor.id)
     logger.info("New signup: contractor=%s email=%s (awaiting email verification)", contractor.name, email)

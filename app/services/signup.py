@@ -73,7 +73,7 @@ def verify_url(contractor_id: str, email: str) -> str:
 async def create_account(
     db: AsyncSession, *, business_name: str, email: str, password: str, phone: str,
     trades: list[str], service_areas: list[str], agent_name: str = "Alex",
-    diagnostic_fee: float | None = 89.0,
+    diagnostic_fee: float | None = 89.0, attribution: dict | None = None,
 ) -> Contractor:
     """Create the contractor (committed). Caller has validated input and email uniqueness."""
     owner_phone = normalize_nanp(phone) or phone.strip()
@@ -90,6 +90,7 @@ async def create_account(
         owner_phone=owner_phone,
         timezone=timezone_for_phone(normalize_nanp(phone)) or DEFAULT_TZ,
         provisioning_status="awaiting_verification",
+        attribution=attribution,
         is_active=True,
         is_verified=False,
         plan="starter",
@@ -107,12 +108,9 @@ async def create_account(
 
 def fire_signup_side_effects(contractor: Contractor, trade: str, phone: str) -> None:
     """Welcome email with the verify link, plus the Mailchimp subscription (fire-and-forget)."""
-    from app.services.mailchimp import subscribe_contractor
     from app.services.welcome import send_welcome_email
     asyncio.create_task(send_welcome_email(contractor.email, contractor.name,
                                            verify_url(str(contractor.id), contractor.email)))
-    asyncio.create_task(subscribe_contractor(email=contractor.email, first_name=contractor.name,
-                                             trade=trade, phone=phone, plan="starter"))
 
 
 async def confirm_email(db: AsyncSession, token: str) -> Contractor | None:
@@ -132,6 +130,11 @@ async def confirm_email(db: AsyncSession, token: str) -> Contractor | None:
         contractor.email_verified_at = datetime.now(tz=timezone.utc)
         contractor.is_verified = True
         await db.commit()
+        # Drip sequence starts only for confirmed, real addresses (keeps bots out of the audience)
+        from app.services.mailchimp import subscribe_contractor
+        asyncio.create_task(subscribe_contractor(
+            email=contractor.email, first_name=contractor.name,
+            trade=", ".join(contractor.trades or []) or "General", phone=contractor.owner_phone or "", plan="starter"))
     if contractor.provisioning_status in ("awaiting_verification", "queued", "failed"):
         from app.services.provisioning import provision_contractor_by_id
         asyncio.create_task(provision_contractor_by_id(str(contractor.id)))
