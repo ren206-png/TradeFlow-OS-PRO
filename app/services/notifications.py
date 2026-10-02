@@ -65,10 +65,31 @@ def _send_email(to: str, subject: str, html: str, text: str) -> bool:
     return ok
 
 
+def _send_via_resend(to: str, subject: str, html: str, text: str) -> bool:
+    """Send through Resend's HTTP API. False on any failure so the caller can fall back to SMTP."""
+    import httpx
+    payload = {"from": settings.resend_from, "to": [to], "subject": subject, "html": html, "text": text}
+    if settings.resend_reply_to:
+        payload["reply_to"] = settings.resend_reply_to
+    try:
+        resp = httpx.post("https://api.resend.com/emails", json=payload, timeout=10,
+                          headers={"Authorization": f"Bearer {settings.resend_api_key}"})
+        if resp.status_code >= 300:
+            logger.error("Resend rejected email | to=%s status=%s body=%s", to, resp.status_code, resp.text[:200])
+            return False
+        logger.info("Email sent via Resend | to=%s subject=%s", to, subject)
+        return True
+    except Exception as exc:
+        logger.error("Resend send failed | to=%s error=%s", to, exc)
+        return False
+
+
 def _send_email_raw(to: str, subject: str, html: str, text: str) -> bool:
     if not is_deliverable_address(to):
         logger.info("Email skipped — undeliverable address | to=%s subject=%s", to, subject)
         return False
+    if settings.resend_api_key and _send_via_resend(to, subject, html, text):
+        return True
     if not _smtp_enabled():
         logger.debug("SMTP not configured — skipping email to %s", to)
         return False

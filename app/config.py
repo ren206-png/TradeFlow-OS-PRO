@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = "noreply@tradesflowos.com"
+    # Resend (transactional email). When set it is used first; SMTP stays as the fallback.
+    resend_api_key: str = ""
+    resend_from: str = "TradeFlow <hello@tradesflowos.com>"  # must be on a domain verified in Resend
+    resend_reply_to: str = ""
 
     # Mailchimp — optional, drip emails disabled if empty
     mailchimp_api_key: str = ""

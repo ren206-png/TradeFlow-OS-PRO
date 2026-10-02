@@ -75,3 +75,24 @@ async def test_500_alerts_admin_once_per_error():
         import asyncio
         await asyncio.sleep(0.05)
     assert alert.await_count == 1
+
+
+def test_resend_used_first_then_smtp_fallback(monkeypatch):
+    monkeypatch.setattr(notifications.settings, "resend_api_key", "re_test")
+    calls = {}
+
+    class Resp:
+        status_code = 200
+        text = ""
+
+    def fake_post(url, json, headers, timeout):
+        calls["url"], calls["json"] = url, json
+        return Resp()
+
+    monkeypatch.setattr("httpx.post", fake_post)
+    assert notifications._send_email_raw("a@acme.ca", "Hi", "<p>x</p>", "x") is True
+    assert calls["url"] == "https://api.resend.com/emails" and calls["json"]["to"] == ["a@acme.ca"]
+
+    Resp.status_code = 403  # e.g. unverified domain -> falls through to SMTP (not configured here)
+    monkeypatch.setattr(notifications, "_smtp_enabled", lambda: False)
+    assert notifications._send_email_raw("a@acme.ca", "Hi", "<p>x</p>", "x") is False
