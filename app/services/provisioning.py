@@ -153,9 +153,10 @@ async def provision_contractor(contractor, db: AsyncSession, *, reuse_agent: boo
             "response_engine": {"type": "custom-llm", "llm_websocket_url": LLM_WEBSOCKET_URL},
             # call_started / call_ended / call_analyzed events: without this, calls are never finalised or summarised
             "webhook_url": CALL_EVENTS_WEBHOOK_URL,
-            # Multilingual mode: switch voice and language when flag is on.
-            "voice_id": settings.multilang_voice_id if settings.multilang_enabled else DEFAULT_VOICE_ID,
-            "language": "multi" if settings.multilang_enabled else "en-US",
+            # Same voice/language as every live agent. (The multilang voice id isn't available on our Retell
+            # account: with MULTILANG_ENABLED=true in production, create-agent returned 404 for every signup.)
+            "voice_id": DEFAULT_VOICE_ID,
+            "language": "en-US",
             "boosted_keywords": contractor.trades or [],
             "end_call_after_silence_ms": 30000,
             "max_call_duration_ms": 1800000,  # 30 min

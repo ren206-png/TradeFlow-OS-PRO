@@ -233,7 +233,8 @@ class RetellClient:
                 headers=_headers(),
                 timeout=10.0,
             )
-            response.raise_for_status()
+            if response.status_code >= 400:
+                raise RuntimeError(f"Retell create-agent {response.status_code}: {response.text[:150]}")
             return response.json()
 
     async def update_agent(self, agent_id: str, agent_config: dict) -> dict:
