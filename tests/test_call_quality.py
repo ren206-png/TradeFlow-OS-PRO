@@ -188,3 +188,26 @@ async def test_end_call_tool_flags_the_call_for_hangup():
     ctx = {}
     result = await execute_tool("end_call", {}, ctx)
     assert result["success"] and ctx["end_call"] is True
+
+
+@pytest.mark.asyncio
+async def test_owner_is_alerted_once_per_lead_and_booking_replaces_the_new_lead_alert():
+    from types import SimpleNamespace
+    from app.services import notifications
+
+    contractor = SimpleNamespace(id=uuid.uuid4(), name="Summit", phone_number="+15875550100",
+                                 owner_phone="+14035550122", calendar_config={}, email=None, timezone="America/Edmonton")
+    mk = lambda: SimpleNamespace(id=uuid.uuid4(), caller_name="Jamie", phone="+18075550000", trade="plumbing",
+                                 problem_summary="Leak", appointment_status="new", priority_level="low",
+                                 service_address="1 Main", city="Calgary", appointment_time=None)
+    sent = []
+    async def fake_send(self, to, body, kind):
+        sent.append(kind)
+    with patch("app.services.sms.SMSService._send_async", fake_send):
+        lead = mk()
+        await notifications.notify_new_lead(contractor, lead)
+        await notifications.notify_new_lead(contractor, lead)        # update of the same lead: no second alert
+        booked = mk()
+        await notifications.notify_appointment_booked(contractor, booked)
+        await notifications.notify_new_lead(contractor, booked)      # booking already alerted the owner
+    assert sent == ["new_lead", "appointment_booked"]

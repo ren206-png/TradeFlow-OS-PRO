@@ -36,7 +36,7 @@ from app.database import Base  # noqa: E402
 from app.models.call import CallSession  # noqa: E402
 from app.models.contractor import Contractor  # noqa: E402
 from app.models.lead import Lead  # noqa: E402
-from app.routers.retell import _pending_transfers, _should_end_call  # noqa: E402
+from app.routers.retell import _caller_said_goodbye, _pending_transfers, _should_end_call  # noqa: E402
 from app.services.claude_agent import ClaudeAgent  # noqa: E402
 from app.services.triage import LIFE_SAFETY_RESPONSE, classify_life_safety  # noqa: E402
 
@@ -89,8 +89,10 @@ SCENARIOS = [
             ("lead has service address", lambda r: r.lead is not None and _has(r.lead.service_address)),
             ("appointment booked", lambda r: r.lead is not None and r.lead.appointment_status == "booked"),
             ("owner got new-lead or booking text", lambda r: r.sms_to(OWNER_MOBILE)),
+            ("owner alerted exactly once", lambda r: sum(to == OWNER_MOBILE for to, _ in r.sms) == 1),
             ("no text sent to the AI line", lambda r: not r.sms_to("+15875550100")),
-            ("agent hangs up after the goodbye", lambda r: r.ended_by == "agent"),
+            ("agent hangs up after the goodbye", lambda r: r.ended_by in ("agent", "caller")
+                and not any("standing by" in t.lower() or "next call" in t.lower() for who, t in r.transcript if who == "agent")),
             ("reads details back to the caller", lambda r: any(
                 "right?" in t.lower() or "correct?" in t.lower() or "is that" in t.lower()
                 for who, t in r.transcript if who == "agent")),
@@ -246,12 +248,19 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
                     res.transfer_to = transfer
                     res.ended_by = "transfer"
                     break
-                if _should_end_call(agent) or agent._tool_context.pop("end_call", False):
+                if (_should_end_call(agent) or agent._tool_context.pop("end_call", False)
+                        or _caller_said_goodbye(said, agent)):
                     res.ended_by = "agent"
                     break
             else:
                 res.ended_by = "max_turns"
 
+            await db.commit()
+            # What the call_ended webhook does: finalise the session and send the owner's end-of-call alert.
+            from app.routers.retell import _ensure_partial_lead, _finalise_session
+            info = {"direction": "inbound", "from_number": CALLER_PHONE, "start_timestamp": 1_790_000_000_000, "end_timestamp": 1_790_000_060_000}
+            await _ensure_partial_lead(call_id, info, db)
+            await _finalise_session(call_id, info, db)
             await db.commit()
             await asyncio.sleep(1.5)  # let fire-and-forget notifications finish
             pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]

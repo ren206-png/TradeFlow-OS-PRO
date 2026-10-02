@@ -12,6 +12,15 @@ from app.services.notifications import notify_new_lead
 from app.utils.phone import normalize_nanp
 
 
+def _is_urgent(lead: Lead) -> bool:
+    emergency = str(lead.emergency_level or "").lower()
+    return (
+        str(lead.priority_level or "").lower() in {"critical", "high", "urgent", "emergency"}
+        or bool(lead.life_safety_risk)
+        or (emergency not in {"", "none", "low", "standard"})
+    )
+
+
 async def resolve_call_lead(db: AsyncSession, call_session) -> Lead | None:
     """This call's lead, if any. Looks up by call id too: Retell can hold several WebSocket connections
     for one call, each with its own CallSession object, so call_session.lead_id may be stale."""
@@ -101,7 +110,8 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
     await db.flush()
 
     # Fire-and-forget: notify contractor of new lead
-    asyncio.ensure_future(notify_new_lead(contractor, lead))
+    if _is_urgent(lead):
+        asyncio.ensure_future(notify_new_lead(contractor, lead))   # emergencies alert the owner right away
 
     # Fire-and-forget: push lead to FSM if enabled
     if settings.fsm_sync and contractor.fsm_sync_enabled:

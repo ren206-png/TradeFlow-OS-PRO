@@ -1000,6 +1000,12 @@ async def _finalise_session(call_id: str, call_info: dict, db: AsyncSession) -> 
             if call_info.get("transcript"):
                 lead.raw_transcript = call_info["transcript"]
 
+    # One owner alert per call, with the final details (deduped: bookings/urgent/partial leads already alerted)
+    if lead is not None and _contractor is not None and lead.lead_source != "retell_partial_call":
+        import asyncio as _asyncio
+        from app.services.notifications import notify_new_lead
+        _asyncio.create_task(notify_new_lead(_contractor, lead))
+
     # Quality scoring — runs for every call (lead may be None for very short calls)
     try:
         from app.services.quality import score_call

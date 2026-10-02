@@ -68,11 +68,28 @@ def _send_email(to: str, subject: str, html: str, text: str) -> bool:
         return False
 
 
+# Leads the owner has already been alerted about (process-local; one alert per lead per deploy).
+_ALERTED_LEADS: set[str] = set()
+
+
+def _first_alert(lead) -> bool:
+    """True the first time this lead is alerted; later calls (updates, retries) return False."""
+    key = str(lead.id)
+    if key in _ALERTED_LEADS:
+        return False
+    if len(_ALERTED_LEADS) > 20000:
+        _ALERTED_LEADS.clear()
+    _ALERTED_LEADS.add(key)
+    return True
+
+
 async def notify_new_lead(contractor, lead) -> None:
     """
     Fire-and-forget: notify a contractor about a new lead via SMS + email.
-    Called right after a lead record is created/updated.
+    Sends at most once per lead; a booking alert counts as the alert.
     """
+    if not _first_alert(lead):
+        return
     # ── Build message content ────────────────────────────────────────
     name = lead.caller_name or "Unknown Caller"
     phone = lead.phone or "—"
@@ -332,6 +349,7 @@ async def send_daily_digest_email(contractor, stats: dict, report_date) -> None:
 
 async def notify_appointment_booked(contractor, lead) -> None:
     """Notify contractor when an appointment is booked."""
+    _ALERTED_LEADS.add(str(lead.id))  # the booking alert replaces the generic new-lead alert
     name = lead.caller_name or "Unknown Caller"
     phone = lead.phone or "—"
     trade = (lead.trade or "General").title()
