@@ -23,3 +23,19 @@ def test_api_docs_are_hidden_unless_debug():
     if not settings.debug:
         for path in ("/docs", "/redoc", "/openapi.json"):
             assert client.get(path).status_code == 404
+
+
+def test_www_redirects_to_the_bare_domain_keeping_path_and_query():
+    client = TestClient(app, base_url="http://www.tradesflowos.com")
+    r = client.get("/privacy?ref=nav", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "https://tradesflowos.com/privacy?ref=nav"
+    assert r.headers["strict-transport-security"].startswith("max-age=")          # security headers still apply
+
+    post = client.post("/auth/login", data={"email": "a@b.com"}, follow_redirects=False)
+    assert post.status_code == 308 and post.headers["location"] == "https://tradesflowos.com/auth/login"
+
+
+def test_bare_domain_and_api_host_are_not_redirected():
+    assert TestClient(app, base_url="http://tradesflowos.com").get("/health", follow_redirects=False).status_code == 200
+    assert TestClient(app, base_url="http://api.tradesflowos.com").get("/health", follow_redirects=False).status_code == 200

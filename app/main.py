@@ -134,6 +134,17 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def www_redirect_middleware(request: Request, call_next):
+    """Serve one canonical host: www.tradesflowos.com -> tradesflowos.com (same path and query)."""
+    host = request.headers.get("host", "").split(":")[0].lower()
+    if host.startswith("www."):
+        target = request.url.replace(scheme="https", netloc=host[4:])
+        # 301 for page loads; 308 keeps the method/body for anything else
+        return RedirectResponse(str(target), status_code=301 if request.method in ("GET", "HEAD") else 308)
+    return await call_next(request)
+
+
 _SECURITY_HEADERS = {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Content-Type-Options": "nosniff",
