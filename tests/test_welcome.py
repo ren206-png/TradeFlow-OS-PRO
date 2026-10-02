@@ -10,10 +10,10 @@ from app.services.welcome import build_subscription_thanks_email, build_welcome_
 
 
 def test_welcome_email_content_and_escaping():
-    subject, html_body, text = build_welcome_email("<b>Summit</b> Plumbing")
-    assert "Welcome to TradeFlow" in subject
+    subject, html_body, text = build_welcome_email("<b>Summit</b> Plumbing", "https://tradesflowos.com/auth/verify-email?token=t")
+    assert "Confirm your email" in subject
     assert "&lt;b&gt;Summit&lt;/b&gt;" in html_body and "<b>Summit</b>" not in html_body
-    assert "https://tradesflowos.com/portal/leads" in html_body and "portal/leads" in text
+    assert "auth/verify-email?token=t" in html_body and "auth/verify-email?token=t" in text
 
 
 def test_thanks_email_names_plan():
@@ -39,7 +39,7 @@ async def test_send_welcome_uses_smtp_helper():
     with patch.object(welcome, "_send_email", return_value=True) as send:
         assert await welcome.send_welcome_email("owner@example.com", "Summit") is True
     to, subject, _, _ = send.call_args.args
-    assert to == "owner@example.com" and "Welcome" in subject
+    assert to == "owner@example.com" and "Confirm your email" in subject
 
 
 @pytest.mark.asyncio

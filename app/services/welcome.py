@@ -32,34 +32,20 @@ def _button(url: str, label: str) -> str:
 
 
 def build_welcome_email(business_name: str, verify_url: str = "") -> tuple[str, str, str]:
+    """Confirm-your-email message (the Mailchimp drip does the welcoming; the number-ready email does the onboarding)."""
     name = html.escape(business_name or "there")
-    subject = "Welcome to TradeFlow — confirm your email to get your AI number"
-    verify_block = (
-        f"<p><strong>First, confirm your email</strong> so we can set up your dedicated AI phone number (the link is valid for 7 days):</p>"
-        f"{_button(verify_url, 'Confirm my email')}" if verify_url else "")
+    subject = "Confirm your email to activate your TradeFlow AI number"
+    button = _button(verify_url, "Confirm my email") if verify_url else ""
     body = f"""<p>Hi {name},</p>
-<p>Thanks for signing up.</p>
-{verify_block}
-<p>Once confirmed, your dedicated phone number appears in your portal within a few minutes.</p>
-<p><strong>Three steps to get your first booked job:</strong></p>
-<ol>
-  <li><strong>Grab your AI number</strong> from the portal and forward your business line to it after hours (or all the time).</li>
-  <li><strong>Add your booking link and Google review link</strong> in Settings so the assistant can send them to customers.</li>
-  <li><strong>Call your AI number yourself</strong> to hear exactly what your customers will hear.</li>
-</ol>
-{_button(PORTAL_URL, "Open my portal")}
-<p>Every call is answered 24/7, qualified, and saved as a lead you can review from your phone.</p>"""
+<p>Please confirm your email so we can set up your dedicated AI phone number. The link is valid for 7 days.</p>
+{button}
+<p>Your number appears in your portal within a few minutes of confirming.</p>"""
     text = (f"Hi {business_name or 'there'},\n\n"
-            "Thanks for signing up.\n"
-            + (f"Confirm your email to get your AI number: {verify_url}\n" if verify_url else "")
-            + "Once confirmed, your phone number appears in your portal within a few minutes.\n\n"
-            "Three steps to your first booked job:\n"
-            "1. Grab your AI number from the portal and forward your business line to it.\n"
-            "2. Add your booking link and Google review link in Settings.\n"
-            "3. Call your AI number yourself to hear what customers hear.\n\n"
-            f"Open your portal: {PORTAL_URL}\n\n"
+            "Please confirm your email so we can set up your dedicated AI phone number (link valid for 7 days):\n"
+            + (f"{verify_url}\n\n" if verify_url else "\n")
+            + "Your number appears in your portal within a few minutes of confirming.\n\n"
             "Questions? Just reply to this email.\n— The TradeFlow team")
-    return subject, _wrap("Welcome to TradeFlow 👋", body), text
+    return subject, _wrap("Confirm your email", body), text
 
 
 def build_subscription_thanks_email(business_name: str, plan: str) -> tuple[str, str, str]:
@@ -96,7 +82,12 @@ def build_number_ready_email(business_name: str, phone_number: str) -> tuple[str
     body = f"""<p>Hi {name},</p>
 <p>Your AI receptionist is live. Your dedicated number is:</p>
 <p style="font-size:24px;font-weight:700;margin:12px 0">{shown}</p>
-<p>Call it yourself to hear what customers will hear, then forward your business line to it (see the setup page in your portal for steps).</p>
+<p><strong>Three steps to your first booked job:</strong></p>
+<ol>
+  <li><strong>Call your AI number yourself</strong> to hear exactly what your customers will hear.</li>
+  <li><strong>Forward your business line to it</strong> after hours (or all the time). The Setup page in your portal has the steps for your carrier.</li>
+  <li><strong>Add your booking link and Google review link</strong> in Settings so the assistant can send them to customers.</li>
+</ol>
 {_button(PORTAL_URL, "Open my portal")}"""
     text = (f"Hi {business_name or 'there'},\n\nYour AI receptionist is live. Your number: {format_display(phone_number)}\n"
             f"Call it yourself, then forward your business line to it.\nPortal: {PORTAL_URL}\n— The TradeFlow team")
