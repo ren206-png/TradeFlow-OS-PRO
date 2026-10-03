@@ -208,7 +208,7 @@ app.include_router(surge_portal_router.router)     # Phase 6: surge portal API
 _VISITOR_COOKIE = "tf_visitor"
 
 
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse, include_in_schema=False)
 async def landing_page(request: Request):
     visitor_token = request.cookies.get(_VISITOR_COOKIE)
     if not visitor_token:
@@ -414,7 +414,7 @@ async def public_metrics():
         return JSONResponse({"live": False, "error": "metrics unavailable"}, status_code=503)
 
 
-@app.get("/health", tags=["health"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["health"])
 async def health():
     from app.database import get_db as _get_db
     db_ok = False

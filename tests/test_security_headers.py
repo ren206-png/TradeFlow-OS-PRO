@@ -39,3 +39,9 @@ def test_www_redirects_to_the_bare_domain_keeping_path_and_query():
 def test_bare_domain_and_api_host_are_not_redirected():
     assert TestClient(app, base_url="http://tradesflowos.com").get("/health", follow_redirects=False).status_code == 200
     assert TestClient(app, base_url="http://api.tradesflowos.com").get("/health", follow_redirects=False).status_code == 200
+
+
+def test_head_requests_work_for_uptime_monitors():
+    client = TestClient(app)
+    for path in ("/", "/health"):
+        assert client.head(path).status_code in (200, 503)
