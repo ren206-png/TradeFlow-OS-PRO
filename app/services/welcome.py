@@ -103,6 +103,30 @@ async def send_number_ready_email(email: str, business_name: str, phone_number: 
     return ok
 
 
+def build_trial_ending_email(business_name: str, days_left: int) -> tuple[str, str, str]:
+    name = html.escape(business_name or "there")
+    when = "tomorrow" if days_left <= 1 else f"in {days_left} days"
+    subject = f"Your TradeFlow free trial ends {when}"
+    url = "https://tradesflowos.com/portal/subscribe?plan=starter"
+    body = f"""<p>Hi {name},</p>
+<p>Your 14-day free trial ends {when}. After that your AI receptionist stops answering calls until you subscribe.</p>
+<p>Starter is <strong>$5.99/month</strong> (100 calls, 200 texts) and Pro is $97/month. Add a card now and you are not charged until the trial ends.</p>
+{_button(url, "Keep my AI receptionist")}"""
+    text = (f"Hi {business_name or 'there'},\n\nYour 14-day free trial ends {when}. After that your AI receptionist stops "
+            "answering calls until you subscribe.\nStarter is $5.99/month, Pro is $97/month. Add a card now and you are not "
+            f"charged until the trial ends:\n{url}\n— The TradeFlow team")
+    return subject, _wrap("Your free trial is ending", body), text
+
+
+async def send_trial_ending_email(email: str, business_name: str, days_left: int) -> bool:
+    if not email:
+        return False
+    subject, html_body, text = build_trial_ending_email(business_name, days_left)
+    ok = await asyncio.to_thread(_send_email, email, subject, html_body, text)
+    logger.info("trial-ending email %s | to=%s days_left=%s", "sent" if ok else "not sent", email, days_left)
+    return ok
+
+
 async def send_subscription_thanks_email(email: str, business_name: str, plan: str) -> bool:
     if not email:
         return False

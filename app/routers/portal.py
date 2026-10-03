@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import PLAN_LIMITS, settings
+from app.services.billing import trial_days_left, trial_expired
 from app.database import get_db
 from app.utils.rate_limit import check_rate_limit
 from app.models.call import CallSession
@@ -68,6 +69,7 @@ async def portal_leads(
     db: AsyncSession = Depends(get_db),
     welcome: Optional[str] = None,
     verified: Optional[str] = None,
+    subscribed: Optional[str] = None,
     search: Optional[str] = Query(None),
     status_filter: Optional[str] = Query(None),
 ):
@@ -92,6 +94,8 @@ async def portal_leads(
     leads = result.scalars().all()
 
     flash = "Welcome to TradeFlow! Your account is ready." if welcome == "1" else None
+    if subscribed == "1":
+        flash = "Thanks for subscribing. Your card is saved and you will be billed when your free trial ends."
     if verified == "1":
         flash = "Email confirmed. We're setting up your AI number now."
 
@@ -105,10 +109,27 @@ async def portal_leads(
             "leads": leads,
             "flash": flash,
             "tiktok_event": "CompleteRegistration" if welcome == "1" else None,
+            "trial_days_left": trial_days_left(contractor),
+            "trial_expired": trial_expired(contractor),
             "search": search,
             "status_filter": status_filter,
         },
 )
+
+
+@router.get("/subscribe")
+async def portal_subscribe(
+    plan: str = "starter",
+    contractor: Contractor = Depends(require_contractor),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send the logged-in owner to Stripe Checkout (card now, charged when the free trial ends)."""
+    if contractor is None:
+        return RedirectResponse(url="/auth/login", status_code=302)
+    from app.routers.billing import create_checkout_url
+    url = await create_checkout_url(contractor, plan if plan in ("starter", "pro") else "starter", db)
+    await db.commit()
+    return RedirectResponse(url=url or "/portal/leads", status_code=303)
 
 
 @router.post("/resend-verification")

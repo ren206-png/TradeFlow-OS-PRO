@@ -37,6 +37,14 @@ def start_scheduler() -> None:
             id="provisioning_retry",
             replace_existing=True,
         )
+        _scheduler.add_job(
+            _trial_reminder_job,
+            trigger="cron",
+            hour=15,
+            minute=0,
+            id="trial_reminders",
+            replace_existing=True,
+        )
         logger.info("APScheduler started. Daily digest scheduled at 08:00 UTC.")
         # Phase 6: Weather surge polling + expiry — every 30 minutes when flag ON
         if settings.weather_surge_mode:
@@ -873,3 +881,32 @@ async def _provisioning_retry_job() -> None:
             logger.info("Provisioning retry: attempted %d account(s)", tried)
     except Exception as exc:
         logger.error("Provisioning retry job failed: %s", exc)
+
+
+async def _trial_reminder_job() -> None:
+    """Email owners whose unpaid trial ends within 3 days (once each)."""
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+    from app.database import async_session_factory
+    from app.models.contractor import Contractor
+    from app.services.billing import trial_days_left
+    from app.services.welcome import send_trial_ending_email
+    now = datetime.now(tz=timezone.utc)
+    try:
+        async with async_session_factory() as db:
+            rows = (await db.execute(select(Contractor).where(
+                Contractor.trial_ends_at.isnot(None),
+                Contractor.trial_ends_at > now,
+                Contractor.trial_ends_at <= now + timedelta(days=3),
+                Contractor.trial_reminder_sent_at.is_(None),
+                Contractor.email.isnot(None),
+            ))).scalars().all()
+            for c in rows:
+                days = trial_days_left(c)
+                if days is None:  # already subscribed
+                    continue
+                if await send_trial_ending_email(c.email, c.name, days):
+                    c.trial_reminder_sent_at = now
+            await db.commit()
+    except Exception as exc:
+        logger.error("Trial reminder job failed: %s", exc)

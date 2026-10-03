@@ -5,6 +5,7 @@
 {% block content %}
 
 {% include "_provisioning_banner.html" %}
+{% include "_trial_banner.html" %}
 
 {% if contractor and contractor.provisioning_status == 'active' and contractor.phone_number %}
 <div class="mb-4 rounded-2xl overflow-hidden shadow-sm" style="background: linear-gradient(135deg, #1e40af 0%, #2563eb 60%, #3b82f6 100%);">

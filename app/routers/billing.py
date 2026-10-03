@@ -26,6 +26,55 @@ _STRIPE_BASE = "https://api.stripe.com/v1"
 # POST /billing/create-checkout
 # ---------------------------------------------------------------------------
 
+def _checkout_trial_fields(contractor) -> dict:
+    """Carry the remaining free trial into Checkout so a card is captured now but charged at trial end."""
+    from datetime import datetime, timezone
+    ends = contractor.trial_ends_at
+    if ends is None:
+        return {}
+    if ends.tzinfo is None:
+        ends = ends.replace(tzinfo=timezone.utc)
+    if (ends - datetime.now(tz=timezone.utc)).total_seconds() < 49 * 3600:
+        return {}
+    return {"subscription_data[trial_end]": str(int(ends.timestamp()))}
+
+
+async def create_checkout_url(contractor, plan: str, db) -> str | None:
+    """Stripe Checkout URL for a plan, or None if Stripe isn't configured or errors. Used by the portal."""
+    if not settings.stripe_secret_key or plan not in PLAN_LIMITS:
+        return None
+    price_id = {
+        "starter": settings.stripe_starter_price_id or PLAN_LIMITS["starter"]["price_id"],
+        "pro": settings.stripe_pro_price_id or PLAN_LIMITS["pro"]["price_id"],
+    }.get(plan)
+    if not price_id:
+        return None
+    billing = BillingService()
+    if not contractor.stripe_customer_id:
+        await billing.create_customer(contractor)
+        await db.flush()
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{_STRIPE_BASE}/checkout/sessions",
+            headers={"Authorization": f"Bearer {settings.stripe_secret_key}"},
+            data={
+                "customer": contractor.stripe_customer_id,
+                "mode": "subscription",
+                "line_items[0][price]": price_id,
+                "line_items[0][quantity]": "1",
+                "success_url": "https://tradesflowos.com/portal/leads?subscribed=1",
+                "cancel_url": "https://tradesflowos.com/portal/leads",
+                "metadata[contractor_id]": str(contractor.id),
+                "metadata[plan]": plan,
+                **_checkout_trial_fields(contractor),
+            },
+        )
+    if resp.status_code != 200:
+        logger.error("Stripe checkout error: %s", resp.text[:300])
+        return None
+    return resp.json().get("url")
+
+
 @router.post("/create-checkout")
 async def create_checkout(
     request: Request,
@@ -69,6 +118,7 @@ async def create_checkout(
                 "cancel_url": "https://tradesflowos.com/portal/settings",
                 "metadata[contractor_id]": str(contractor.id),
                 "metadata[plan]": plan,
+                **_checkout_trial_fields(contractor),
             },
         )
         try:
@@ -115,6 +165,7 @@ async def billing_upgrade(
                 "cancel_url": "https://tradesflowos.com/portal/settings",
                 "metadata[contractor_id]": str(contractor.id),
                 "metadata[plan]": "pro",
+                **_checkout_trial_fields(contractor),
             },
         )
         if resp.status_code != 200:

@@ -171,6 +171,22 @@ async def llm_websocket(
                 }))
                 return
 
+        # Free trial over and no subscription: answer politely and end (demo and legacy accounts never expire)
+        from app.services.billing import trial_expired
+        if trial_expired(contractor) and not is_demo_call(str(contractor.id)):
+            logger.warning("Call blocked, trial expired | contractor=%s", contractor.name)
+            await websocket.send_text(json.dumps({
+                "response_type": "response",
+                "response_id": 0,
+                "content": (
+                    "Thank you for calling. This business's AI receptionist is currently unavailable. "
+                    "Please contact the business directly. Goodbye."
+                ),
+                "content_complete": True,
+                "end_call": True,
+            }))
+            return
+
         # Check monthly call limit before starting the session
         usage = await BillingService().check_usage_limit(contractor, "calls")
         if not usage["allowed"]:

@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 #   PLAN_STARTER_CALLS=20  PLAN_STARTER_SMS=50
 #   PLAN_PRO_CALLS=300     PLAN_PRO_SMS=600
 # ---------------------------------------------------------------------------
+TRIAL_DAYS = 14
+
 PLAN_LIMITS = {
     "starter": {
         "calls":          int(os.environ.get("PLAN_STARTER_CALLS", 100)),

@@ -1,0 +1,14 @@
+{% if trial_expired %}
+<div class="mb-4 rounded-2xl p-4 border border-red-200 bg-red-50 text-red-900" id="trial-banner">
+  <p class="font-semibold">Your free trial has ended</p>
+  <p class="text-sm mt-1">Your AI receptionist is paused and callers hear that it is unavailable. Subscribe to switch it back on.</p>
+  <a href="/portal/subscribe?plan=starter" class="inline-block mt-3 bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Subscribe from $5.99/mo</a>
+</div>
+{% elif trial_days_left is not none %}
+<div class="mb-4 rounded-2xl p-4 border border-blue-200 bg-blue-50 text-blue-900" id="trial-banner">
+  <p class="font-semibold">Free trial: {{ trial_days_left }} day{{ '' if trial_days_left == 1 else 's' }} left</p>
+  <p class="text-sm mt-1">Add a card now and you will not be charged until the trial ends. Starter is $5.99/mo; Pro is $97/mo.</p>
+  <a href="/portal/subscribe?plan=starter" class="inline-block mt-3 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Choose Starter $5.99/mo</a>
+  <a href="/portal/subscribe?plan=pro" class="inline-block mt-3 ml-2 text-sm font-semibold underline">or Pro $97/mo</a>
+</div>
+{% endif %}

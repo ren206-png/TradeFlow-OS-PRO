@@ -16,6 +16,29 @@ logger = logging.getLogger(__name__)
 _STRIPE_BASE = "https://api.stripe.com/v1"
 
 
+def trial_expired(contractor) -> bool:
+    """True when a free trial has run out and there is no paid subscription. Accounts without a trial date never expire."""
+    from datetime import datetime, timezone
+    ends = getattr(contractor, "trial_ends_at", None)
+    if ends is None or (contractor.subscription_status or "trial") in ("active", "trialing", "past_due"):
+        return False  # past_due keeps service while Stripe retries the payment
+    if ends.tzinfo is None:
+        ends = ends.replace(tzinfo=timezone.utc)
+    return ends < datetime.now(tz=timezone.utc)
+
+
+def trial_days_left(contractor) -> int | None:
+    """Whole days left in an unpaid trial, or None when not on a trial."""
+    from datetime import datetime, timezone
+    ends = getattr(contractor, "trial_ends_at", None)
+    if ends is None or (contractor.subscription_status or "trial") in ("active", "trialing", "cancelled", "canceled"):
+        return None
+    if ends.tzinfo is None:
+        ends = ends.replace(tzinfo=timezone.utc)
+    import math
+    return max(0, math.ceil((ends - datetime.now(tz=timezone.utc)).total_seconds() / 86400))
+
+
 class BillingService:
     """Stripe billing integration using raw httpx calls."""
 

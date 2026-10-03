@@ -51,10 +51,10 @@
           {
             "@type": "Offer",
             "name": "Starter Plan",
-            "price": "0",
+            "price": "5.99",
             "priceCurrency": "USD",
             "billingDuration": "P1M",
-            "description": "10 AI calls, 50 SMS per month — free forever"
+            "description": "100 AI calls, 200 SMS per month — 14-day free trial"
           },
           {
             "@type": "Offer",
@@ -101,7 +101,7 @@
             "name": "How much does TradeFlow cost?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "TradeFlow starts free for the Starter plan (10 AI calls, 50 SMS) and $97/month for Pro (500 calls, 1,000 SMS)."
+              "text": "Every plan starts with a 14-day free trial, no card needed. After that Starter is $5.99/month (100 AI calls, 200 SMS) and Pro is $97/month (500 calls, 1,000 SMS)."
             }
           }
         ]
@@ -130,10 +130,10 @@
     <div class="bg-[#1e3a5f] border-t border-blue-700 px-4 py-3 flex items-center gap-3 shadow-2xl">
       <div class="flex-1 min-w-0">
         <p class="text-white font-semibold text-sm leading-tight">Never miss another call</p>
-        <p class="text-blue-300 text-xs">Free to start · No card needed</p>
+        <p class="text-blue-300 text-xs">14-day free trial · No card needed</p>
       </div>
       <a href="/auth/signup" class="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm whitespace-nowrap transition-colors flex-shrink-0">
-        Start Free →
+        Start Free Trial →
       </a>
     </div>
   </div>
@@ -155,7 +155,7 @@
         </a>
         {% endif %}
         <a href="/auth/signup" class="block w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-xl text-sm mb-4 transition-colors">
-          Or start free — takes 5 minutes
+          Or start your free trial — takes 5 minutes
         </a>
         <button id="exit-modal-dismiss" class="text-xs text-gray-400 hover:text-gray-600 underline">No thanks, I'll keep missing calls</button>
       </div>
@@ -175,7 +175,7 @@
           <a href="#how-it-works" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">How It Works</a>
           <a href="#pricing" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">Pricing</a>
           <a href="/auth/login" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">Sign In</a>
-          <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors shadow-sm">Start Free</a>
+          <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors shadow-sm">Start Free Trial</a>
         </div>
         <!-- Mobile menu button -->
         <button id="mobile-menu-btn" class="nav-link md:hidden text-white focus:outline-none">
@@ -190,7 +190,7 @@
       <a href="#how-it-works" class="block text-gray-700 hover:text-blue-700 font-medium py-1">How It Works</a>
       <a href="#pricing" class="block text-gray-700 hover:text-blue-700 font-medium py-1">Pricing</a>
       <a href="/auth/login" class="block text-gray-700 hover:text-blue-700 font-medium py-1">Sign In</a>
-      <a href="/auth/signup" class="block bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg text-center transition-colors">Start Free</a>
+      <a href="/auth/signup" class="block bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg text-center transition-colors">Start Free Trial</a>
     </div>
   </nav>
 
@@ -218,7 +218,7 @@
           {% if ff_mobile_hero_v2 %}
           <div class="flex flex-col gap-3 sm:flex-row sm:gap-4 justify-center lg:justify-start mb-8">
             <a href="/auth/signup" class="bg-green-600 active:bg-green-800 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center min-h-[56px] flex items-center justify-center">
-              Start Free — 5 Minutes
+              Start Free Trial — 5 Minutes
             </a>
             <a href="#how-it-works" class="bg-white/10 active:bg-white/30 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl text-lg border border-white/30 transition-colors text-center min-h-[56px] flex items-center justify-center">
               See How It Works ▶
@@ -227,7 +227,7 @@
           {% else %}
           <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
             <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center">
-              Start Free — 5 Minutes
+              Start Free Trial — 5 Minutes
             </a>
             <a href="#how-it-works" class="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl text-lg border border-white/30 transition-colors text-center">
               Watch How It Works ▶
@@ -509,25 +509,26 @@
   <section id="pricing" class="bg-white py-20">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Simple pricing. No surprises.</h2>
-      <p class="text-lg text-gray-500 mb-14">Start free and upgrade when you're ready.</p>
+      <p class="text-lg text-gray-500 mb-14">Try everything free for 14 days. No card needed.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
         <!-- Starter -->
         <div class="border-2 border-gray-200 rounded-2xl p-8 text-left flex flex-col">
           <div class="mb-6">
             <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Starter</p>
             <div class="flex items-end gap-1 mb-1">
-              <span class="text-4xl font-extrabold text-gray-900">Free</span>
+              <span class="text-4xl font-extrabold text-gray-900">$5.99</span>
+              <span class="text-gray-500 mb-1">/mo</span>
             </div>
-            <p class="text-gray-400 text-sm">Forever free, no card required</p>
+            <p class="text-gray-400 text-sm">14-day free trial, no card required</p>
           </div>
           <ul class="space-y-3 mb-8 flex-1">
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 10 calls / month</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 50 SMS messages</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 100 calls / month</li>
+            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 200 SMS messages</li>
             <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Lead dashboard</li>
             <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Auto follow-up texts</li>
           </ul>
           <a href="/auth/signup" class="block bg-gray-900 hover:bg-gray-700 text-white font-bold py-3.5 px-6 rounded-xl text-center transition-colors">
-            Get Started Free
+            Start Free Trial
           </a>
         </div>
         <!-- Pro -->
@@ -542,7 +543,7 @@
               <span class="text-4xl font-extrabold text-gray-900">$97</span>
               <span class="text-gray-500 mb-1">/mo</span>
             </div>
-            <p class="text-gray-400 text-sm">First month free trial</p>
+            <p class="text-gray-400 text-sm">14-day free trial, no card required</p>
           </div>
           <ul class="space-y-3 mb-8 flex-1">
             <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 500 calls / month</li>
@@ -552,7 +553,7 @@
             <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Calendar sync</li>
           </ul>
           <a href="/auth/signup?plan=pro" class="block bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-6 rounded-xl text-center transition-colors shadow-sm">
-            Start Pro Trial
+            Start Pro Free Trial
           </a>
         </div>
       </div>
@@ -570,7 +571,7 @@
         Set up TradeFlow in 5 minutes and never lose a lead to voicemail again.
       </p>
       <a href="/auth/signup" class="inline-block bg-white hover:bg-gray-100 text-green-700 font-extrabold px-10 py-5 rounded-2xl text-xl shadow-xl transition-colors">
-        Get Started Free
+        Start Free Trial
       </a>
     </div>
   </section>
