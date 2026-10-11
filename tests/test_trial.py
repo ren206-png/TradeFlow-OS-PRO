@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.config import TRIAL_DAYS
 from app.models.contractor import Contractor
 from app.routers.billing import _checkout_trial_fields
 from app.services import signup
@@ -19,11 +20,13 @@ def _c(**kw):
 
 
 @pytest.mark.asyncio
-async def test_signup_is_free_starter_without_trial_clock(db):
+async def test_signup_starts_14_day_trial(db):
     c = await signup.create_account(db, business_name="T", email="t@acme.ca", password="SecurePass1!",
                                     phone="7805550100", trades=["Plumbing"], service_areas=["Edmonton"])
-    assert c.plan == "starter" and c.trial_ends_at is None
-    assert trial_expired(c) is False  # free Starter never expires
+    assert c.subscription_status == "trial"
+    delta = c.trial_ends_at.replace(tzinfo=timezone.utc) - datetime.now(tz=timezone.utc) if c.trial_ends_at.tzinfo is None \
+        else c.trial_ends_at - datetime.now(tz=timezone.utc)
+    assert TRIAL_DAYS - 1 < delta.days + 1 <= TRIAL_DAYS
 
 
 def test_trial_state_helpers():

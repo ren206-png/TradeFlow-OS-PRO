@@ -10,13 +10,13 @@ import asyncio
 import logging
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.config import TRIAL_DAYS, settings
 from app.models.contractor import Contractor
 from app.utils.auth import hash_password
 from app.utils.phone import normalize_nanp
@@ -91,6 +91,8 @@ async def create_account(
         owner_phone=owner_phone,
         timezone=timezone_for_phone(normalize_nanp(phone)) or DEFAULT_TZ,
         provisioning_status="awaiting_verification",
+        subscription_status="trial",
+        trial_ends_at=datetime.now(tz=timezone.utc) + timedelta(days=TRIAL_DAYS),
         attribution=attribution,
         is_active=True,
         is_verified=False,
