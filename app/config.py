@@ -12,8 +12,8 @@ TRIAL_DAYS = 14
 
 PLAN_LIMITS = {
     "starter": {
-        "calls":          int(os.environ.get("PLAN_STARTER_CALLS", 100)),
-        "sms":            int(os.environ.get("PLAN_STARTER_SMS",   200)),
+        "calls":          int(os.environ.get("PLAN_STARTER_CALLS", 10)),
+        "sms":            int(os.environ.get("PLAN_STARTER_SMS",   50)),
         "max_call_mins":  int(os.environ.get("PLAN_STARTER_MAX_CALL_MINS", 10)),
         "price_id":       os.environ.get("STRIPE_STARTER_PRICE_ID", "price_starter"),
     },

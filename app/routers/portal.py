@@ -12,7 +12,6 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import PLAN_LIMITS, settings
-from app.services.billing import trial_days_left, trial_expired
 from app.database import get_db
 from app.utils.rate_limit import check_rate_limit
 from app.models.call import CallSession
@@ -95,7 +94,7 @@ async def portal_leads(
 
     flash = "Welcome to TradeFlow! Your account is ready." if welcome == "1" else None
     if subscribed == "1":
-        flash = "Thanks for subscribing. Your card is saved and you will be billed when your free trial ends."
+        flash = "Thanks for subscribing to Pro."
     if verified == "1":
         flash = "Email confirmed. We're setting up your AI number now."
 
@@ -109,8 +108,7 @@ async def portal_leads(
             "leads": leads,
             "flash": flash,
             "tiktok_event": "CompleteRegistration" if welcome == "1" else None,
-            "trial_days_left": trial_days_left(contractor),
-            "trial_expired": trial_expired(contractor),
+            "show_upgrade": (contractor.plan or "starter") == "starter" and contractor.subscription_status not in ("active", "trialing"),
             "search": search,
             "status_filter": status_filter,
         },
@@ -119,7 +117,7 @@ async def portal_leads(
 
 @router.get("/subscribe")
 async def portal_subscribe(
-    plan: str = "starter",
+    plan: str = "pro",
     contractor: Contractor = Depends(require_contractor),
     db: AsyncSession = Depends(get_db),
 ):
@@ -127,7 +125,7 @@ async def portal_subscribe(
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
     from app.routers.billing import create_checkout_url
-    url = await create_checkout_url(contractor, plan if plan in ("starter", "pro") else "starter", db)
+    url = await create_checkout_url(contractor, "pro", db)
     await db.commit()
     return RedirectResponse(url=url or "/portal/leads", status_code=303)
 
