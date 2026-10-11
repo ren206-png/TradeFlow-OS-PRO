@@ -169,17 +169,36 @@ async def test_demo_line_accepts_any_address(monkeypatch):
     assert result["status"] == "inside"
 
 
-def test_goodbye_backstop_only_after_a_lead_exists():
+def _agent(lead_id, history):
     from types import SimpleNamespace
+    return SimpleNamespace(call_session=SimpleNamespace(lead_id=lead_id, conversation_history=history))
+
+
+_BOOKED = [{"role": "assistant", "content": [{"type": "tool_use", "name": "book_appointment", "input": {}}]}]
+_MID_CALL_LEAD = [{"role": "assistant", "content": [
+    {"type": "tool_use", "name": "create_lead_record", "input": {"appointment_status": "not_booked"}}]}]
+_CALLBACK = [{"role": "assistant", "content": [
+    {"type": "tool_use", "name": "create_lead_record", "input": {"appointment_status": "callback_required"}}]}]
+
+
+def test_goodbye_backstop_only_once_the_booking_is_wrapped_up():
     from app.routers.retell import _caller_said_goodbye
 
-    with_lead = SimpleNamespace(call_session=SimpleNamespace(lead_id="x"))
-    no_lead = SimpleNamespace(call_session=SimpleNamespace(lead_id=None))
-    assert _caller_said_goodbye("No, that's all. Thank you. Bye.", with_lead)
-    assert _caller_said_goodbye("Goodbye", with_lead)
-    assert not _caller_said_goodbye("Goodbye", no_lead)                 # never hang up before capturing the caller
-    assert not _caller_said_goodbye("My name is Bye Smith and I need a plumber for the kitchen sink please", with_lead)
-    assert not _caller_said_goodbye("", with_lead)
+    booked = _agent("x", _BOOKED)
+    assert _caller_said_goodbye("No, that's all. Thank you. Bye.", booked)
+    assert _caller_said_goodbye("Goodbye", booked)
+    assert _caller_said_goodbye("Goodbye", _agent("x", _CALLBACK))
+    assert not _caller_said_goodbye("Goodbye", _agent(None, _BOOKED))   # never hang up before capturing the caller
+    assert not _caller_said_goodbye("My name is Bye Smith and I need a plumber for the kitchen sink please", booked)
+    assert not _caller_said_goodbye("", booked)
+
+
+def test_no_hangup_when_caller_says_thats_it_before_choosing_a_time():
+    # Regression (daily simulation, 2026-10-06): the lead is saved mid-call, then the caller answered
+    # "anything else to note?" with "No, that's it" and the call was ended before any slot was booked.
+    from app.routers.retell import _caller_said_goodbye
+    assert not _caller_said_goodbye("No, that's it, just the dripping faucet in the kitchen.", _agent("x", _MID_CALL_LEAD))
+    assert not _caller_said_goodbye("No, that's it", _agent("x", []))
 
 
 @pytest.mark.asyncio

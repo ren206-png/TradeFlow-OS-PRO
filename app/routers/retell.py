@@ -1154,7 +1154,32 @@ def _caller_said_goodbye(user_message: str, agent: ClaudeAgent) -> bool:
     return bool(
         text and len(text) <= 60 and _GOODBYE.search(text)
         and getattr(agent.call_session, "lead_id", None)
+        and _booking_wrapped_up(agent)
     )
+
+
+_WRAPPED_STATUSES = ("booked", "callback_required", "callback", "transferred")
+
+
+def _booking_wrapped_up(agent: ClaudeAgent) -> bool:
+    """
+    True once the call's business is done: an appointment was booked, or the lead was saved as a callback.
+    The lead record is created mid-call, so its existence alone is not enough: a caller answering
+    "anything else to note?" with "no, that's it" is not saying goodbye.
+    """
+    for msg in agent.call_session.conversation_history:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not (isinstance(block, dict) and block.get("type") == "tool_use"):
+                continue
+            if block.get("name") == "book_appointment":
+                return True
+            if (block.get("name") == "create_lead_record"
+                    and (block.get("input") or {}).get("appointment_status") in _WRAPPED_STATUSES):
+                return True
+    return False
 
 
 def _should_end_call(agent: ClaudeAgent) -> bool:

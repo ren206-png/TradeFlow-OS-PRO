@@ -1,0 +1,53 @@
+name: Uptime check
+
+# Pings the production health endpoint every ~5 minutes. When it fails twice in a row, a GitHub issue is opened
+# (GitHub emails the repo owner); when it recovers, the issue is closed with a comment.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TITLE: "Site down: tradesflowos.com health check failing"
+    steps:
+      - name: Check /health and the landing page
+        id: probe
+        run: |
+          ok=0
+          for attempt in 1 2; do
+            health=$(curl -s -m 20 -o /tmp/health.json -w "%{http_code}" https://tradesflowos.com/health || echo 000)
+            home=$(curl -s -m 20 -o /dev/null -w "%{http_code}" https://tradesflowos.com/ || echo 000)
+            if [ "$health" = "200" ] && [ "$home" = "200" ] && grep -q '"db":"ok"' /tmp/health.json; then ok=1; break; fi
+            echo "attempt $attempt failed: health=$health home=$home body=$(head -c 200 /tmp/health.json 2>/dev/null)"
+            sleep 20
+          done
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          echo "detail=health=$health home=$home" >> "$GITHUB_OUTPUT"
+      - name: Open an issue if down
+        if: steps.probe.outputs.ok == '0'
+        run: |
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number -q '.[0].number')
+          if [ -z "$existing" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" \
+              --body "Production failed its health check twice in a row at $(date -u +%FT%TZ) (${{ steps.probe.outputs.detail }}). Check Railway: https://railway.app. This issue closes itself when the site recovers."
+          fi
+          exit 1
+      - name: Close the issue if recovered
+        if: steps.probe.outputs.ok == '1'
+        run: |
+          for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number -q '.[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Recovered: health check passing at $(date -u +%FT%TZ)."
+          done
