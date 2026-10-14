@@ -584,6 +584,29 @@ async def contractor_detail_page(
 )
 
 
+@router.post("/contractors/{contractor_id}/delete", response_class=RedirectResponse)
+async def delete_contractor(
+    contractor_id: str,
+    _: None = Depends(verify_admin),
+    db: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    import uuid as _uuid
+    try:
+        cid = _uuid.UUID(contractor_id)
+    except ValueError:
+        return RedirectResponse(url="/dashboard/contractors?msg=Invalid+contractor+ID", status_code=303)
+
+    result = await db.execute(select(Contractor).where(Contractor.id == cid))
+    contractor = result.scalar_one_or_none()
+    if contractor is None:
+        return RedirectResponse(url="/dashboard/contractors?msg=Contractor+not+found", status_code=303)
+
+    await db.delete(contractor)
+    await db.commit()
+    logger.info("Admin deleted contractor %s (%s)", contractor.name, cid)
+    return RedirectResponse(url="/dashboard/contractors?msg=Contractor+deleted", status_code=303)
+
+
 @router.get("/impersonate/{contractor_id}", response_class=RedirectResponse)
 async def impersonate_contractor(
     contractor_id: str,

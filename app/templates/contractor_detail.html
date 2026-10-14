@@ -231,6 +231,21 @@
 
 </div>
 
+  <!-- Danger zone -->
+  <div class="bg-gray-900 border border-red-900/50 rounded-xl p-6">
+    <h2 class="text-red-400 font-semibold text-base mb-2">Danger Zone</h2>
+    <p class="text-gray-500 text-sm mb-4">Permanently delete this contractor and all associated leads. This cannot be undone.</p>
+    <form method="POST" action="/dashboard/contractors/{{ contractor.id }}/delete"
+          onsubmit="return confirm('Delete {{ contractor.name }} and all their leads? This cannot be undone.')">
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        Delete Contractor
+      </button>
+    </form>
+  </div>
+
+</div>
+
 <script>
 function toggleReveal(apiKey) {
   const display = document.getElementById('api-key-display');
