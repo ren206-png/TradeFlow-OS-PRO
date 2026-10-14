@@ -154,7 +154,6 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     return {
         "success": True,
         "calendar_event_id": calendar_event_id,
-        "confirmation_number": confirmation_number,
         "appointment_time": appointment_time.isoformat() if appointment_time else "",
         "lead_id": str(lead.id),
     }

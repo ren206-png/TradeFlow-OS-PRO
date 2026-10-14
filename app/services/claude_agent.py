@@ -127,8 +127,12 @@ class ClaudeAgent:
                 ):
                     transferring = True
                     break
-            text_response = ("Let me connect you with someone now." if transferring
-                             else "Sorry, could you say that one more time?")
+            if self._tool_context.get("end_call"):
+                text_response = "Thank you for calling. Have a great day!"
+            elif transferring:
+                text_response = "Let me connect you with someone now."
+            else:
+                text_response = "Sorry, could you say that one more time?"
 
         # Append final assistant turn — use full content list to preserve tool blocks
         # and avoid sending empty string content which the API rejects
