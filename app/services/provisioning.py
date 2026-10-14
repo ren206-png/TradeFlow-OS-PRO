@@ -161,8 +161,9 @@ async def provision_contractor(contractor, db: AsyncSession, *, reuse_agent: boo
             "end_call_after_silence_ms": 30000,
             "max_call_duration_ms": 1800000,  # 30 min
             "normalize_for_speech": True,
-            "enable_backchannel": False,
-            "interruption_sensitivity": 0.8,
+            "enable_backchannel": True,
+            "responsiveness": 0.9,
+            "interruption_sensitivity": 0.7,
             "stt_mode": "accurate",
             "volume": 0.9,
             "metadata": {"contractor_id": str(contractor.id), "contractor_name": contractor.name},

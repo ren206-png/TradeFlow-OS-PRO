@@ -162,8 +162,8 @@ async def provision_retell_agent(
         },
         "language": "en-US",
         "enable_backchannel": True,
-        "responsiveness": 1.0,
-        "interruption_sensitivity": 0.8,
+        "responsiveness": 0.9,
+        "interruption_sensitivity": 0.7,
     }
 
     if contractor.retell_agent_id:
