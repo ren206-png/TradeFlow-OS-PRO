@@ -23,6 +23,7 @@ import time
 from datetime import datetime, timezone
 
 import httpx
+from app.utils import drain
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,6 +115,7 @@ async def llm_websocket(
         return
 
     await websocket.accept()
+    drain.call_started(call_id)
     logger.info("WebSocket opened | call_id=%s", call_id)
 
     # Per-connection state. A reconnect gets a fresh session/agent (call_details arrives on every connect).
@@ -455,6 +457,7 @@ async def llm_websocket(
         logger.exception("Unhandled error in WebSocket | call_id=%s error=%s", call_id, exc)
 
     finally:
+        drain.call_finished(call_id)
         for task in list(tasks):
             task.cancel()
         if tasks:
