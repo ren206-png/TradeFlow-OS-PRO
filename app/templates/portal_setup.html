@@ -337,72 +337,46 @@ function generateInstructions() {
     return;
   }
 
-  const stdCode = `**61*${aiLocal}**20#`;
-  const altBlock = (result.activateCode && result.activateCode !== stdCode && !result.generic) ? `
-        <div class="mt-3 pt-3 border-t border-green-200">
-          <p class="text-xs text-green-700 mb-2">Still goes to voicemail? Try the code that is commonly used for ${escapeHtml(result.carrierName)}:</p>
-          <div class="flex items-center gap-2">
-            <code class="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2 text-base font-mono font-bold text-gray-900 tracking-wider">${escapeHtml(result.activateCode)}</code>
-            <button id="alt-copy-btn" onclick="copyCode('${escapeHtml(result.activateCode)}', 'alt-copy-btn')"
-                    class="shrink-0 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors">Copy</button>
-          </div>
-          ${result.note ? `<p class="text-xs text-green-600 mt-1">${escapeHtml(result.note)}</p>` : ''}
-        </div>` : '';
+  const allCode = `**21*${aiLocal}*11#`;       // all voice calls (not texts or data)
+  const noAnsCode = `**61*${aiLocal}*11*20#`;   // voice calls only, after about 20 seconds of ringing
+  const codeRow = (id, code, color) => `
+        <div class="flex items-center gap-2">
+          <code id="${id}" class="flex-1 bg-white border border-${color}-300 rounded-lg px-3 py-2.5 text-lg font-mono font-bold text-gray-900 tracking-wider">${escapeHtml(code)}</code>
+          <button id="${id}-btn" onclick="copyCode('${escapeHtml(code)}', '${id}-btn')"
+                  class="shrink-0 bg-${color}-600 hover:bg-${color}-700 text-white text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors">Copy</button>
+        </div>`;
+  const altBlock = (result.activateCode && result.activateCode !== noAnsCode && !result.generic) ? `
+        <p class="text-xs text-gray-600 mt-3 mb-2">Another code commonly used for ${escapeHtml(result.carrierName)}:</p>
+        ${codeRow('alt-code', result.activateCode, 'gray')}` : '';
   container.innerHTML = `
     <div class="space-y-4 border-t border-gray-100 pt-4">
 
-      <!-- Activate -->
+      <!-- Option A: all calls -->
       <div class="bg-green-50 border border-green-200 rounded-xl p-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">✅</span>
-          <p class="text-sm font-bold text-green-800">Step 1: Turn on forwarding when you don't answer</p>
-        </div>
-        <p class="text-xs text-green-700 mb-3">On your business mobile, open the dialer, type this code, and press Call. You should see a confirmation message:</p>
-        <div class="flex items-center gap-2">
-          <code id="activate-code" class="flex-1 bg-white border border-green-300 rounded-lg px-3 py-2.5 text-lg font-mono font-bold text-gray-900 tracking-wider">${escapeHtml(stdCode)}</code>
-          <button id="activate-copy-btn" onclick="copyCode('${escapeHtml(stdCode)}', 'activate-copy-btn')"
-                  class="shrink-0 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors">
-            Copy
-          </button>
-        </div>
-        <p class="text-xs text-green-600 mt-2">This forwards after about 20 seconds of ringing, before your voicemail picks up.</p>
+        <p class="text-sm font-bold text-green-800 mb-1">Option A: send all calls to the AI (works on every carrier we tested)</p>
+        <p class="text-xs text-green-700 mb-3">The AI answers every call and texts you the lead. Your phone will not ring. In your dialer, type this code and press Call. You should see "Setting Registration Succeeded":</p>
+        ${codeRow('activate-code', allCode, 'green')}
+        <p class="text-xs text-green-600 mt-2">Turn it off any time with <code class="font-mono">##21#</code>. It only affects voice calls, not your texts.</p>
+      </div>
+
+      <!-- Option B: when unanswered -->
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <p class="text-sm font-bold text-yellow-800 mb-1">Option B: only when you don't answer</p>
+        <p class="text-xs text-yellow-800 mb-3">Your phone rings first and the AI takes over after about 20 seconds. Type this code and press Call. You should see "Voice Call Forwarding When Unanswered":</p>
+        ${codeRow('noanswer-code', noAnsCode, 'yellow')}
+        <p class="text-xs text-yellow-800 mt-2"><strong>Important:</strong> some carriers, including Freedom Mobile in our test, still send unanswered calls to their own voicemail first. If your test call (below) reaches voicemail, ask your carrier to <strong>turn voicemail off</strong> for the line, or use Option A. Turn Option B off with <code class="font-mono">##61#</code>, then check your voicemail still works.</p>
         ${altBlock}
-        <div class="mt-3 pt-3 border-t border-green-200">
-          <p class="text-xs text-green-700"><strong>Android phones:</strong> you can also do this in the Phone app: menu (three dots) &rarr; Settings &rarr; Calls &rarr; Call forwarding &rarr; <em>When unanswered</em>, then enter ${escapeHtml(aiNumber)}. (The iPhone has no setting for this, so use the code.)</p>
-        </div>
-        <div class="mt-3 pt-3 border-t border-green-200">
-          <p class="text-xs text-green-700"><strong>Landline, VoIP (RingCentral, Vonage, Google Voice) or a code that will not work?</strong> Call your provider and ask for <em>"call forwarding on no answer"</em> to ${escapeHtml(aiNumber)}. Ask for no answer, not unconditional, so your phone still rings first.</p>
-        </div>
+        <p class="text-xs text-yellow-800 mt-3 pt-3 border-t border-yellow-200"><strong>Android:</strong> you can also use Phone &rarr; menu &rarr; Settings &rarr; Calls &rarr; Call forwarding &rarr; <em>When unanswered</em> and enter ${escapeHtml(aiNumber)}. <strong>Landline or VoIP (RingCentral, Vonage, Google Voice)?</strong> Ask your provider for "call forwarding on no answer" (or all calls) to ${escapeHtml(aiNumber)}.</p>
       </div>
 
       <!-- Test it -->
       <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">📞</span>
-          <p class="text-sm font-bold text-blue-800">Step 2: Test it</p>
-        </div>
+        <p class="text-sm font-bold text-blue-800 mb-2">Test it</p>
         <p class="text-sm text-blue-700 leading-relaxed">
-          Call your business number from a different phone and let it ring without answering. After about 20 seconds the AI should pick up
-          and greet you. If you reach voicemail instead, try the other options above.
+          Call your business number from a different phone. With Option A the AI answers right away. With Option B let it ring about 30 seconds without answering or declining.
+          If you reach voicemail instead of the AI, forwarding is not active yet.
         </p>
         <a href="${aiTel}" class="inline-block mt-3 text-sm font-semibold text-blue-700 underline">Or call the AI number directly to hear it</a>
-      </div>
-
-      <!-- Deactivate -->
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-base">❌</span>
-          <p class="text-sm font-bold text-gray-700">Turn it off</p>
-        </div>
-        <p class="text-xs text-gray-500 mb-3">Dial this code and press Call:</p>
-        <div class="flex items-center gap-2">
-          <code id="deactivate-code" class="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-lg font-mono font-bold text-gray-700 tracking-wider">##61#</code>
-          <button id="deactivate-copy-btn" onclick="copyCode('##61#', 'deactivate-copy-btn')"
-                  class="shrink-0 bg-gray-500 hover:bg-gray-600 text-white text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors">
-            Copy
-          </button>
-        </div>
-        <p class="text-xs text-gray-500 mt-2">To clear every kind of forwarding at once, dial <code class="font-mono">##002#</code>.</p>
       </div>
 
     </div>
