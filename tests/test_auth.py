@@ -373,3 +373,67 @@ async def test_signup_password_mismatch_returns_400(db: AsyncSession):
         assert resp.status_code == 400
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+# ---------------------------------------------------------------------------
+# Regressions: plus-addressed emails and mixed-case emails
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_forgot_password_link_carries_only_the_token_and_works_for_plus_addresses(db: AsyncSession):
+    contractor = _make_contractor(email="owner+tag@example.com")
+    db.add(contractor)
+    await db.commit()
+    sent = {}
+
+    def fake_send(to, subject, html, text):
+        sent["to"], sent["text"] = to, text
+        return True
+
+    app.dependency_overrides[get_db] = _override(db)
+    try:
+        with patch("app.services.notifications._send_email", fake_send):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False) as client:
+                # typed in mixed case with stray spaces
+                resp = await client.post("/auth/forgot-password", data={"email": "  Owner+Tag@Example.COM "})
+                assert resp.status_code == 200
+                import asyncio
+                await asyncio.sleep(0.1)
+                assert sent["to"] == "owner+tag@example.com"
+                link = [w for w in sent["text"].split() if w.startswith("https://")][0]
+                assert "email=" not in link and "token=" in link
+                token = link.split("token=")[1]
+                # the reset works with the token alone (the old link lost the '+' and failed)
+                resp = await client.post("/auth/reset-password", data={
+                    "token": token, "new_password": "NewSecure123!", "confirm_password": "NewSecure123!"})
+                assert resp.status_code == 302 and "/auth/login" in resp.headers["location"]
+                resp = await client.post("/auth/login", data={"email": "OWNER+tag@example.com", "password": "NewSecure123!"})
+                assert resp.status_code == 302
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_reset_with_unknown_token_is_rejected(db: AsyncSession):
+    app.dependency_overrides[get_db] = _override(db)
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/auth/reset-password", data={
+                "token": "nope", "new_password": "NewSecure123!", "confirm_password": "NewSecure123!"})
+        assert resp.status_code == 400
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_login_matches_email_case_insensitively(seeded_db):
+    db, contractor = seeded_db
+    contractor.email = "Mixed.Case@Example.com"  # account created before emails were normalized
+    await db.commit()
+    app.dependency_overrides[get_db] = _override(db)
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", follow_redirects=False) as client:
+            resp = await client.post("/auth/login", data={"email": "mixed.case@example.com", "password": "Secur3Pass!"})
+        assert resp.status_code == 302 and resp.headers["location"] == "/portal"
+    finally:
+        app.dependency_overrides.pop(get_db, None)

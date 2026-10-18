@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portal", tags=["portal"])
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["tiktok_pixel_id"] = settings.tiktok_pixel_id
+from app.utils.phone import format_display as _format_display, tel_href as _tel_href
+templates.env.globals["fmt_phone"] = _format_display
+templates.env.globals["tel_href"] = _tel_href
 templates.env.globals["local_dt"] = to_local
 
 

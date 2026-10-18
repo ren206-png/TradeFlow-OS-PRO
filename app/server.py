@@ -29,12 +29,25 @@ class DrainingServer(uvicorn.Server):
     def handle_exit(self, sig, frame) -> None:
         if sig == signal.SIGTERM and not self._draining and drain.active_count() > 0:
             self._draining = True
+            self._hand_background_jobs_to_new_version()
             logger.info("SIGTERM with %d live call(s): draining for up to %ds", drain.active_count(), DRAIN_MAX_SECONDS)
             threading.Thread(target=self._drain_then_exit, args=(sig, frame), daemon=True).start()
             return
         if self._draining and sig == signal.SIGTERM:
             return  # a repeated SIGTERM must not cut the drain short
         super().handle_exit(sig, frame)
+
+    @staticmethod
+    def _hand_background_jobs_to_new_version() -> None:
+        """The new version is already serving; stop this one's scheduled jobs so none run twice during the overlap."""
+        try:
+            from app.services.scheduler import get_scheduler
+            scheduler = get_scheduler()
+            if scheduler.running:
+                scheduler.pause()
+                logger.info("Scheduler paused: the new version owns scheduled jobs")
+        except Exception as exc:  # never let this block the drain
+            logger.warning("Could not pause scheduler during drain: %s", exc)
 
     def _drain_then_exit(self, sig, frame) -> None:
         deadline = time.monotonic() + DRAIN_MAX_SECONDS

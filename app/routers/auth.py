@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -127,7 +127,7 @@ status_code=400,
     if len(password) < 8:
         return error("Password must be at least 8 characters.")
 
-    result = await db.execute(select(Contractor).where(Contractor.email == email))
+    result = await db.execute(select(Contractor).where(func.lower(Contractor.email) == email))
     if result.scalar_one_or_none() is not None:
         return error("An account with that email already exists.")
 
@@ -186,7 +186,7 @@ status_code=429,
 )
 
     email = normalize_email(email)
-    result = await db.execute(select(Contractor).where(Contractor.email == email))
+    result = await db.execute(select(Contractor).where(func.lower(Contractor.email) == email))
     contractor = result.scalar_one_or_none()
 
     if contractor is None or not contractor.hashed_password or not verify_password(password, contractor.hashed_password):
@@ -231,12 +231,15 @@ async def forgot_password_post(
     check_rate_limit(request, "forgot_password", max_requests=5, window_seconds=3600)
     # Note: we don't block on rate limit here to avoid leaking whether the email exists;
     # we just silently absorb excess requests.
-    result = await db.execute(select(Contractor).where(Contractor.email == email))
+    email = normalize_email(email)
+    result = await db.execute(select(Contractor).where(func.lower(Contractor.email) == email))
     contractor = result.scalar_one_or_none()
     if contractor:
         token = await _issue_reset_token(contractor, db)
         await db.commit()
-        reset_url = f"https://tradesflowos.com/auth/reset-password?email={email}&token={token}"
+        # The token alone identifies the request. (An unencoded '+' in the email, as in name+tag@gmail.com,
+        # arrived as a space and broke every reset for such addresses.)
+        reset_url = f"https://tradesflowos.com/auth/reset-password?token={token}"
         logger.info("Password reset requested for email=%s", email)
         # Send reset email (no-op if SMTP not configured)
         try:
@@ -254,7 +257,7 @@ async def forgot_password_post(
             </div>"""
             text = f"Reset your TradeFlow password here: {reset_url}\n\nThis link expires in 1 hour."
             loop = _asyncio.get_running_loop()
-            loop.run_in_executor(None, _send_email, email, "Reset your TradeFlow password", html, text)
+            loop.run_in_executor(None, _send_email, contractor.email, "Reset your TradeFlow password", html, text)
         except Exception as exc:
             logger.error("Failed to send password reset email: %s", exc)
     return templates.TemplateResponse(request,
@@ -282,10 +285,10 @@ async def reset_password_get(
 async def reset_password_post(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    email: str = Form(...),
     token: str = Form(...),
     new_password: str = Form(...),
     confirm_password: str = Form(...),
+    email: str = Form(""),
 ):
     def error(msg: str):
         return templates.TemplateResponse(request,
@@ -300,10 +303,11 @@ status_code=400,
     if len(new_password) < 8:
         return error("Password must be at least 8 characters.")
 
-    result = await db.execute(select(Contractor).where(Contractor.email == email))
-    contractor = result.scalar_one_or_none()
+    token = (token or "").strip()
+    result = await db.execute(select(Contractor).where(Contractor.reset_token == token)) if token else None
+    contractor = result.scalar_one_or_none() if result is not None else None
     if contractor is None:
-        return error("Account not found.")
+        return error("This reset link is invalid or has expired. Please request a new one.")
 
     # Verify and consume the single-use token (constant-time comparison)
     if not await _verify_and_consume_reset_token(contractor, token, db):
@@ -311,7 +315,7 @@ status_code=400,
 
     contractor.hashed_password = hash_password(new_password)
     await db.commit()
-    logger.info("Password reset completed for email=%s", email)
+    logger.info("Password reset completed for contractor=%s", contractor.id)
 
     response = RedirectResponse(url="/auth/login?reset=1", status_code=302)
     return response

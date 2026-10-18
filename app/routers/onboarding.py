@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -121,7 +121,7 @@ status_code=422,
     problem = email_problem(email)
     if problem:
         return _re_render({"email": problem})
-    existing = await db.execute(select(Contractor).where(Contractor.email == email))
+    existing = await db.execute(select(Contractor).where(func.lower(Contractor.email) == email))
     if existing.scalar_one_or_none() is not None:
         return _re_render({"email": "An account with this email already exists."})
 
