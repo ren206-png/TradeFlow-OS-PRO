@@ -1,62 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1e40af">
-  <meta name="robots" content="noindex, nofollow">
-  <title>TradeFlow — Sign In</title>
-  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-  <script src="https://cdn.tailwindcss.com"></script>
+{% include "_auth_head.html" %}
+  <title>Sign in · TradeFlow</title>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center px-4 py-8">
-  <div class="w-full max-w-sm">
-    <!-- Logo / Brand -->
-    <div class="text-center mb-8">
-      <span class="text-3xl font-bold text-blue-700">TradeFlow</span>
-      <p class="text-gray-500 mt-1 text-sm">OS Pro</p>
+<body>
+<main class="auth">
+
+  <aside class="auth-aside">
+    <a href="/" class="brand">{% include "_brand_mark.html" %}TradeFlow <small>OS</small></a>
+
+    <div class="auth-pitch">
+      <div class="wave" aria-hidden="true">
+        {% for d in [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.05, 1.2, 1.35, 1.5, 0.2, 0.55, 0.95] %}<span style="animation-delay:{{ d }}s"></span>{% endfor %}
+      </div>
+      <h2 class="display">Every call answered.<br><em>Every job captured.</em></h2>
+      <p>While you're on the tools, your AI receptionist books the work and texts you the details.</p>
+      <ul class="auth-points">
+        <li><i>✓</i><span>Answers in English, French and Spanish, day and night</span></li>
+        <li><i>✓</i><span>Books the appointment and texts you a full summary</span></li>
+        <li><i>✓</i><span>Puts emergencies straight through to your phone</span></li>
+      </ul>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h1 class="text-xl font-bold text-gray-900 mb-1">Sign in to TradeFlow</h1>
-      <p class="text-sm text-gray-500 mb-6">Welcome back. Enter your credentials to continue.</p>
+    <div class="auth-foot">Built in Alberta for Canadian tradespeople.</div>
+  </aside>
+
+  <section class="auth-main">
+    <div class="auth-card">
+      <a href="/" class="brand mobile-brand">{% include "_brand_mark.html" %}TradeFlow <small>OS</small></a>
+
+      <h1>Welcome back.</h1>
+      <p class="lede">Sign in to see your calls, leads and bookings.</p>
 
       {% if error %}
-      <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-        {{ error }}
-      </div>
+      <div class="alert" role="alert"><span aria-hidden="true">⚠</span><span>{{ error }}</span></div>
       {% endif %}
 
-      <form method="post" action="/auth/login" class="space-y-4">
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input type="email" id="email" name="email" required autofocus
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="you@example.com">
+      <form method="post" action="/auth/login" novalidate>
+        <label class="field">
+          <span>Email</span>
+          <input class="input" type="email" id="email" name="email" required autofocus autocomplete="email" inputmode="email" placeholder="you@yourbusiness.ca">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input class="input" type="password" id="password" name="password" required autocomplete="current-password" placeholder="Your password">
+        </label>
+        <div class="row-between">
+          <span></span>
+          <a href="/auth/forgot-password" class="link">Forgot password?</a>
         </div>
-
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input type="password" id="password" name="password" required
-                 class="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                 placeholder="Your password">
-        </div>
-
-        <button type="submit"
-                class="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-lg transition text-sm mt-2">
-          Sign In
-        </button>
+        <button type="submit" class="btn btn-primary btn-lg btn-block">Sign in <span class="arrow">→</span></button>
       </form>
 
-      <p class="text-center text-xs text-gray-400 mt-4">
-        <a href="/auth/forgot-password" class="text-blue-600 hover:underline">Forgot password?</a>
-      </p>
-
-      <p class="text-center text-sm text-gray-500 mt-4">
-        New contractor?
-        <a href="/auth/signup" class="text-blue-600 font-medium hover:underline">Create account</a>
-      </p>
+      <p class="auth-alt">New to TradeFlow? <a href="/auth/signup" class="link">Start your free trial</a></p>
     </div>
-  </div>
+  </section>
+
+</main>
 </body>
 </html>

@@ -110,673 +110,469 @@
   }
   </script>
 
-  <!-- Preconnect to CDN so Tailwind loads as fast as possible -->
-  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    html { scroll-behavior: smooth; }
-    .hero-gradient { background: linear-gradient(160deg, #1e3a5f 0%, #1e3a5f 55%, #ffffff 55%); }
-    @media (max-width: 768px) {
-      .hero-gradient { background: linear-gradient(180deg, #1e3a5f 0%, #1e3a5f 60%, #ffffff 60%); }
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/tf-base.css?v=2">
+  <link rel="stylesheet" href="/static/tf-landing.css?v=2">
+  <meta name="theme-color" content="#090e1a">
+  <script>document.documentElement.classList.add('js');</script>
+  <style>.js .reveal:not(.in){opacity:0}</style>
 {% include "_tiktok_pixel.html" %}
 </head>
-<body class="font-sans text-gray-800 antialiased">
+<body>
 
-  <!-- ===== STICKY MOBILE CTA (hidden until hero scrolls away) ===== -->
-  <div id="sticky-cta" class="fixed bottom-0 left-0 right-0 z-40 lg:hidden transform translate-y-full transition-transform duration-300 ease-in-out" style="padding-bottom: env(safe-area-inset-bottom)">
-    <div class="bg-[#1e3a5f] border-t border-blue-700 px-4 py-3 flex items-center gap-3 shadow-2xl">
-      <div class="flex-1 min-w-0">
-        <p class="text-white font-semibold text-sm leading-tight">Never miss another call</p>
-        <p class="text-blue-300 text-xs">14-day free trial · No card needed</p>
+  <!-- ===== NAV ===== -->
+  <header class="nav" id="navbar">
+    <div class="wrap nav-in">
+      <a href="/" class="brand" aria-label="TradeFlow home">{% include "_brand_mark.html" %}TradeFlow</a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="/auth/login" class="signin">Sign in</a>
+        <a href="/auth/signup" class="btn btn-primary">Start free trial</a>
+        <button class="burger" id="burger" aria-label="Menu" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+        </button>
       </div>
-      <a href="/auth/signup" class="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm whitespace-nowrap transition-colors flex-shrink-0">
-        Start Free Trial →
-      </a>
+    </div>
+    <div class="mobile-menu" id="mobile-menu">
+      <a href="#how">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+      <a href="/auth/login">Sign in</a>
+      <a href="/auth/signup" class="btn btn-primary">Start free trial</a>
+    </div>
+  </header>
+
+  <!-- ===== STICKY MOBILE CTA ===== -->
+  <div class="sticky" id="sticky-cta" aria-hidden="true">
+    <div class="sticky-in">
+      <div>Never miss another call<small>14-day free trial · No card needed</small></div>
+      <a href="/auth/signup" class="btn btn-primary" tabindex="-1">Start free</a>
     </div>
   </div>
 
   <!-- ===== EXIT-INTENT MODAL ===== -->
-  <div id="exit-modal" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog">
-    <!-- Backdrop -->
-    <div id="exit-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-    <!-- Panel -->
-    <div class="absolute inset-0 flex items-center justify-center px-4">
-      <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-7 text-center">
-        <button id="exit-modal-close" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl leading-none" aria-label="Close">&times;</button>
-        <div class="text-4xl mb-3">📞</div>
-        <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Wait — hear it yourself.</h2>
-        <p class="text-gray-500 text-sm mb-5 leading-relaxed">Call our live demo line right now and hear exactly what your customers will hear. Takes 60 seconds. No signup required.</p>
-        {% if demo_phone %}
-        <a href="{{ demo_phone_tel }}" class="block w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-4 rounded-xl text-lg mb-3 transition-colors">
-          📞 Call {{ demo_phone_display }}
-        </a>
-        {% endif %}
-        <a href="/auth/signup" class="block w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-xl text-sm mb-4 transition-colors">
-          Or start your free trial — takes 5 minutes
-        </a>
-        <button id="exit-modal-dismiss" class="text-xs text-gray-400 hover:text-gray-600 underline">No thanks, I'll keep missing calls</button>
-      </div>
+  <div class="modal" id="exit-modal" aria-modal="true" role="dialog" aria-labelledby="exit-title">
+    <div class="modal-bg" id="exit-modal-backdrop"></div>
+    <div class="modal-card">
+      <button class="x" id="exit-modal-close" aria-label="Close">&times;</button>
+      <h2 id="exit-title">Hear it for yourself.</h2>
+      <p>The fastest way to understand TradeFlow is to call it. No pitch, no sign-up.</p>
+      {% if demo_phone %}
+      <a href="{{ demo_phone_tel }}" class="btn btn-primary btn-lg btn-block">Call {{ demo_phone_display }}</a>
+      {% else %}
+      <a href="/auth/signup" class="btn btn-primary btn-lg btn-block">Start your free trial</a>
+      {% endif %}
+      <button class="skip" id="exit-modal-dismiss">No thanks, I'll keep missing calls</button>
     </div>
   </div>
 
-  <!-- ===== NAV BAR ===== -->
-  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <!-- Logo -->
-        <a href="/" class="flex items-center">
-          <img src="/static/tradeflow-logo.png" alt="TradeFlow" class="h-12 w-auto">
-        </a>
-        <!-- Links -->
-        <div class="hidden md:flex items-center space-x-8">
-          <a href="#how-it-works" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">How It Works</a>
-          <a href="#pricing" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">Pricing</a>
-          <a href="/auth/login" class="nav-link text-white hover:text-blue-200 font-medium transition-colors">Sign In</a>
-          <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg transition-colors shadow-sm">Start Free Trial</a>
-        </div>
-        <!-- Mobile menu button -->
-        <button id="mobile-menu-btn" class="nav-link md:hidden text-white focus:outline-none">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-    <!-- Mobile menu -->
-    <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 px-4 pb-4 pt-2 space-y-3">
-      <a href="#how-it-works" class="block text-gray-700 hover:text-blue-700 font-medium py-1">How It Works</a>
-      <a href="#pricing" class="block text-gray-700 hover:text-blue-700 font-medium py-1">Pricing</a>
-      <a href="/auth/login" class="block text-gray-700 hover:text-blue-700 font-medium py-1">Sign In</a>
-      <a href="/auth/signup" class="block bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 rounded-lg text-center transition-colors">Start Free Trial</a>
-    </div>
-  </nav>
-
+  <main>
   <!-- ===== HERO ===== -->
-  <section class="bg-[#1e3a5f] pt-28 pb-0 relative overflow-hidden">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex flex-col lg:flex-row items-center gap-12 pb-20">
-        <!-- Left: copy -->
-        <div class="flex-1 text-center lg:text-left">
-          <!-- Badge -->
-          <div class="inline-flex items-center bg-blue-800/60 text-blue-200 text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-blue-700/40">
-            🤖 AI-Powered &nbsp;•&nbsp; Always On &nbsp;•&nbsp; Built for Trades
-          </div>
-          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-5">
-            {% if ab_variant == "B" %}
-            Stop Losing Jobs to Voicemail — Your AI Receptionist Answers Every Call
-            {% else %}
-            Never Miss a Lead Again.
-            {% endif %}
-          </h1>
-          <p class="text-lg sm:text-xl text-blue-100 max-w-xl mx-auto lg:mx-0 mb-8 leading-relaxed">
-            TradeFlow answers every call, books appointments, and sends you a full customer summary — while you're on the job.
-          </p>
-          <!-- CTA buttons -->
-          {% if ff_mobile_hero_v2 %}
-          <div class="flex flex-col gap-3 sm:flex-row sm:gap-4 justify-center lg:justify-start mb-8">
-            <a href="/auth/signup" class="bg-green-600 active:bg-green-800 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center min-h-[56px] flex items-center justify-center">
-              Start Free Trial — 5 Minutes
-            </a>
-            <a href="#how-it-works" class="bg-white/10 active:bg-white/30 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl text-lg border border-white/30 transition-colors text-center min-h-[56px] flex items-center justify-center">
-              See How It Works ▶
-            </a>
-          </div>
-          {% else %}
-          <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
-            <a href="/auth/signup" class="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-xl text-lg shadow-lg transition-colors text-center">
-              Start Free Trial — 5 Minutes
-            </a>
-            <a href="#how-it-works" class="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded-xl text-lg border border-white/30 transition-colors text-center">
-              Watch How It Works ▶
-            </a>
-          </div>
-          {% endif %}
-          <!-- Trust row -->
-          <div class="flex flex-wrap justify-center lg:justify-start gap-x-6 gap-y-2 text-blue-200 text-sm font-medium mb-6">
-            <span>✓ No contracts</span>
-            <span>✓ No credit card needed</span>
-            <span>✓ Works for any trade</span>
-          </div>
-          {% if demo_phone %}
-          <!-- Live demo call strip -->
-          <div class="inline-flex flex-wrap items-center gap-3 bg-green-500/20 border border-green-400/40 rounded-xl px-4 py-3">
-            <span class="relative flex h-3 w-3 flex-shrink-0">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-3 w-3 bg-green-400"></span>
-            </span>
-            <div>
-              <p class="text-green-200 text-xs font-semibold uppercase tracking-wide">Live Demo Line</p>
-              <a href="{{ demo_phone_tel }}" class="text-white font-bold text-lg hover:text-green-300 transition-colors">
-                {{ demo_phone_display }}
-              </a>
-            </div>
-            <div class="text-blue-200 text-xs leading-tight ml-1">
-              Call now &amp;<br>hear it live ↗
-            </div>
-          </div>
-          {% endif %}
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="pill reveal"><span class="dot-live"></span>AI receptionist for the trades · Canada</span>
+        {% if ab_variant == "B" %}
+        <h1 class="display reveal" style="--d:.08s">Your phone rings.<br><em>Someone</em> always answers.</h1>
+        {% else %}
+        <h1 class="display reveal" style="--d:.08s">Never lose a job to <em>voicemail</em> again.</h1>
+        {% endif %}
+        <p class="hero-sub reveal" style="--d:.16s">TradeFlow answers the calls you miss, finds out what the job is, books the appointment and texts you the full summary, while you're on the tools.</p>
+        <div class="hero-ctas reveal" style="--d:.24s">
+          <a href="/auth/signup" class="btn btn-primary btn-lg">Start free trial <span class="arrow">→</span></a>
+          <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
         </div>
+        <div class="hero-chips reveal" style="--d:.32s">
+          <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>14-day free trial</span>
+          <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>No credit card</span>
+          <span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>English · Français · Español</span>
+        </div>
+        {% if demo_phone %}
+        <a href="{{ demo_phone_tel }}" class="demo-line reveal" style="--d:.4s">
+          <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></span>
+          <span><small>Live demo line. Hear it right now</small><strong>{{ demo_phone_display }}</strong></span>
+        </a>
+        {% endif %}
+      </div>
 
-        <!-- Right: phone mockup -->
-        <div class="flex-shrink-0 w-full max-w-xs lg:max-w-sm mx-auto lg:mx-0">
-          <div class="relative mx-auto" style="width: 220px;">
-            <!-- Phone frame -->
-            <div class="bg-gray-900 rounded-3xl p-3 shadow-2xl border-4 border-gray-700">
-              <div class="bg-gray-800 rounded-2xl overflow-hidden" style="height: 420px;">
-                <!-- Status bar -->
-                <div class="bg-gray-900 px-4 py-2 flex justify-between items-center">
-                  <span class="text-white text-xs font-semibold">9:41</span>
-                  <div class="flex gap-1 items-center">
-                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><rect x="1" y="6" width="3" height="8" rx="0.5"/><rect x="6" y="4" width="3" height="10" rx="0.5"/><rect x="11" y="2" width="3" height="12" rx="0.5"/><rect x="16" y="0" width="3" height="14" rx="0.5"/></svg>
-                    <svg class="w-3 h-3 text-white ml-1" fill="currentColor" viewBox="0 0 20 16"><path d="M10 3.5C6.5 3.5 3.4 5 1.2 7.5L0 6.2C2.5 3.4 6 1.5 10 1.5s7.5 1.9 10 4.7l-1.2 1.3C16.6 5 13.5 3.5 10 3.5z"/><path d="M10 7c-2.2 0-4.2.9-5.7 2.4L3 8.1C4.9 6.2 7.3 5 10 5s5.1 1.2 7 3.1l-1.3 1.3C14.2 7.9 12.2 7 10 7z"/><circle cx="10" cy="13" r="2"/></svg>
-                    <svg class="w-4 h-2.5 text-white ml-1" fill="currentColor" viewBox="0 0 20 10"><rect x="1" y="1" width="16" height="8" rx="2" stroke="white" stroke-width="1.5" fill="none"/><rect x="17" y="3" width="2" height="4" rx="1"/><rect x="2.5" y="2.5" width="12" height="5" rx="1" fill="#22c55e"/></svg>
-                  </div>
-                </div>
-                <!-- App header -->
-                <div class="bg-blue-900 px-3 py-2.5">
-                  <p class="text-blue-200 text-xs">TradeFlow</p>
-                  <p class="text-white text-sm font-bold">Lead Dashboard</p>
-                </div>
-                <!-- Lead cards -->
-                <div class="p-2 space-y-2 overflow-hidden">
-                  <!-- Card 1 - new/hot -->
-                  <div class="bg-white rounded-xl p-2.5 shadow-sm border-l-4 border-green-500">
-                    <div class="flex justify-between items-start mb-1">
-                      <span class="text-gray-900 text-xs font-bold leading-tight">John M.</span>
-                      <span class="bg-green-100 text-green-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">NEW</span>
-                    </div>
-                    <p class="text-gray-500 text-xs leading-tight">🔧 Furnace not heating</p>
-                    <p class="text-gray-400 text-xs">📍 Oak Park, IL • 2 min ago</p>
-                    <p class="text-green-600 text-xs font-semibold mt-1">Appt booked: Tue 9am ✓</p>
-                  </div>
-                  <!-- Card 2 -->
-                  <div class="bg-white rounded-xl p-2.5 shadow-sm border-l-4 border-yellow-400">
-                    <div class="flex justify-between items-start mb-1">
-                      <span class="text-gray-900 text-xs font-bold">Sarah K.</span>
-                      <span class="bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">URGENT</span>
-                    </div>
-                    <p class="text-gray-500 text-xs leading-tight">⚡ No power in kitchen</p>
-                    <p class="text-gray-400 text-xs">📍 Berwyn, IL • 14 min ago</p>
-                    <p class="text-blue-500 text-xs font-medium mt-1">Follow-up sent 💬</p>
-                  </div>
-                  <!-- Card 3 -->
-                  <div class="bg-white rounded-xl p-2.5 shadow-sm border-l-4 border-blue-400">
-                    <div class="flex justify-between items-start mb-1">
-                      <span class="text-gray-900 text-xs font-bold">Tom R.</span>
-                      <span class="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full font-semibold">LEAD</span>
-                    </div>
-                    <p class="text-gray-500 text-xs leading-tight">🚿 Leaking pipe under sink</p>
-                    <p class="text-gray-400 text-xs">📍 Cicero, IL • 1 hr ago</p>
-                    <p class="text-blue-500 text-xs font-medium mt-1">Awaiting callback 📞</p>
-                  </div>
-                </div>
-                <!-- Bottom bar -->
-                <div class="absolute bottom-3 left-0 right-0 px-4">
-                  <div class="bg-gray-900/80 rounded-full h-1 w-24 mx-auto"></div>
-                </div>
-              </div>
+      <!-- Animated call -->
+      <div class="stage" aria-hidden="true">
+        <div class="glow"></div>
+        <div class="chip chip-a" id="chip-a"><span class="ic">🌐</span><span>Bonjour → Français</span></div>
+        <div class="chip chip-b" id="chip-b"><span class="ic">💬</span><span>Text sent to you</span></div>
+        <div class="chip chip-c" id="chip-c"><span class="ic">📞</span><span>Ringing your phone</span></div>
+        <div class="phone">
+          <div class="screen" id="screen">
+            <div class="notch"></div>
+            <div class="statusbar"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="callhead">
+              <div class="who">Incoming call</div>
+              <div class="num">(780) 555-0142</div>
+              <div class="state" id="call-state">Edmonton, AB · ringing…</div>
             </div>
-            <!-- Glow effect -->
-            <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-40 h-8 bg-blue-500/30 blur-2xl rounded-full"></div>
+            <div class="rings"><i></i><i></i><i></i><b>📞</b></div>
+            <div class="convo">
+              <div class="bubble caller" id="m1"><small>Caller</small>My basement is flooding, a pipe just burst. Can someone come today?</div>
+              <div class="bubble ai" id="m2"><small>TradeFlow AI</small>I'm sorry, that sounds stressful. Let's get someone to you right away. What's the address?</div>
+              <div class="bubble caller" id="m3"><small>Caller</small>412 Maple Crescent NW, Edmonton.</div>
+              <div class="bubble ai" id="m4"><small>TradeFlow AI</small>You're in our service area. I have 4:30 PM today. Shall I book it?</div>
+            </div>
+            <div class="booked" id="booked"><span class="tag">Emergency</span><strong>Burst pipe · 412 Maple Cres NW</strong><span>Booked today, 4:30 PM · owner notified</span></div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ===== PROBLEM SECTION ===== -->
-  <section class="bg-white py-20">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">
-        You're losing jobs you don't even know about.
-      </h2>
-      <p class="text-lg text-gray-500 max-w-2xl mx-auto mb-14">
-        Every missed call is a job that went to your competitor. Most customers won't leave a voicemail — they just move on. TradeFlow makes sure that never happens again.
-      </p>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div class="bg-red-50 border border-red-100 rounded-2xl p-8 text-center">
-          <div class="text-4xl mb-3">📞</div>
-          <div class="text-3xl font-extrabold text-red-600 mb-2">70%</div>
-          <p class="text-gray-700 font-medium">of missed calls never call back</p>
-        </div>
-        <div class="bg-orange-50 border border-orange-100 rounded-2xl p-8 text-center">
-          <div class="text-4xl mb-3">💸</div>
-          <div class="text-3xl font-extrabold text-orange-600 mb-2">$1,500+</div>
-          <p class="text-gray-700 font-medium">lost per week to voicemail</p>
-        </div>
-        <div class="bg-yellow-50 border border-yellow-100 rounded-2xl p-8 text-center">
-          <div class="text-4xl mb-3">⏱️</div>
-          <div class="text-3xl font-extrabold text-yellow-600 mb-2">&lt; 1 min</div>
-          <p class="text-gray-700 font-medium">average response time needed</p>
-        </div>
+  {% if ff_live_metrics %}
+  <div class="metrics" id="metrics" hidden>
+    <div class="wrap metrics-in">
+      <div><b data-metric="calls">0</b><span>calls handled</span></div>
+      <div><b data-metric="bookings">0</b><span>appointments booked</span></div>
+      <div><b data-metric="contractors">0</b><span>trades businesses</span></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Plumbing</span><span>HVAC</span><span>Electrical</span><span>Roofing</span><span>Garage doors</span><span>Locksmiths</span><span>Towing</span><span>General contracting</span>
+      <span>Plumbing</span><span>HVAC</span><span>Electrical</span><span>Roofing</span><span>Garage doors</span><span>Locksmiths</span><span>Towing</span><span>General contracting</span>
+    </div>
+  </div>
+
+  <!-- ===== PROBLEM ===== -->
+  <section class="light cream" id="problem">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <div class="eyebrow">The cost of a missed call</div>
+        <h2 class="display">You can't answer the phone from inside a <em>crawl space.</em></h2>
+        <p>Every trades business knows the feeling: the phone buzzes mid-job, and you let it go. For the customer on the other end, that's the moment they move on.</p>
+      </div>
+      <div class="problem-grid">
+        <div class="pcard reveal"><div class="n">01</div><h3>They call the next contractor</h3><p>Someone with a leaking pipe or a dead furnace isn't going to wait for a callback. They keep dialling until a person picks up.</p></div>
+        <div class="pcard reveal" style="--d:.1s"><div class="n">02</div><h3>Voicemail rarely gets a reply</h3><p>Plenty of people simply won't leave a message, and the ones who do are already comparing quotes.</p></div>
+        <div class="pcard reveal" style="--d:.2s"><div class="n">03</div><h3>You find out hours later</h3><p>By the time you're back on your phone, the job has gone somewhere else. And you never even know how many you lost.</p></div>
       </div>
     </div>
   </section>
 
   <!-- ===== HOW IT WORKS ===== -->
-  <section id="how-it-works" class="bg-gray-50 py-20">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Set up once. Works forever.</h2>
-      <p class="text-lg text-gray-500 max-w-xl mx-auto mb-14">Three steps and you're live. No IT department needed.</p>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <!-- Step 1 -->
-        <div class="bg-white rounded-2xl p-8 shadow-sm text-center relative">
-          <div class="w-12 h-12 bg-blue-600 text-white font-extrabold text-xl rounded-full flex items-center justify-center mx-auto mb-5 shadow-md">1</div>
-          <div class="text-3xl mb-3">🏗️</div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Create Your Account</h3>
-          <p class="text-gray-500">Takes 2 minutes. Enter your trade, service area, and business hours. That's it.</p>
-        </div>
-        <!-- Connector -->
-        <div class="hidden md:flex items-center justify-center absolute" style="display:none"></div>
-        <!-- Step 2 -->
-        <div class="bg-white rounded-2xl p-8 shadow-sm text-center">
-          <div class="w-12 h-12 bg-blue-600 text-white font-extrabold text-xl rounded-full flex items-center justify-center mx-auto mb-5 shadow-md">2</div>
-          <div class="text-3xl mb-3">📲</div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Share Your Number</h3>
-          <p class="text-gray-500">Forward your existing phone number to your TradeFlow line. Works with any carrier in minutes.</p>
-        </div>
-        <!-- Step 3 -->
-        <div class="bg-white rounded-2xl p-8 shadow-sm text-center">
-          <div class="w-12 h-12 bg-green-600 text-white font-extrabold text-xl rounded-full flex items-center justify-center mx-auto mb-5 shadow-md">3</div>
-          <div class="text-3xl mb-3">📈</div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Watch Leads Come In</h3>
-          <p class="text-gray-500">Every call handled, logged, and sent to your phone. Wake up to booked appointments.</p>
-        </div>
+  <section class="light" id="how">
+    <div class="wrap">
+      <div class="sec-head center reveal">
+        <div class="eyebrow">How it works</div>
+        <h2 class="display">Live in <em>minutes</em>, not weeks.</h2>
+        <p>No hardware, no IT department, no new phone number to hand out.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal"><div class="num">1</div><h3>Create your account</h3><p>Tell us your trade and service area. We set up your dedicated AI line in a couple of minutes.</p></div>
+        <div class="step reveal" style="--d:.12s"><div class="num">2</div><h3>Forward your calls</h3><p>Send missed calls (or every call) to your TradeFlow number. We give you the exact code for your carrier.</p></div>
+        <div class="step reveal" style="--d:.24s"><div class="num">3</div><h3>Wake up to bookings</h3><p>Every call is answered, qualified and booked. You get a text with the details the moment it's done.</p></div>
       </div>
     </div>
   </section>
 
-  <!-- ===== FEATURES GRID ===== -->
-  <section class="bg-white py-20">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Everything your receptionist would do. Automatically.</h2>
-      <p class="text-lg text-gray-500 max-w-2xl mx-auto mb-14">No wages, no sick days, no missed calls at 9 PM on a Friday.</p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
-        <!-- Feature 1 -->
-        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-3">📞</div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Answers Every Call</h3>
-          <p class="text-gray-500 text-sm">24/7, nights, weekends, while you're on the job. Zero calls go to voicemail.</p>
-        </div>
-        <!-- Feature 2 -->
-        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-3">🗣️</div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Natural Conversations</h3>
-          <p class="text-gray-500 text-sm">Your customers won't know it's AI. Warm, professional, on-brand every time.</p>
-        </div>
-        <!-- Feature 3 -->
-        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-3">📋</div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Full Lead Capture</h3>
-          <p class="text-gray-500 text-sm">Name, address, problem description, urgency level — all extracted and organized automatically.</p>
-        </div>
-        <!-- Feature 4 -->
-        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-3">📅</div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Books Appointments</h3>
-          <p class="text-gray-500 text-sm">Slots get filled directly on your calendar. Show up, do the work, get paid.</p>
-        </div>
-        <!-- Feature 5 -->
-        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-3">💬</div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Instant Notifications</h3>
-          <p class="text-gray-500 text-sm">Full lead report hits your phone in seconds. Know who called and what they need before you call back.</p>
-        </div>
-        <!-- Feature 6 -->
-        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100 hover:shadow-md transition-shadow">
-          <div class="text-3xl mb-3">🔁</div>
-          <h3 class="text-lg font-bold text-gray-900 mb-2">Auto Follow-Up</h3>
-          <p class="text-gray-500 text-sm">Unbooked leads get a follow-up text 24 hours later — automatically. Never let a warm lead go cold.</p>
-        </div>
+  <!-- ===== FEATURES ===== -->
+  <section class="dark" id="features">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <div class="eyebrow">What it does</div>
+        <h2 class="display">Everything a great receptionist does. <em>All day, every day.</em></h2>
+        <p>Warm, professional and on-brand. It always introduces itself as an AI assistant, so callers know exactly who they're talking to.</p>
+      </div>
+      <div class="bento">
+        <article class="tile t-wide reveal">
+          <h3>Answers every call, 24/7</h3>
+          <p>Nights, weekends, the middle of a job. It asks the right questions for your trade, captures the name, address and problem, and never puts anyone on hold.</p>
+          <div class="vis"><div class="mini-chat">
+            <div class="c">Hi, the furnace stopped and it's minus 20 here.</div>
+            <div class="a">That sounds urgent. Let me get a technician to you. What's the address?</div>
+          </div></div>
+        </article>
+        <article class="tile t-narrow reveal" style="--d:.1s">
+          <h3>Speaks your customers' language</h3>
+          <p>English is the default. If the caller speaks French or Spanish, it switches on its own.</p>
+          <div class="vis"><div class="langs"><span>Hello</span><span>Bonjour</span><span>Hola</span></div></div>
+        </article>
+        <article class="tile t-narrow reveal">
+          <h3>Books the appointment</h3>
+          <p>Offers real open slots and confirms the time, address and details out loud.</p>
+          <div class="vis"><div class="mini-card"><span class="badge">📅</span><span>Furnace repair<br><small style="color:var(--text-dim)">88 Birch Ave, Calgary</small></span><span class="when">Tue 9:00 AM</span></div></div>
+        </article>
+        <article class="tile t-wide reveal" style="--d:.1s">
+          <h3>Emergencies reach you live</h3>
+          <p>For a burst pipe or a gas smell, the AI books the job, then rings your phone and puts the caller straight through. Everything else waits for your morning text.</p>
+          <div class="vis"><div class="transfer">
+            <div class="line"><i>🚨</i>Burst pipe · active flooding</div>
+            <div class="line"><i>✓</i>Emergency slot booked: today 4:30 PM</div>
+            <div class="line hot"><i>📞</i>Ringing your phone now…</div>
+          </div></div>
+        </article>
+        <article class="tile t-mid reveal">
+          <h3>A text the moment it's done</h3>
+          <p>Name, number, address, the problem and the time booked, straight to your phone.</p>
+          <div class="vis"><div class="sms"><b>TradeFlow · New booking</b>Sam T. · (780) 555-0142<br>Kitchen faucet, 123 Test St NW<br>Tue 10:00 AM ✓</div></div>
+        </article>
+        <article class="tile t-mid reveal" style="--d:.1s">
+          <h3>Follows up while you work</h3>
+          <p>Leads that didn't book get a friendly follow-up text a day later, so a warm lead never goes cold. Your customer gets a confirmation text too.</p>
+          <div class="vis"><div class="mini-card"><span class="badge">💬</span><span>Follow-up sent<br><small style="color:var(--text-dim)">Unbooked lead · 24 hours later</small></span><span class="when">Auto</span></div></div>
+        </article>
       </div>
     </div>
   </section>
 
-  <!-- ===== SOCIAL PROOF ===== -->
-  <section class="bg-[#1e3a5f] py-20">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-
-      {% if ff_trust_v2 %}
-      <!-- ── TRUST V2: Founder credibility block ── -->
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">Built by a tradesman, for tradesmen.</h2>
-      <p class="text-blue-200 text-lg max-w-2xl mx-auto mb-12">TradeFlow wasn't built in a boardroom. It was built by someone who spent years in the trades and got tired of watching good contractors lose jobs to voicemail.</p>
-      <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-8 max-w-2xl mx-auto text-left mb-12">
-        <div class="flex items-start gap-5">
-          <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-extrabold text-2xl flex-shrink-0">R</div>
-          <div>
-            <p class="text-white font-bold text-lg mb-0.5">Renner Kargbo</p>
-            <p class="text-blue-300 text-sm mb-4">Red Seal tradesman &nbsp;·&nbsp; ~10 years oil &amp; gas &nbsp;·&nbsp; Founder, TradeFlow OS</p>
-            <p class="text-blue-100 text-sm leading-relaxed">"I built this because I lived the problem. You're on a job site at 2 PM, your phone rings, you can't answer — and that's a $2,000 job walking out the door. I wanted something that had my back 24/7, spoke like a professional, and actually booked the appointment. That's TradeFlow."</p>
-          </div>
-        </div>
+  <!-- ===== YOU CHOOSE ===== -->
+  <section class="light cream" id="control">
+    <div class="wrap">
+      <div class="sec-head center reveal">
+        <div class="eyebrow">Your rules</div>
+        <h2 class="display">Answer first, <em>or let us.</em></h2>
+        <p>Choose how TradeFlow handles your calls when you sign up. You can change it any time.</p>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
-        <div class="bg-white/10 border border-white/20 rounded-xl p-5">
-          <div class="text-2xl mb-2">🔧</div>
-          <h3 class="text-white font-semibold mb-1">Trades-first design</h3>
-          <p class="text-blue-200 text-sm">Every word the AI says was written for how real tradespeople talk to customers — not generic call-center scripts.</p>
+      <div class="switch-wrap reveal">
+        <div class="seg" role="tablist" aria-label="Call handling">
+          <button role="tab" aria-selected="true" data-flow="missed" id="tab-missed">Only when I miss it</button>
+          <button role="tab" aria-selected="false" data-flow="all" id="tab-all">Every call</button>
         </div>
-        <div class="bg-white/10 border border-white/20 rounded-xl p-5">
-          <div class="text-2xl mb-2">🛡️</div>
-          <h3 class="text-white font-semibold mb-1">No fluff, no contracts</h3>
-          <p class="text-blue-200 text-sm">Month-to-month. Cancel any time. Built for small operators who can't afford lock-ins or sales calls.</p>
+        <div class="flow show" id="flow-missed" role="tabpanel" aria-labelledby="tab-missed">
+          <div class="node"><div class="ico">📱</div><h4>Customer calls you</h4><p>Your usual business number</p></div>
+          <div class="node you"><div class="ico">🔔</div><h4>Your phone rings</h4><p>Pick up and it's business as usual</p></div>
+          <div class="node ai"><div class="ico">🤖</div><h4>No answer? AI takes over</h4><p>After about 20 seconds, it answers for you</p></div>
+          <div class="node"><div class="ico">📅</div><h4>You get the booking</h4><p>A text with every detail</p></div>
         </div>
-        <div class="bg-white/10 border border-white/20 rounded-xl p-5">
-          <div class="text-2xl mb-2">📞</div>
-          <h3 class="text-white font-semibold mb-1">Call it right now</h3>
-          <p class="text-blue-200 text-sm">The demo line above is live. Hear exactly what your customers will hear. No pitch, no demo call — just the product.</p>
+        <div class="flow" id="flow-all" role="tabpanel" aria-labelledby="tab-all">
+          <div class="node"><div class="ico">📱</div><h4>Customer calls you</h4><p>Your usual business number</p></div>
+          <div class="node ai"><div class="ico">🤖</div><h4>AI answers instantly</h4><p>Every call, every time</p></div>
+          <div class="node"><div class="ico">📅</div><h4>Job booked, details captured</h4><p>No phone tag, no hold music</p></div>
+          <div class="node you"><div class="ico">🚨</div><h4>Emergencies ring you</h4><p>Urgent calls are put straight through</p></div>
         </div>
+        <p class="switch-note">Either way, urgent calls can be put through to your mobile, so you're never out of the loop when it really matters.</p>
       </div>
+    </div>
+  </section>
 
-      {% else %}
-      <!-- ── DEFAULT: Placeholder testimonials (to be replaced with verified quotes) ── -->
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-14">Contractors trust TradeFlow</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
-          <div class="flex mb-3"><span class="text-yellow-400 text-lg">★★★★★</span></div>
-          <p class="text-white text-sm leading-relaxed mb-5">"I was missing calls every day while on jobs. Now I check my phone at lunch and everything is organized."</p>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">MD</div>
-            <div><p class="text-white font-semibold text-sm">Mike D.</p><p class="text-blue-300 text-xs">HVAC Contractor</p></div>
-          </div>
-        </div>
-        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
-          <div class="flex mb-3"><span class="text-yellow-400 text-lg">★★★★★</span></div>
-          <p class="text-white text-sm leading-relaxed mb-5">"Set it up in 10 minutes on a Sunday. By Monday I had 3 new leads waiting."</p>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">SK</div>
-            <div><p class="text-white font-semibold text-sm">Sarah K.</p><p class="text-blue-300 text-xs">Electrician</p></div>
-          </div>
-        </div>
-        <div class="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-7">
-          <div class="flex mb-3"><span class="text-yellow-400 text-lg">★★★★★</span></div>
-          <p class="text-white text-sm leading-relaxed mb-5">"My customers think I have a real receptionist. They had no idea it was AI."</p>
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JT</div>
-            <div><p class="text-white font-semibold text-sm">James T.</p><p class="text-blue-300 text-xs">Plumber</p></div>
-          </div>
-        </div>
+  <!-- ===== FOUNDER ===== -->
+  <section class="light" id="founder">
+    <div class="wrap founder">
+      <div class="portrait reveal"><span class="mono">R</span>
+        <div class="cap"><strong>Renner Kargbo</strong><small>Red Seal tradesman · Founder, TradeFlow</small></div>
       </div>
-      {% endif %}
-
+      <div class="reveal" style="--d:.12s">
+        <div class="eyebrow" style="color:var(--copper-lo);margin-bottom:22px">Built by someone in the trades</div>
+        <blockquote class="quote">I built this because I lived the problem. You're on a job site at 2 PM, your phone rings, you can't answer, and that's a $2,000 job walking out the door.</blockquote>
+        <p class="meta"><strong>I wanted something that had my back 24/7,</strong> spoke like a professional, and actually booked the appointment. About ten years in oil &amp; gas taught me how much one missed call costs. That's TradeFlow.</p>
+        {% if demo_phone %}<p style="margin-top:28px"><a href="{{ demo_phone_tel }}" class="btn btn-dark">Call the demo line · {{ demo_phone_display }}</a></p>{% endif %}
+      </div>
     </div>
   </section>
 
   <!-- ===== PRICING ===== -->
-  <section id="pricing" class="bg-white py-20">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Simple pricing. No surprises.</h2>
-      <p class="text-lg text-gray-500 mb-14">Try everything free for 14 days. No card needed.</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-        <!-- Starter -->
-        <div class="border-2 border-gray-200 rounded-2xl p-8 text-left flex flex-col">
-          <div class="mb-6">
-            <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">Starter</p>
-            <div class="flex items-end gap-1 mb-1">
-              <span class="text-4xl font-extrabold text-gray-900">$5.99</span>
-              <span class="text-gray-500 mb-1">/mo</span>
-            </div>
-            <p class="text-gray-400 text-sm">14-day free trial, no card required</p>
-          </div>
-          <ul class="space-y-3 mb-8 flex-1">
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 100 calls / month</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 200 SMS messages</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Lead dashboard</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Auto follow-up texts</li>
+  <section class="dark" id="pricing">
+    <div class="wrap">
+      <div class="sec-head center reveal">
+        <div class="eyebrow">Pricing</div>
+        <h2 class="display">Simple pricing. <em>No surprises.</em></h2>
+        <p>Try everything free for 14 days. No card needed. No contracts.</p>
+      </div>
+      <div class="pricing">
+        <div class="plan reveal">
+          <h3>Starter</h3>
+          <div class="price"><b>$5.99</b><span>USD / month</span></div>
+          <div class="trial">14-day free trial · no card required</div>
+          <ul>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>100 calls a month</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>200 text messages</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>Lead dashboard</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>Automatic follow-up texts</li>
           </ul>
-          <a href="/auth/signup" class="block bg-gray-900 hover:bg-gray-700 text-white font-bold py-3.5 px-6 rounded-xl text-center transition-colors">
-            Start Free Trial
-          </a>
+          <a href="/auth/signup" class="btn btn-outline btn-lg" style="color:#fff;border-color:rgba(255,255,255,.28)">Start free trial</a>
         </div>
-        <!-- Pro -->
-        <div class="border-2 border-green-600 rounded-2xl p-8 text-left flex flex-col relative shadow-lg">
-          <!-- Most Popular badge -->
-          <div class="absolute -top-4 left-1/2 -translate-x-1/2">
-            <span class="bg-green-600 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wide shadow">Most Popular</span>
-          </div>
-          <div class="mb-6">
-            <p class="text-sm font-semibold text-green-700 uppercase tracking-wide mb-1">Pro</p>
-            <div class="flex items-end gap-1 mb-1">
-              <span class="text-4xl font-extrabold text-gray-900">$97</span>
-              <span class="text-gray-500 mb-1">/mo</span>
-            </div>
-            <p class="text-gray-400 text-sm">14-day free trial, no card required</p>
-          </div>
-          <ul class="space-y-3 mb-8 flex-1">
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 500 calls / month</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> 1,000 SMS messages</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Everything in Starter</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Priority support</li>
-            <li class="flex items-center gap-2 text-gray-700"><span class="text-green-500 font-bold">✓</span> Calendar sync</li>
+        <div class="plan pro reveal" style="--d:.12s">
+          <span class="badge">Most popular</span>
+          <h3>Pro</h3>
+          <div class="price"><b>$97</b><span>USD / month</span></div>
+          <div class="trial">14-day free trial · no card required</div>
+          <ul>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>500 calls a month</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>1,000 text messages</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>Everything in Starter</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>Calendar sync</li>
+            <li><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>Priority support</li>
           </ul>
-          <a href="/auth/signup?plan=pro" class="block bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-6 rounded-xl text-center transition-colors shadow-sm">
-            Start Pro Free Trial
-          </a>
+          <a href="/auth/signup?plan=pro" class="btn btn-primary btn-lg">Start free trial</a>
         </div>
       </div>
-      <p class="text-gray-400 text-sm mt-8">No contracts. Cancel anytime.</p>
+      <p class="fine">Month to month. Cancel any time. Billed in US dollars.</p>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="light" id="faq">
+    <div class="wrap">
+      <div class="sec-head center reveal">
+        <div class="eyebrow">Questions</div>
+        <h2 class="display">Good things to <em>ask.</em></h2>
+      </div>
+      <div class="faq reveal">
+        <details><summary>How does TradeFlow work with my existing number?</summary><div class="ans">You keep your number. We give you a dedicated TradeFlow number, and you forward your calls to it with a short dialer code (we show you the exact one for your carrier). Customers keep calling the number they already know.</div></details>
+        <details><summary>Can my phone ring first?</summary><div class="ans">Yes, that's the default. Your phone rings as usual, and if you don't pick up, the AI answers. If you'd rather the AI take every call, you can choose that instead. Some carriers send unanswered calls to their own voicemail first. If yours does, ask them to switch voicemail off for that line, or choose the "every call" option.</div></details>
+        <details><summary>Will callers know it's an AI?</summary><div class="ans">Yes. It introduces itself as an AI assistant and says the call may be recorded. In practice, callers mostly care that someone picked up, asked sensible questions and booked the job.</div></details>
+        <details><summary>What about emergencies?</summary><div class="ans">The AI recognises urgent situations like flooding, no heat in winter or a gas smell. It books the earliest slot, and if you've turned on emergency transfers it rings your mobile and puts the caller straight through. It will also put anyone through who asks for a person.</div></details>
+        <details><summary>Which languages does it speak?</summary><div class="ans">English by default. If a caller speaks French or Spanish, the AI switches to that language for the whole conversation and still sends you your summary in English.</div></details>
+        <details><summary>What trades is it for?</summary><div class="ans">Plumbers, HVAC technicians, electricians, roofers, garage door and locksmith companies, towing and general contractors. If you take calls and book jobs, it fits.</div></details>
+        <details><summary>What happens after the free trial?</summary><div class="ans">You pick a plan: Starter at $5.99 a month or Pro at $97 a month, both billed in US dollars with no contract. We'll email you before the trial ends. If you don't subscribe, your AI line simply pauses; nothing is charged.</div></details>
+      </div>
     </div>
   </section>
 
   <!-- ===== FINAL CTA ===== -->
-  <section class="bg-green-600 py-20">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">
-        Your next missed call could be your best customer.
-      </h2>
-      <p class="text-lg text-green-100 mb-10">
-        Set up TradeFlow in 5 minutes and never lose a lead to voicemail again.
-      </p>
-      <a href="/auth/signup" class="inline-block bg-white hover:bg-gray-100 text-green-700 font-extrabold px-10 py-5 rounded-2xl text-xl shadow-xl transition-colors">
-        Start Free Trial
-      </a>
+  <section class="final">
+    <div class="wrap-narrow">
+      <h2 class="display reveal">Your next missed call could be your <em>best customer.</em></h2>
+      <p class="reveal" style="--d:.1s">Set up TradeFlow in minutes and never lose a lead to voicemail again.</p>
+      <a href="/auth/signup" class="btn btn-primary btn-lg reveal" style="--d:.2s">Start your free trial <span class="arrow">→</span></a>
     </div>
   </section>
+  </main>
 
-  <!-- ===== FOOTER ===== -->
-  <footer class="bg-gray-900 text-gray-400 py-12">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-        <div class="text-center md:text-left">
-          <img src="/static/tradeflow-logo.png" alt="TradeFlow" class="h-14 w-auto" style="filter: brightness(0) invert(1);">
-          <p class="text-sm mt-1 text-gray-500">AI-powered call handling for trade contractors</p>
-        </div>
-        <nav class="flex gap-6 text-sm">
-          <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
-          <a href="/terms" class="hover:text-white transition-colors">Terms</a>
-          <a href="/contact" class="hover:text-white transition-colors">Contact</a>
-        </nav>
-      </div>
-      <div class="border-t border-gray-800 mt-8 pt-6 text-center text-xs text-gray-600">
-        &copy; 2026 TradeFlow OS Pro
-      </div>
+  <footer class="footer">
+    <div class="wrap footer-in">
+      <a href="/" class="brand">{% include "_brand_mark.html" %}TradeFlow</a>
+      <nav aria-label="Footer"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:support@tradesflowos.com">Contact</a></nav>
+      <div class="copy">&copy; 2026 TradeFlow OS · AI call handling for the trades · Made in Alberta</div>
     </div>
   </footer>
 
-  <!-- ===== JAVASCRIPT (deferred — non-blocking) ===== -->
+  <!-- ===== SCRIPTS ===== -->
   <script defer>
-  document.addEventListener('DOMContentLoaded', function() {
-    // Sticky nav: add white bg + shadow after 50px scroll
-    const navbar = document.getElementById('navbar');
-    const navLinks = navbar.querySelectorAll('.nav-link');
+  document.addEventListener('DOMContentLoaded', function () {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    function updateNav() {
-      const scrolled = window.scrollY > 50;
-      navbar.classList.toggle('bg-white', scrolled);
-      navbar.classList.toggle('shadow-md', scrolled);
-      navLinks.forEach(l => {
-        l.classList.toggle('text-white', !scrolled);
-        l.classList.toggle('hover:text-blue-200', !scrolled);
-        l.classList.toggle('text-gray-700', scrolled);
-        l.classList.toggle('hover:text-blue-700', scrolled);
-      });
+    // Nav state
+    const nav = document.getElementById('navbar');
+    const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+    // Mobile menu
+    const burger = document.getElementById('burger'), menu = document.getElementById('mobile-menu');
+    burger.addEventListener('click', () => { const o = menu.classList.toggle('open'); burger.setAttribute('aria-expanded', o); });
+    menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { menu.classList.remove('open'); burger.setAttribute('aria-expanded', false); }));
+
+    // Smooth anchors
+    document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
+      const t = document.querySelector(a.getAttribute('href')); if (!t) return;
+      e.preventDefault(); window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 72, behavior: reduce ? 'auto' : 'smooth' });
+    }));
+
+    // Reveal on scroll
+    const rev = document.querySelectorAll('.reveal');
+    // The hero reveals straight away; everything below reveals as it scrolls into view
+    document.querySelectorAll('.hero .reveal').forEach(el => requestAnimationFrame(() => el.classList.add('in')));
+    if ('IntersectionObserver' in window && !reduce) {
+      const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.01, rootMargin: '0px 0px -8% 0px' });
+      rev.forEach(el => io.observe(el));
+    } else { rev.forEach(el => el.classList.add('in')); }
+    setTimeout(() => rev.forEach(el => { if (el.getBoundingClientRect().top < innerHeight) el.classList.add('in'); }), 1200);
+
+    // Call-handling switch
+    const tabs = document.querySelectorAll('.seg button');
+    tabs.forEach(b => b.addEventListener('click', () => {
+      tabs.forEach(x => x.setAttribute('aria-selected', x === b));
+      document.querySelectorAll('.flow').forEach(f => f.classList.toggle('show', f.id === 'flow-' + b.dataset.flow));
+    }));
+
+    // Animated call
+    const $ = id => document.getElementById(id);
+    const screen = $('screen'), state = $('call-state');
+    const seq = [
+      [0,    () => { screen.classList.remove('answered'); state.classList.remove('live'); state.textContent = 'Edmonton, AB · ringing…'; ['m1','m2','m3','m4','booked','chip-a','chip-b','chip-c'].forEach(i => $(i).classList.remove('on', 'off')); }],
+      [2200, () => { screen.classList.add('answered'); state.classList.add('live'); state.textContent = '● TradeFlow AI answered'; }],
+      [3300, () => $('m1').classList.add('on')],
+      [5600, () => $('m2').classList.add('on')],
+      [8200, () => { $('m1').classList.add('off'); $('m3').classList.add('on'); }],
+      [10000, () => { $('m2').classList.add('off'); $('m4').classList.add('on'); }],
+      [12200, () => { $('booked').classList.add('on'); $('chip-c').classList.add('on'); }],
+      [13400, () => $('chip-b').classList.add('on')],
+      [14600, () => $('chip-a').classList.add('on')],
+      [21000, null]
+    ];
+    function showAll() { ['m3','m4','booked','chip-a','chip-b','chip-c'].forEach(i => $(i).classList.add('on')); screen.classList.add('answered'); state.classList.add('live'); state.textContent = '● TradeFlow AI answered'; }
+    if (reduce) { showAll(); } else {
+      let timers = [];
+      const run = () => { timers.forEach(clearTimeout); timers = seq.map(([t, fn]) => setTimeout(fn || run, t)); };
+      const stage = document.querySelector('.stage');
+      const vis = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { run(); } else { timers.forEach(clearTimeout); } }), { threshold: 0.2 });
+      vis.observe(stage);
     }
 
-    window.addEventListener('scroll', updateNav, { passive: true });
-    updateNav();
+    // Sticky mobile CTA (after the hero)
+    const sticky = document.getElementById('sticky-cta'), hero = document.querySelector('section');
+    const showSticky = () => { const gone = hero.getBoundingClientRect().bottom < 0; sticky.classList.toggle('show', gone); sticky.setAttribute('aria-hidden', !gone); };
+    window.addEventListener('scroll', showSticky, { passive: true }); showSticky();
 
-    // Mobile menu toggle
-    const mobileBtn = document.getElementById('mobile-menu-btn');
-    const mobileMenu = document.getElementById('mobile-menu');
-    mobileBtn.addEventListener('click', () => {
-      mobileMenu.classList.toggle('hidden');
-    });
-
-    // Close mobile menu when a link is clicked
-    mobileMenu.querySelectorAll('a').forEach(link => {
-      link.addEventListener('click', () => mobileMenu.classList.add('hidden'));
-    });
-
-    // Smooth scroll for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function(e) {
-        const href = this.getAttribute('href');
-        if (href === '#') return;
-        const target = document.querySelector(href);
-        if (target) {
-          e.preventDefault();
-          const offset = 72; // navbar height
-          const top = target.getBoundingClientRect().top + window.scrollY - offset;
-          window.scrollTo({ top, behavior: 'smooth' });
-        }
-      });
-    });
-    // ── Sticky mobile CTA ──────────────────────────────────────────────────
-    const stickyCta = document.getElementById('sticky-cta');
-    const heroSection = document.querySelector('section');
-    if (stickyCta && heroSection) {
-      const showSticky = () => {
-        const heroBottom = heroSection.getBoundingClientRect().bottom;
-        if (heroBottom < 0) {
-          stickyCta.classList.remove('translate-y-full');
-        } else {
-          stickyCta.classList.add('translate-y-full');
-        }
-      };
-      window.addEventListener('scroll', showSticky, { passive: true });
-      showSticky();
-    }
-
-    // ── Exit-intent modal ───────────────────────────────────────────────────
-    const exitModal = document.getElementById('exit-modal');
-    const exitClose = document.getElementById('exit-modal-close');
-    const exitDismiss = document.getElementById('exit-modal-dismiss');
-    const exitBackdrop = document.getElementById('exit-modal-backdrop');
-    let exitShown = false;
-
-    const showExitModal = () => {
-      if (exitShown || sessionStorage.getItem('exitDismissed')) return;
-      exitShown = true;
-      exitModal.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-      if (window._tfFire) window._tfFire('exit_modal_shown');
-    };
-    const hideExitModal = () => {
-      exitModal.classList.add('hidden');
-      document.body.style.overflow = '';
-      sessionStorage.setItem('exitDismissed', '1');
-    };
-
-    // Desktop: mouse leaves toward top of viewport
-    document.addEventListener('mouseleave', (e) => {
-      if (e.clientY < 20) showExitModal();
-    });
-
-    // Mobile: show after 45s of uninterrupted reading
-    let mobileTimer = setTimeout(() => {
-      if (window.innerWidth < 1024) showExitModal();
-    }, 45000);
-    ['touchstart','click','scroll'].forEach(ev =>
-      window.addEventListener(ev, () => {
-        clearTimeout(mobileTimer);
-        mobileTimer = setTimeout(() => {
-          if (window.innerWidth < 1024) showExitModal();
-        }, 45000);
-      }, { passive: true })
-    );
-
-    if (exitClose) exitClose.addEventListener('click', hideExitModal);
-    if (exitDismiss) exitDismiss.addEventListener('click', hideExitModal);
-    if (exitBackdrop) exitBackdrop.addEventListener('click', hideExitModal);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideExitModal(); });
-
-  }); // end DOMContentLoaded
+    // Exit-intent modal
+    const modal = document.getElementById('exit-modal');
+    let shown = false;
+    const open = () => { if (shown || sessionStorage.getItem('exitDismissed')) return; shown = true; modal.classList.add('open'); document.body.style.overflow = 'hidden'; if (window._tfFire) window._tfFire('exit_modal_shown'); };
+    const close = () => { modal.classList.remove('open'); document.body.style.overflow = ''; sessionStorage.setItem('exitDismissed', '1'); };
+    document.addEventListener('mouseleave', e => { if (e.clientY < 20) open(); });
+    let mobileTimer = setTimeout(() => { if (innerWidth < 1024) open(); }, 45000);
+    ['touchstart', 'click', 'scroll'].forEach(ev => addEventListener(ev, () => { clearTimeout(mobileTimer); mobileTimer = setTimeout(() => { if (innerWidth < 1024) open(); }, 45000); }, { passive: true }));
+    ['exit-modal-close', 'exit-modal-dismiss', 'exit-modal-backdrop'].forEach(id => $(id).addEventListener('click', close));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  });
   </script>
 
   <!-- ===== ANALYTICS TRACKER ===== -->
   <script defer>
-  (function() {
-    // Anonymous session — persisted in localStorage, no PII
-    let sid = localStorage.getItem('_tf_sid');
-    if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); }
-
+  (function () {
+    // Anonymous session, kept in localStorage; no personal data
+    let sid = null;
+    try { sid = localStorage.getItem('_tf_sid'); if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); } } catch (_) { sid = 'anon'; }
     const _tfAbVariant = "{{ ab_variant | default('A') }}";
-
     function fire(event) {
       fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event,
-          session_id: sid,
-          page: location.pathname,
-          referrer: document.referrer.slice(0, 512),
-          ab_variant: _tfAbVariant,
-        }),
-        keepalive: true,
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ event, session_id: sid, page: location.pathname, referrer: document.referrer.slice(0, 512), ab_variant: _tfAbVariant }),
       }).catch(() => {});
     }
-
-    // Page view
     fire('page_view');
-
-    // Scroll depth milestones
-    const scrollMilestones = { 25: false, 50: false, 75: false, 100: false };
-    window.addEventListener('scroll', function() {
-      const pct = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
-      [25, 50, 75, 100].forEach(m => {
-        if (!scrollMilestones[m] && pct >= m) {
-          scrollMilestones[m] = true;
-          fire('scroll_' + m);
-        }
-      });
+    const marks = { 25: false, 50: false, 75: false, 100: false };
+    addEventListener('scroll', function () {
+      const pct = Math.round((scrollY / (document.body.scrollHeight - innerHeight)) * 100);
+      [25, 50, 75, 100].forEach(m => { if (!marks[m] && pct >= m) { marks[m] = true; fire('scroll_' + m); } });
     }, { passive: true });
-
-    // CTA clicks
-    document.addEventListener('click', function(e) {
-      const a = e.target.closest('a');
-      if (!a) return;
+    document.addEventListener('click', function (e) {
+      const a = e.target.closest('a'); if (!a) return;
       const href = a.getAttribute('href') || '';
-      if (href === '/auth/signup') {
-        // Distinguish hero vs sticky
-        const inSticky = !!a.closest('#sticky-cta');
-        const inExitModal = !!a.closest('#exit-modal');
-        fire(inSticky ? 'cta_sticky_click' : inExitModal ? 'exit_modal_cta_click' : 'cta_hero_click');
+      if (href === '/auth/signup' || href.startsWith('/auth/signup?')) {
+        fire(a.closest('#sticky-cta') ? 'cta_sticky_click' : a.closest('#exit-modal') ? 'exit_modal_cta_click' : 'cta_hero_click');
       }
       if (href.startsWith('tel:')) fire('demo_call_click');
     });
-
-    // Expose fire() so exit-modal JS can call it
     window._tfFire = fire;
   })();
   </script>
 
   {% if ff_live_metrics %}
   <script>
-    // Live metrics — fetch from DB-backed endpoint and inject into stat cards
+    // Live metrics from the DB-backed endpoint; the band stays hidden unless real numbers arrive
     (async () => {
       try {
-        const res = await fetch('/api/public/metrics');
-        if (!res.ok) return;
-        const d = await res.json();
-        if (!d.live) return;
+        const res = await fetch('/api/public/metrics'); if (!res.ok) return;
+        const d = await res.json(); if (!d.live) return;
         const fmt = n => n >= 1000 ? (n / 1000).toFixed(1) + 'k+' : n + '+';
         document.querySelectorAll('[data-metric="calls"]').forEach(el => el.textContent = fmt(d.total_calls_handled));
         document.querySelectorAll('[data-metric="bookings"]').forEach(el => el.textContent = fmt(d.total_appointments_booked));
         document.querySelectorAll('[data-metric="contractors"]').forEach(el => el.textContent = fmt(d.contractors_active));
+        const band = document.getElementById('metrics'); if (band) band.hidden = false;
       } catch (_) {}
     })();
   </script>

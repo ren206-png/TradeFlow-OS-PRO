@@ -1,225 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#1e40af">
-  <meta name="robots" content="noindex, nofollow">
-  <title>TradeFlow — Create Account</title>
-  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-  <script src="https://cdn.tailwindcss.com"></script>
+{% include "_auth_head.html" %}
+  <title>Start your free trial · TradeFlow</title>
 {% include "_tiktok_pixel.html" %}
 </head>
-<body class="bg-gray-50 min-h-screen" style="padding-bottom: env(safe-area-inset-bottom)">
+<body>
+<main class="auth">
 
-  <!-- Top bar -->
-  <div class="bg-[#1e3a5f] px-4 py-3 flex items-center justify-between">
-    <a href="/" class="text-white font-extrabold text-lg tracking-tight">⚡ TradeFlow OS</a>
-    <a href="/auth/login" class="text-blue-200 text-sm hover:text-white transition-colors">Already have an account →</a>
-  </div>
+  <aside class="auth-aside">
+    <a href="/" class="brand">{% include "_brand_mark.html" %}TradeFlow <small>OS</small></a>
 
-  <div class="max-w-lg mx-auto px-4 py-8">
-
-    <!-- What happens next — expectation setter -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-extrabold text-gray-900 mb-1">Start answering every call.</h1>
-      <p class="text-gray-500 text-sm">14-day free trial, no card needed. Your AI phone line is ready in 5 minutes.</p>
+    <div class="auth-pitch">
+      <h2 class="display">Start answering <em>every call.</em></h2>
+      <p>14 days free. No credit card. Your AI phone line is ready in minutes.</p>
+      <ol class="next-steps">
+        <li><span>We set up your dedicated AI phone number <small>(about 30 seconds after you confirm your email)</small></span></li>
+        <li><span>You forward your business line to it, and we show you exactly how</span></li>
+        <li><span>Every call is answered, qualified and texted to your phone</span></li>
+      </ol>
     </div>
 
-    <!-- Trust strip -->
-    <div class="flex flex-wrap gap-x-5 gap-y-1 mb-6">
-      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ No credit card</span>
-      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ No contracts</span>
-      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ Cancel anytime</span>
-      <span class="text-green-600 text-xs font-semibold flex items-center gap-1">✓ Live in 5 min</span>
-    </div>
+    <div class="auth-foot">No contracts · Cancel any time · Built in Alberta</div>
+  </aside>
 
-    {% if error %}
-    <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
-      <span class="mt-0.5 flex-shrink-0">⚠️</span>
-      <span>{{ error }}</span>
-    </div>
-    {% endif %}
+  <section class="auth-main">
+    <div class="auth-card wide">
+      <a href="/" class="brand mobile-brand">{% include "_brand_mark.html" %}TradeFlow <small>OS</small></a>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <form method="post" action="/auth/signup" class="space-y-4" novalidate>
-        <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden"><label for="company_website">Leave this empty</label><input type="text" id="company_website" name="company_website" tabindex="-1" autocomplete="off" value=""></div>
+      <h1>Create your account.</h1>
+      <p class="lede">14-day free trial, no card needed. Already with us? <a href="/auth/login" class="link">Sign in</a></p>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="sm:col-span-2">
-            <label for="business_name" class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
-            <input type="text" id="business_name" name="business_name" required autocomplete="organization"
-                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                   placeholder="Apex Plumbing Ltd.">
-          </div>
+      {% if error %}
+      <div class="alert" role="alert"><span aria-hidden="true">⚠</span><span>{{ error }}</span></div>
+      {% endif %}
 
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" id="email" name="email" required autocomplete="email"
-                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                   placeholder="you@example.com">
-          </div>
+      <form method="post" action="/auth/signup" id="signup-form" novalidate>
+        <div class="hp" aria-hidden="true"><label for="company_website">Leave this empty</label><input type="text" id="company_website" name="company_website" tabindex="-1" autocomplete="off"></div>
 
-          <div>
-            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-            <input type="tel" id="phone" name="phone" required autocomplete="tel"
-                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                   placeholder="+1 (403) 555-0100">
-          </div>
-
-          <div>
-            <label for="trade" class="block text-sm font-medium text-gray-700 mb-1">Your Trade</label>
-            <select id="trade" name="trade" required
-                    class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white">
+        <div class="grid-2">
+          <label class="field span-2"><span>Business name</span>
+            <input class="input" type="text" id="business_name" name="business_name" required autocomplete="organization" placeholder="Apex Plumbing Ltd."></label>
+          <label class="field"><span>Email</span>
+            <input class="input" type="email" id="email" name="email" required autocomplete="email" inputmode="email" placeholder="you@yourbusiness.ca"></label>
+          <label class="field"><span>Mobile phone</span>
+            <input class="input" type="tel" id="phone" name="phone" required autocomplete="tel" inputmode="tel" placeholder="(403) 555-0100"></label>
+          <label class="field"><span>Your trade</span>
+            <select class="input" id="trade" name="trade" required>
               <option value="" disabled selected>Select your trade</option>
-              <option value="plumbing">🔧 Plumbing</option>
-              <option value="hvac">❄️ HVAC</option>
-              <option value="electrical">⚡ Electrical</option>
-              <option value="roofing">🏠 Roofing</option>
-              <option value="garage_door">🚪 Garage Door</option>
-              <option value="locksmith">🔑 Locksmith</option>
-              <option value="towing">🚗 Towing</option>
-              <option value="general">🏗️ General Contracting</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="service_area" class="block text-sm font-medium text-gray-700 mb-1">Service Area</label>
-            <input type="text" id="service_area" name="service_area" required
-                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                   placeholder="e.g. Calgary, T2N">
-          </div>
-
-
-          <div class="sm:col-span-2">
-            <p class="block text-sm font-medium text-gray-700 mb-2">When should the AI answer your calls?</p>
-            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer mb-2 hover:border-blue-300">
-              <input type="radio" name="call_handling" value="missed" checked class="mt-1">
-              <span class="text-sm text-gray-700"><strong>Only when I miss the call</strong> (recommended)<br>
-                <span class="text-xs text-gray-500">Your phone rings first. If you don't pick up, the AI takes over.</span></span>
-            </label>
-            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300">
-              <input type="radio" name="call_handling" value="all" class="mt-1">
-              <span class="text-sm text-gray-700"><strong>Every call</strong><br>
-                <span class="text-xs text-gray-500">The AI answers every call and texts you the details. Your phone won't ring.</span></span>
-            </label>
-            <p class="text-xs text-gray-400 mt-1">You can change this any time in Settings.</p>
-          </div>
-
-          <div class="sm:col-span-2">
-            <p class="block text-sm font-medium text-gray-700 mb-2">Urgent calls</p>
-            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer mb-2 hover:border-blue-300">
-              <input type="radio" name="transfer_urgent" value="yes" checked class="mt-1">
-              <span class="text-sm text-gray-700"><strong>Put emergencies through to my phone</strong> (recommended)<br>
-                <span class="text-xs text-gray-500">The AI books the job, then connects you live for emergencies like a burst pipe, and whenever a caller asks for a person.</span></span>
-            </label>
-            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300">
-              <input type="radio" name="transfer_urgent" value="no" class="mt-1">
-              <span class="text-sm text-gray-700"><strong>Just text me the details</strong><br>
-                <span class="text-xs text-gray-500">The AI handles every call itself and sends you a text.</span></span>
-            </label>
-          </div>
-
-          <div class="sm:col-span-2">
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password"
-                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                   placeholder="At least 8 characters">
-          </div>
-
-          <div class="sm:col-span-2">
-            <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-            <input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password"
-                   class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                   placeholder="Re-enter your password">
-          </div>
+              <option value="plumbing">Plumbing</option><option value="hvac">HVAC</option><option value="electrical">Electrical</option>
+              <option value="roofing">Roofing</option><option value="garage_door">Garage door</option><option value="locksmith">Locksmith</option>
+              <option value="towing">Towing</option><option value="general">General contracting</option><option value="other">Other</option>
+            </select></label>
+          <label class="field"><span>Service area</span>
+            <input class="input" type="text" id="service_area" name="service_area" required placeholder="e.g. Calgary, T2N"></label>
         </div>
 
-        <button type="submit" id="submit-btn"
-                class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-4 px-4 rounded-xl transition text-base mt-2 flex items-center justify-center gap-2">
-          <span id="submit-text">Create My Free Account →</span>
-          <svg id="submit-spinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
+        <p class="group-title">When should the AI answer your calls?</p>
+        <label class="choice"><input type="radio" name="call_handling" value="missed" checked>
+          <span><strong>Only when I miss the call <span class="rec">Recommended</span></strong><small>Your phone rings first. If you don't pick up, the AI takes over.</small></span></label>
+        <label class="choice"><input type="radio" name="call_handling" value="all">
+          <span><strong>Every call</strong><small>The AI answers every call and texts you the details. Your phone won't ring.</small></span></label>
+
+        <p class="group-title" style="margin-top:20px">Urgent calls</p>
+        <label class="choice"><input type="radio" name="transfer_urgent" value="yes" checked>
+          <span><strong>Put emergencies through to my phone <span class="rec">Recommended</span></strong><small>The AI books the job, then connects you live for emergencies like a burst pipe, and whenever a caller asks for a person.</small></span></label>
+        <label class="choice"><input type="radio" name="transfer_urgent" value="no">
+          <span><strong>Just text me the details</strong><small>The AI handles every call itself and sends you a text.</small></span></label>
+        <p class="fine-print" style="margin:6px 0 22px;text-align:left">You can change both any time in Settings.</p>
+
+        <div class="grid-2">
+          <label class="field"><span>Password</span>
+            <input class="input" type="password" id="password" name="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"></label>
+          <label class="field"><span>Confirm password</span>
+            <input class="input" type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password" placeholder="Re-enter your password"></label>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary btn-lg btn-block" style="margin-top:8px">
+          <span id="submit-text">Create my free account</span>
+          <span class="arrow" id="submit-arrow">→</span>
+          <svg id="submit-spinner" class="spin hidden" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity=".25" stroke-width="4"/><path d="M4 12a8 8 0 0 1 8-8" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
         </button>
 
-        <p class="text-center text-xs text-gray-400 leading-relaxed">
-          By creating an account you agree to our
-          <a href="#" class="underline hover:text-gray-600">Terms</a> and
-          <a href="#" class="underline hover:text-gray-600">Privacy Policy</a>.
-        </p>
+        <p class="fine-print">By creating an account you agree to our <a href="/terms" class="link">Terms</a> and <a href="/privacy" class="link">Privacy Policy</a>.</p>
       </form>
     </div>
+  </section>
 
-    <!-- What happens next -->
-    <div class="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5">
-      <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-3">What happens after you sign up</p>
-      <div class="space-y-2.5">
-        <div class="flex items-start gap-3">
-          <div class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
-          <p class="text-sm text-gray-700">We provision your dedicated AI phone number <span class="text-gray-400">(~30 seconds)</span></p>
-        </div>
-        <div class="flex items-start gap-3">
-          <div class="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
-          <p class="text-sm text-gray-700">Forward your business line to your TradeFlow number</p>
-        </div>
-        <div class="flex items-start gap-3">
-          <div class="w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">✓</div>
-          <p class="text-sm text-gray-700">Every call gets answered, qualified, and sent to your phone</p>
-        </div>
-      </div>
-    </div>
+</main>
 
-  </div>
+<script defer>
+  // Mini tracker for the signup page
+  (function () {
+    let sid = null;
+    try { sid = localStorage.getItem('_tf_sid'); if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); } } catch (_) { sid = 'anon'; }
+    window._tfFire = function (ev) {
+      fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: ev, session_id: sid, page: location.pathname, referrer: document.referrer }), keepalive: true }).catch(() => {});
+    };
+  })();
 
-  <script defer>
-    // Mini tracker for signup page
-    (function() {
-      let sid = localStorage.getItem('_tf_sid');
-      if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_tf_sid', sid); }
-      window._tfFire = function(ev) {
-        fetch('/api/events', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: ev, session_id: sid, page: location.pathname, referrer: document.referrer }),
-          keepalive: true,
-        }).catch(() => {});
-      };
-    })();
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('signup-form');
+    const btn = document.getElementById('submit-btn'), txt = document.getElementById('submit-text');
+    const spin = document.getElementById('submit-spinner'), arrow = document.getElementById('submit-arrow');
 
-    document.addEventListener('DOMContentLoaded', function () {
-      const form = document.querySelector('form');
-      const btn = document.getElementById('submit-btn');
-      const txt = document.getElementById('submit-text');
-      const spin = document.getElementById('submit-spinner');
+    let startFired = false;
+    form.querySelectorAll('input, select').forEach(el => el.addEventListener('focus', function () {
+      if (!startFired) { startFired = true; window._tfFire('signup_start'); }
+    }, { once: true }));
 
-      // Fire signup_start when user first focuses any field
-      let startFired = false;
-      form.querySelectorAll('input, select').forEach(el => {
-        el.addEventListener('focus', function() {
-          if (!startFired) { startFired = true; window._tfFire('signup_start'); }
-        }, { once: true });
-      });
-
-      // Show spinner on submit to prevent double-click
-      form.addEventListener('submit', function () {
-        btn.disabled = true;
-        txt.textContent = 'Setting up your account…';
-        spin.classList.remove('hidden');
-      });
-
-      // Client-side password match check
-      const pw = document.getElementById('password');
-      const cpw = document.getElementById('confirm_password');
-      cpw.addEventListener('input', function () {
-        if (pw.value && cpw.value && pw.value !== cpw.value) {
-          cpw.setCustomValidity('Passwords do not match');
-        } else {
-          cpw.setCustomValidity('');
-        }
-      });
+    form.addEventListener('submit', function () {
+      btn.disabled = true; txt.textContent = 'Setting up your account…'; arrow.classList.add('hidden'); spin.classList.remove('hidden');
     });
-  </script>
+
+    const pw = document.getElementById('password'), cpw = document.getElementById('confirm_password');
+    cpw.addEventListener('input', function () {
+      cpw.setCustomValidity(pw.value && cpw.value && pw.value !== cpw.value ? 'Passwords do not match' : '');
+    });
+  });
+</script>
 </body>
 </html>
