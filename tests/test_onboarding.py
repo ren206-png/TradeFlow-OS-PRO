@@ -60,8 +60,8 @@ async def test_onboarding_get_returns_200(db: AsyncSession):
     app.dependency_overrides[get_db] = _override(db)
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.get("/onboarding")
-        assert resp.status_code == 200
+            resp = await client.get("/onboarding", follow_redirects=False)
+        assert resp.status_code == 302 and resp.headers["location"] == "/auth/signup"
     finally:
         app.dependency_overrides.pop(get_db, None)
 

@@ -161,6 +161,9 @@ async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     for name, value in _SECURITY_HEADERS.items():
         response.headers.setdefault(name, value)
+    if request.url.path.startswith("/static/") and response.status_code == 200:
+        # Stylesheets are versioned with ?v=N in the templates, so browsers can keep them for a day
+        response.headers.setdefault("Cache-Control", "public, max-age=86400")
     return response
 
 

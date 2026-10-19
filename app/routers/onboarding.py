@@ -31,14 +31,10 @@ TRADES = ["Plumbing", "HVAC", "Electrical", "Heating", "Cooling", "General"]
 # ---------------------------------------------------------------------------
 
 @router.get("", response_class=HTMLResponse)
-async def onboarding_form(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(request,
-"onboarding.html",
-{
-            "errors": {},
-            "form": {},
-        },
-)
+async def onboarding_form(request: Request):
+    # One signup page: the older multi-step form drifted from /auth/signup (no new design, no ad attribution cookie flow
+    # in sync). The POST handler below stays for any client still submitting to it.
+    return RedirectResponse(url="/auth/signup", status_code=302)
 
 
 # ---------------------------------------------------------------------------

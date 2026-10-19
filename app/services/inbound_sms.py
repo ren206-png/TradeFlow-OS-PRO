@@ -52,7 +52,47 @@ async def handle_inbound_sms(phone: str, body: str, to_number: str, db: AsyncSes
             logger.warning("RESCHEDULE keyword handler failed | from=%s err=%s", phone, _exc)
         return "We're arranging a call to find you a new time. We'll call you shortly!"
 
+    if body:
+        try:
+            await _forward_reply_to_owner(phone, body, to_number, db)
+        except Exception as _exc:
+            logger.warning("Forwarding customer reply failed | from=%s err=%s", phone, _exc)
     return None
+
+
+_REPLY_FORWARDS: dict[str, list[float]] = {}
+_REPLY_FORWARD_LIMIT = 5  # per sender per hour, so a stuck auto-responder can't flood the owner
+
+
+async def _forward_reply_to_owner(phone: str, body: str, to_number: str, db: AsyncSession) -> None:
+    """A customer answered a confirmation or follow-up text with free text. Pass it to the owner: before this,
+    anything that wasn't a keyword was silently dropped and the owner never saw 'can you come at 2 instead?'."""
+    import re
+    import time
+    from app.models.lead import Lead
+    from app.services.notifications import owner_alert_phone
+    from app.services.sms_provider import send_sms
+
+    contractor, _ = await _resolve_tenant_from_to(to_number, db, phone)
+    if contractor is None:
+        return
+    owner = owner_alert_phone(contractor)
+    if not owner or re.sub(r"\D", "", owner)[-10:] == re.sub(r"\D", "", phone)[-10:]:
+        return  # unknown tenant, no owner number, or the owner texting the line themselves
+
+    now = time.time()
+    recent = [t for t in _REPLY_FORWARDS.get(phone, []) if now - t < 3600]
+    if len(recent) >= _REPLY_FORWARD_LIMIT:
+        return
+    _REPLY_FORWARDS[phone] = recent + [now]
+
+    name = (await db.execute(
+        select(Lead.caller_name).where(Lead.contractor_id == contractor.id, Lead.phone == phone)
+        .order_by(Lead.created_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    who = f"{name} ({phone})" if name else phone
+    await send_sms(owner, f"Customer reply from {who}:\n\"{body[:300]}\"\nText or call them back at {phone}.", "customer_reply")
+    logger.info("Customer reply forwarded to owner | contractor=%s from=%s", contractor.name, phone)
 
 
 async def _resolve_tenant_from_to(to_number: str, db: AsyncSession, caller_phone: str = ""):
