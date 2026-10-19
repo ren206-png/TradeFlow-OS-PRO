@@ -36,6 +36,17 @@ async def resolve_call_lead(db: AsyncSession, call_session) -> Lead | None:
     return lead
 
 
+def _clip(field: str, value):
+    """The model writes free text ('Panicked, urgent, repeated requests for immediate dispatch'); cut it to the
+    column length so one over-long value can't fail the whole save (and, before this, poison the call's DB session)."""
+    if value is None:
+        return value
+    value = str(value)
+    limit = getattr(Lead.__table__.columns.get(field), "type", None)
+    max_len = getattr(limit, "length", None)
+    return value[:max_len] if max_len and len(value) > max_len else value
+
+
 async def create_lead_record(tool_input: dict, context: dict) -> dict:
     """Upsert the CRM Lead record. Calculates priority scores before saving."""
     db: AsyncSession = context["db"]
@@ -70,7 +81,7 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
     ]
     for field in str_fields:
         if field in tool_input:
-            setattr(lead, field, tool_input[field])
+            setattr(lead, field, _clip(field, tool_input[field]))
 
     bool_fields = ["life_safety_risk", "human_transfer_required", "sms_confirmation_sent"]
     for field in bool_fields:

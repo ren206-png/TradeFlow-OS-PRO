@@ -402,6 +402,12 @@ async def llm_websocket(
             logger.exception("Unhandled error in WebSocket | call_id=%s error=%s", call_id, exc)
             try:
                 await db.rollback()
+                # A rollback expires every loaded object; reload the ones this call keeps using, or each later
+                # turn dies on a lazy load and the caller hears "technical issue" until the call ends.
+                agent = state.get("agent")
+                if agent is not None:
+                    for obj in (agent.call_session, agent.contractor):
+                        await db.refresh(obj)
             except Exception:
                 pass
             await _send({

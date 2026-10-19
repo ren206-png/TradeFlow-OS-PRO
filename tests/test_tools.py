@@ -221,3 +221,50 @@ async def test_create_lead_record_required_field_only(ctx):
 
     assert result["success"] is True
     assert "lead_id" in result
+
+
+def _real_context(db_obj):
+    import uuid
+    from app.models.call import CallSession
+    from app.models.contractor import Contractor
+    c = Contractor(id=uuid.uuid4(), name="Clip Plumbing", agent_name="Alex", phone_number="+15550007777",
+                   api_key="k-clip-" + uuid.uuid4().hex, trades=["plumbing"], service_areas=["Edmonton"], timezone="America/Edmonton")
+    cs = CallSession(id=uuid.uuid4(), retell_call_id="call-clip-1", contractor_id=c.id, status="active", conversation_history=[])
+    db_obj.add_all([c, cs])
+    return c, cs
+
+
+@pytest.mark.asyncio
+async def test_overlong_ai_text_is_clipped_not_fatal(db):
+    # Regression (owner-transfer test, 2026-10-18): a 58-character customer_sentiment overflowed VARCHAR(50),
+    # the save failed, and the call's database session was left unusable.
+    from sqlalchemy import select
+    from app.models.lead import Lead
+    from app.tools.create_lead import create_lead_record
+    c, cs = _real_context(db)
+    await db.commit()
+    ctx = {"db": db, "contractor": c, "call_session": cs, "caller_phone": "+14035550142"}
+    await create_lead_record({"caller_name": "Sam", "customer_sentiment": "Panicked, urgent, repeated requests for immediate dispatch" * 2,
+                              "emergency_level": "x" * 90}, ctx)
+    await db.flush()
+    lead = (await db.execute(select(Lead).where(Lead.call_id == "call-clip-1"))).scalar_one()
+    assert len(lead.customer_sentiment) <= 50 and len(lead.emergency_level) <= 50
+
+
+@pytest.mark.asyncio
+async def test_failed_tool_does_not_break_the_session(db, monkeypatch):
+    from sqlalchemy import select
+    from app.models.contractor import Contractor
+    from app.tools import handlers
+    c, cs = _real_context(db)
+    await db.commit()
+
+    async def bad_tool(tool_input, context):
+        context["db"].add(Contractor(name="dup", agent_name="x", phone_number=c.phone_number, api_key="k-dup"))  # unique violation
+        await context["db"].flush()
+
+    monkeypatch.setitem(handlers._TOOL_MAP, "bad_tool", bad_tool)
+    out = await handlers.execute_tool("bad_tool", {}, {"db": db, "contractor": c, "call_session": cs})
+    assert out["success"] is False
+    assert cs.retell_call_id == "call-clip-1"  # still readable: no lazy-load on a broken session
+    assert (await db.execute(select(Contractor).where(Contractor.id == c.id))).scalar_one()

@@ -71,7 +71,13 @@ async def execute_tool(tool_name: str, tool_input: dict, context: dict) -> dict:
         logger.warning("Unknown tool requested: %s", tool_name)
         return {"error": f"Unknown tool: {tool_name}", "success": False}
 
+    db = context.get("db")
     try:
+        if db is not None:
+            # A SAVEPOINT: if the tool's database work fails, only that work is undone and the call's session
+            # stays usable. (Without it one failed tool left the session unusable and the caller in silence.)
+            async with db.begin_nested():
+                return await handler(tool_input, context)
         return await handler(tool_input, context)
     except Exception as exc:
         logger.exception("Tool %s failed with input %s", tool_name, tool_input)
