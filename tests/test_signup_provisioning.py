@@ -87,7 +87,7 @@ async def test_verified_account_gets_agent_with_webhook_and_canadian_number(db, 
     assert res["success"] is True
     cfg = client.create_agent.call_args.args[0]
     assert cfg["webhook_url"] == provisioning.CALL_EVENTS_WEBHOOK_URL
-    assert cfg["language"] == ("multi" if settings.multilang_enabled else "en-US")
+    assert cfg["language"] == "en-US"  # "multi" misheard English phone numbers in testing
     assert client.purchase_phone_number.call_args.kwargs["country_code"] == "CA"
     refreshed = (await db.execute(select(Contractor).where(Contractor.id == c.id))).scalar_one()
     assert refreshed.provisioning_status == "active" and refreshed.phone_number == "+15875559999"

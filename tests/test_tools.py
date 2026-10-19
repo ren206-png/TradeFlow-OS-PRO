@@ -268,3 +268,23 @@ async def test_failed_tool_does_not_break_the_session(db, monkeypatch):
     assert out["success"] is False
     assert cs.retell_call_id == "call-clip-1"  # still readable: no lazy-load on a broken session
     assert (await db.execute(select(Contractor).where(Contractor.id == c.id))).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_invalid_spoken_number_falls_back_to_caller_id(db):
+    # Regression (weekly voice test, 2026-10-19): the AI heard "78555142" and saved it as the callback number.
+    from sqlalchemy import select
+    from app.models.lead import Lead
+    from app.tools.create_lead import create_lead_record
+    c, cs = _real_context(db)
+    await db.commit()
+    ctx = {"db": db, "contractor": c, "call_session": cs, "caller_phone": "+15878001544"}
+    await create_lead_record({"caller_name": "Taylor", "phone": "78555142"}, ctx)
+    await db.flush()
+    lead = (await db.execute(select(Lead).where(Lead.call_id == "call-clip-1"))).scalar_one()
+    assert lead.phone == "+15878001544" and "78555142" in (lead.notes or "")
+    # a valid spoken number is kept (and normalised)
+    await create_lead_record({"phone": "(780) 555-0142"}, ctx)
+    await db.flush()
+    await db.refresh(lead)
+    assert lead.phone == "+17805550142"

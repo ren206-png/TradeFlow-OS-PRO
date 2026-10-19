@@ -153,11 +153,12 @@ async def provision_contractor(contractor, db: AsyncSession, *, reuse_agent: boo
             "response_engine": {"type": "custom-llm", "llm_websocket_url": LLM_WEBSOCKET_URL},
             # call_started / call_ended / call_analyzed events: without this, calls are never finalised or summarised
             "webhook_url": CALL_EVENTS_WEBHOOK_URL,
-            # "multi" lets the caller speak English, Spanish, French (and more) with accurate speech recognition;
-            # the model replies in the caller's language (see prompts/multilang_wrapper.py). The multilang
-            # *voice* id isn't on our Retell account (it 404'd every signup), so the standard voice is used.
+            # English-only recognition. Retell's "multi" mode (English/Spanish/French...) misheard English phone
+            # numbers in 2 of 2 test calls ("seven eighty five five o hundred and forty two"), while en-US got
+            # 2 of 2 right, and the weekly voice test failed on it. English is the default language; the AI still
+            # replies in French or Spanish when the caller uses them (prompts/multilang_wrapper.py).
             "voice_id": DEFAULT_VOICE_ID,
-            "language": "multi" if settings.multilang_enabled else "en-US",
+            "language": "en-US",
             "boosted_keywords": contractor.trades or [],
             "end_call_after_silence_ms": 30000,
             "max_call_duration_ms": 1800000,  # 30 min

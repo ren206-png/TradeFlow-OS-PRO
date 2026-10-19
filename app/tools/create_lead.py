@@ -65,8 +65,21 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
         db.add(lead)
 
     tool_input = dict(tool_input)
-    if tool_input.get("phone"):
-        tool_input["phone"] = normalize_nanp(tool_input["phone"]) or tool_input["phone"]
+    spoken = tool_input.get("phone")
+    if spoken:
+        valid = normalize_nanp(spoken)
+        if valid:
+            tool_input["phone"] = valid
+        else:
+            # Speech recognition sometimes drops digits ("78555142"). Never store a number we can't dial:
+            # use the caller ID when we have it and keep what was heard in the notes.
+            fallback = lead.phone if (lead.phone and normalize_nanp(lead.phone)) else context.get("caller_phone")
+            if fallback and normalize_nanp(fallback):
+                tool_input["phone"] = normalize_nanp(fallback)
+                note = f"[Callback number heard as '{spoken}' (not a valid 10-digit number); caller ID used instead]"
+                tool_input["notes"] = (tool_input.get("notes") or "").rstrip() + ("\n" if tool_input.get("notes") else "") + note
+            else:
+                tool_input["phone"] = spoken
     elif not lead.phone and context.get("caller_phone"):
         tool_input["phone"] = context["caller_phone"]
 
