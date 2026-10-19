@@ -349,11 +349,14 @@ async def llm_websocket(
             # Check if the transfer_call tool fired during this turn
             transfer_number = _pending_transfers.pop(call_id, None)
             end_call = (
-                bool(transfer_number)
-                or _should_end_call(agent)
+                _should_end_call(agent)
                 or bool(agent._tool_context.pop("end_call", False))
                 or _caller_said_goodbye(user_message, agent)
             )
+            if transfer_number:
+                # Retell hangs up instead of transferring when end_call is also set, so a transfer turn must not end the call
+                # (live test 2026-10-18: "Transfer initiated" was logged but the owner's phone never rang).
+                end_call = False
 
             payload: dict = {
                 "response_type": "response",
@@ -363,6 +366,8 @@ async def llm_websocket(
                 "end_call": end_call,
             }
             if transfer_number:
+                # Retell drops the transfer if the caller interrupts while this turn is being spoken
+                payload["no_interruption_allowed"] = True
                 payload["transfer_number"] = transfer_number
                 logger.info("Transfer initiated | call_id=%s to=%s", call_id, transfer_number)
 

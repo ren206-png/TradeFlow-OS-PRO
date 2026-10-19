@@ -357,3 +357,13 @@ async def test_errored_call_after_real_conversation_gets_no_missed_call_text(db)
          patch("app.services.missed_call.send_missed_call_sms", new_callable=AsyncMock) as missed:
         await _call_ended(db, "call_err40", seconds=40, call_status="error")
     missed.assert_not_called()
+
+
+def test_transfer_turn_must_not_also_end_the_call():
+    # Retell hangs up instead of transferring when end_call and transfer_number are both set.
+    import inspect
+    from app.routers import retell
+    src = inspect.getsource(retell)
+    block = src[src.index("if transfer_number:\n                # Retell hangs up"):]
+    assert "end_call = False" in block[:400]
+    assert 'payload["no_interruption_allowed"] = True' in src
