@@ -23,6 +23,7 @@ from app.routers import dashboard_v2 as dashboard_v2_router  # Phase 5: owner da
 from app.routers import surge_portal as surge_portal_router  # Phase 6: surge portal API
 # Phase 1: register new models so SQLAlchemy/Base.metadata knows about them
 import app.models.feature_flag       # noqa: F401 — registers FeatureFlag
+import app.models.scheduled_job      # noqa: F401 — registers ScheduledJob
 import app.models.outbound_ledger    # noqa: F401 — registers OutboundLedger
 import app.models.consent_ledger     # noqa: F401 — registers ConsentLedger
 import app.models.a2p_registration   # noqa: F401 — registers A2PRegistration

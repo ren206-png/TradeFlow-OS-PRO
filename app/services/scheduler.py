@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -45,6 +46,12 @@ def start_scheduler() -> None:
             id="trial_reminders",
             replace_existing=True,
         )
+        from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
+        _scheduler.add_listener(_on_job_finished, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED)
+        try:
+            asyncio.get_running_loop().create_task(restore_pending_jobs())
+        except RuntimeError:
+            pass
         logger.info("APScheduler started. Daily digest scheduled at 08:00 UTC.")
         # Phase 6: Weather surge polling + expiry — every 30 minutes when flag ON
         if settings.weather_surge_mode:
@@ -101,6 +108,83 @@ def start_scheduler() -> None:
             logger.info("Phase 4: Estimate follow-up drip scheduled hourly.")
 
 
+# ---------------------------------------------------------------------------
+# Durable one-off jobs: follow-up texts, reminders etc. are also written to the scheduled_jobs table, so
+# they are re-queued after a restart or deploy (APScheduler's own store here is in memory only).
+# ---------------------------------------------------------------------------
+
+_JOB_MAX_AGE = timedelta(days=3)   # a job that was due longer ago than this is no longer worth sending
+
+
+def _persisted_date_job(func, run_at, kwargs: dict, job_id: str) -> None:
+    _scheduler.add_job(func, trigger="date", run_date=run_at, kwargs=kwargs, id=job_id, replace_existing=True)
+    try:
+        asyncio.get_running_loop().create_task(_save_job_row(job_id, func.__name__, run_at, kwargs))
+    except RuntimeError:
+        pass  # no running loop (sync caller): the job still runs from memory this process lifetime
+
+
+async def _save_job_row(job_id: str, func_name: str, run_at, kwargs: dict) -> None:
+    try:
+        from app.database import async_session_factory
+        from app.models.scheduled_job import ScheduledJob
+        async with async_session_factory() as db:
+            await db.merge(ScheduledJob(id=job_id, func_name=func_name, run_at=run_at, kwargs=kwargs, status="pending"))
+            await db.commit()
+    except Exception as exc:
+        logger.warning("Could not persist scheduled job %s: %s", job_id, exc)
+
+
+async def _mark_job_row(job_id: str, status: str) -> None:
+    try:
+        from sqlalchemy import update
+        from app.database import async_session_factory
+        from app.models.scheduled_job import ScheduledJob
+        async with async_session_factory() as db:
+            await db.execute(update(ScheduledJob).where(ScheduledJob.id == job_id).values(status=status))
+            await db.commit()
+    except Exception as exc:
+        logger.warning("Could not update scheduled job %s: %s", job_id, exc)
+
+
+def _on_job_finished(event) -> None:
+    """APScheduler listener: a persisted one-off job has run (or failed or been missed): close its row."""
+    job_id = getattr(event, "job_id", "") or ""
+    if job_id.startswith(_PERSISTED_PREFIXES):
+        status = "error" if getattr(event, "exception", None) else "done"
+        try:
+            asyncio.get_running_loop().create_task(_mark_job_row(job_id, status))
+        except RuntimeError:
+            pass
+
+
+async def restore_pending_jobs() -> int:
+    """At startup: re-queue every job that was still pending when the last process stopped."""
+    from sqlalchemy import select
+    from app.database import async_session_factory
+    from app.models.scheduled_job import ScheduledJob
+    now = datetime.now(tz=timezone.utc)
+    restored = 0
+    try:
+        async with async_session_factory() as db:
+            rows = (await db.execute(select(ScheduledJob).where(ScheduledJob.status == "pending"))).scalars().all()
+            for row in rows:
+                func = _JOB_FUNCS.get(row.func_name)
+                run_at = row.run_at if row.run_at.tzinfo else row.run_at.replace(tzinfo=timezone.utc)
+                if func is None or now - run_at > _JOB_MAX_AGE:
+                    row.status = "expired"
+                    continue
+                _scheduler.add_job(func, trigger="date", run_date=max(run_at, now + timedelta(seconds=15)),
+                                   kwargs=dict(row.kwargs or {}), id=row.id, replace_existing=True)
+                restored += 1
+            await db.commit()
+    except Exception as exc:
+        logger.error("Could not restore scheduled jobs: %s", exc)
+    if restored:
+        logger.info("Restored %d pending scheduled job(s) after restart", restored)
+    return restored
+
+
 def shutdown_scheduler() -> None:
     if _scheduler.running:
         _scheduler.shutdown(wait=False)
@@ -118,19 +202,12 @@ def schedule_missed_call_recovery(
     lead_id: str,
 ) -> None:
     fire_at = datetime.now(tz=timezone.utc) + timedelta(minutes=15)
-    _scheduler.add_job(
-        _missed_call_recovery_job,
-        trigger="date",
-        run_date=fire_at,
-        kwargs={
+    _persisted_date_job(_missed_call_recovery_job, fire_at, {
             "contractor_id": contractor_id,
             "to_number": to_number,
             "from_number": from_number,
             "lead_id": lead_id,
-        },
-        id=f"missed_call_{lead_id}",
-        replace_existing=True,
-    )
+        }, f"missed_call_{lead_id}")
     logger.info("Missed call recovery scheduled for %s | lead=%s", fire_at.isoformat(), lead_id)
 
 
@@ -197,20 +274,13 @@ def schedule_appointment_reminder(
         logger.debug("Reminder fire_at is in the past; skipping | lead=%s", lead_id)
         return
 
-    _scheduler.add_job(
-        _appointment_reminder_job,
-        trigger="date",
-        run_date=fire_at,
-        kwargs={
+    _persisted_date_job(_appointment_reminder_job, fire_at, {
             "contractor_id": contractor_id,
             "lead_id": lead_id,
             "phone": phone,
             "appointment_time": appointment_time.isoformat(),
             "service_address": service_address,
-        },
-        id=f"reminder_{lead_id}",
-        replace_existing=True,
-    )
+        }, f"reminder_{lead_id}")
     logger.info("Appointment reminder scheduled for %s | lead=%s", fire_at.isoformat(), lead_id)
 
 
@@ -267,14 +337,7 @@ def schedule_review_request(
     if fire_at <= datetime.now(tz=timezone.utc):
         return
 
-    _scheduler.add_job(
-        _review_request_job,
-        trigger="date",
-        run_date=fire_at,
-        kwargs={"contractor_id": contractor_id, "lead_id": lead_id, "phone": phone},
-        id=f"review_{lead_id}",
-        replace_existing=True,
-    )
+    _persisted_date_job(_review_request_job, fire_at, {"contractor_id": contractor_id, "lead_id": lead_id, "phone": phone}, f"review_{lead_id}")
     logger.info("Review request scheduled for %s | lead=%s", fire_at.isoformat(), lead_id)
 
 
@@ -322,14 +385,7 @@ def schedule_unbooked_followup(
     phone: str,
 ) -> None:
     fire_at = datetime.now(tz=timezone.utc) + timedelta(hours=24)
-    _scheduler.add_job(
-        _unbooked_followup_job,
-        trigger="date",
-        run_date=fire_at,
-        kwargs={"contractor_id": contractor_id, "lead_id": lead_id, "phone": phone},
-        id=f"unbooked_{lead_id}",
-        replace_existing=True,
-    )
+    _persisted_date_job(_unbooked_followup_job, fire_at, {"contractor_id": contractor_id, "lead_id": lead_id, "phone": phone}, f"unbooked_{lead_id}")
     logger.info("Unbooked follow-up scheduled for %s | lead=%s", fire_at.isoformat(), lead_id)
 
 
@@ -374,14 +430,7 @@ async def _unbooked_followup_job(contractor_id: str, lead_id: str, phone: str) -
 
 def schedule_lead_followup(lead_id: str, contractor_id: str) -> None:
     fire_at = datetime.now(tz=timezone.utc) + timedelta(hours=24)
-    _scheduler.add_job(
-        _lead_followup_job,
-        trigger="date",
-        run_date=fire_at,
-        kwargs={"lead_id": lead_id, "contractor_id": contractor_id},
-        id=f"lead_followup_{lead_id}",
-        replace_existing=True,
-    )
+    _persisted_date_job(_lead_followup_job, fire_at, {"lead_id": lead_id, "contractor_id": contractor_id}, f"lead_followup_{lead_id}")
     logger.info("Lead follow-up scheduled for %s | lead=%s", fire_at.isoformat(), lead_id)
 
 
@@ -461,26 +510,12 @@ def schedule_appointment_reminders(appointment_id: str) -> None:
         return
 
     fire_now = datetime.now(tz=timezone.utc)
-    _scheduler.add_job(
-        _appointment_confirmation_job,
-        trigger="date",
-        run_date=fire_now,
-        kwargs={"appointment_id": appointment_id},
-        id=f"appt_confirm_{appointment_id}",
-        replace_existing=True,
-    )
+    _persisted_date_job(_appointment_confirmation_job, fire_now, {"appointment_id": appointment_id}, f"appt_confirm_{appointment_id}")
     logger.info("Appointment confirmation job queued immediately | appt=%s", appointment_id)
 
     # Reminder job time will be resolved from DB inside the job itself.
     # Queue a deferred job that fetches the appointment and schedules the reminder.
-    _scheduler.add_job(
-        _appointment_schedule_reminder_job,
-        trigger="date",
-        run_date=fire_now,
-        kwargs={"appointment_id": appointment_id},
-        id=f"appt_schedule_reminder_{appointment_id}",
-        replace_existing=True,
-    )
+    _persisted_date_job(_appointment_schedule_reminder_job, fire_now, {"appointment_id": appointment_id}, f"appt_schedule_reminder_{appointment_id}")
     logger.info("Appointment reminder scheduler queued | appt=%s", appointment_id)
 
 
@@ -548,14 +583,7 @@ async def _appointment_schedule_reminder_job(appointment_id: str) -> None:
                 )
                 return
 
-            _scheduler.add_job(
-                _appointment_reminder_lifecycle_job,
-                trigger="date",
-                run_date=fire_at,
-                kwargs={"appointment_id": appointment_id},
-                id=f"appt_reminder_{appointment_id}",
-                replace_existing=True,
-            )
+            _persisted_date_job(_appointment_reminder_lifecycle_job, fire_at, {"appointment_id": appointment_id}, f"appt_reminder_{appointment_id}")
             logger.info(
                 "Appointment day-before reminder scheduled for %s | appt=%s",
                 fire_at.isoformat(), appointment_id,
@@ -910,3 +938,11 @@ async def _trial_reminder_job() -> None:
             await db.commit()
     except Exception as exc:
         logger.error("Trial reminder job failed: %s", exc)
+
+
+_JOB_FUNCS = {f.__name__: f for f in (
+    _missed_call_recovery_job, _appointment_reminder_job, _review_request_job, _unbooked_followup_job,
+    _lead_followup_job, _appointment_confirmation_job, _appointment_schedule_reminder_job,
+    _appointment_reminder_lifecycle_job,
+)}
+_PERSISTED_PREFIXES = ("missed_call_", "reminder_", "review_", "unbooked_", "lead_followup_", "appt_")
