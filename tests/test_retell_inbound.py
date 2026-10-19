@@ -309,7 +309,7 @@ def test_superseded_turn_response_is_not_sent():
 
     calls = []
 
-    async def turn(msg):
+    async def turn(msg, on_text=None):
         calls.append(msg)
         await asyncio.sleep(0.6)
         return f"answer to {msg}"
@@ -367,3 +367,29 @@ def test_transfer_turn_must_not_also_end_the_call():
     block = src[src.index("if transfer_number:\n                # Retell hangs up"):]
     assert "end_call = False" in block[:400]
     assert 'payload["no_interruption_allowed"] = True' in src
+
+
+def test_reply_is_streamed_sentence_by_sentence_then_closed():
+    """Each finished sentence reaches Retell immediately (content_complete false); a final event carries the flags."""
+    from contextlib import ExitStack
+
+    async def turn(msg, on_text=None):
+        await on_text("I can help with that.")
+        await on_text(" What's the address?")
+        return "I can help with that. What's the address?"
+
+    client, db, patches = _ws_client_with_agent(turn)
+    try:
+        with ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            with client.websocket_connect("/llm-websocket/call_hb1") as ws:
+                ws.receive_json()
+                ws.send_json({"interaction_type": "response_required", "response_id": 1,
+                              "transcript": [{"role": "user", "content": "my sink leaks"}]})
+                events = [ws.receive_json() for _ in range(3)]
+    finally:
+        app.dependency_overrides.clear()
+    assert [e["content"] for e in events] == ["I can help with that.", " What's the address?", ""]
+    assert [e["content_complete"] for e in events] == [False, False, True]
+    assert all(e["response_id"] == 1 for e in events)

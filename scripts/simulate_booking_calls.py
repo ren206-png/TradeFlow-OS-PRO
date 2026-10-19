@@ -239,7 +239,12 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
                     res.transcript.append(("agent", LIFE_SAFETY_RESPONSE))
                     res.ended_by = "safety"
                     break
-                reply = await agent.process_turn(said)
+                streamed: list[str] = []
+
+                async def _collect(chunk: str) -> None:
+                    streamed.append(chunk)
+
+                reply = await agent.process_turn(said, on_text=_collect)   # the same streaming path production uses
                 if not reply.strip():
                     res.empty_replies += 1
                 res.transcript.append(("agent", reply))

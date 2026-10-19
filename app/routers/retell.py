@@ -218,6 +218,24 @@ async def llm_websocket(
             _max_call_mins = _plan_limits.get("max_call_mins", 10)
         call_session.max_duration_seconds = _max_call_mins * 60
 
+        # Greet right away. Everything below (consent record, intake templates, membership lookup, building the model's
+        # prompt) used to run first and delayed the opening line by 1 to 3 seconds; none of it is needed to say hello.
+        greeted = False
+        if not call_session.conversation_history:
+            from app.services.claude_agent import opening_greeting_text, opening_history
+            _greeting = opening_greeting_text(contractor.name, contractor.agent_name or "Alex")
+            call_session.conversation_history = opening_history(_greeting)
+            await db.commit()
+            await websocket.send_text(json.dumps({
+                "response_type": "response",
+                "response_id": 0,
+                "content": _greeting,
+                "content_complete": True,
+                "end_call": False,
+            }))
+            greeted = True
+            logger.info("Greeting sent | call_id=%s contractor=%s", call_id, contractor.name)
+
         # Record implied SMS consent for the customer (the dialed party on outbound calls)
         customer_number = to_number if call_info.get("direction") == "outbound" else from_number
         if customer_number:
@@ -284,21 +302,10 @@ async def llm_websocket(
             "started_at": call_session.started_at.isoformat(),
         })
 
-        if call_session.conversation_history:
+        if not greeted:
             # Retell reconnect mid-call: the caller was already greeted; resume silently.
             logger.info("Agent resumed after reconnect | call_id=%s", call_id)
             return
-
-        # Opening greeting — response_id 0 for the first agent turn
-        await db.commit()
-        greeting = await agent.opening_greeting(contractor.name, contractor.agent_name or "Alex")
-        await websocket.send_text(json.dumps({
-            "response_type": "response",
-            "response_id": 0,
-            "content": greeting,
-            "content_complete": True,
-            "end_call": False,
-        }))
         logger.info(
             "Agent initialised | call_id=%s contractor=%s from=%s",
             call_id, contractor.name, from_number,
@@ -359,7 +366,23 @@ async def llm_websocket(
                 return
 
             turn_started = time.monotonic()
-            response_text = await agent.process_turn(user_message)
+            streamed = {"any": False, "first_s": None}
+
+            async def _speak(chunk: str) -> None:
+                """Send each finished sentence to Retell as soon as it exists (content_complete=False)."""
+                if response_id < state["latest_response_id"] or state.get("transfer_number"):
+                    return   # the caller spoke again (stale turn) or a transfer is already in progress
+                if streamed["first_s"] is None:
+                    streamed["first_s"] = time.monotonic() - turn_started
+                streamed["any"] = True
+                await _send({
+                    "response_type": "response",
+                    "response_id": response_id,
+                    "content": chunk,
+                    "content_complete": False,
+                })
+
+            response_text = await agent.process_turn(user_message, on_text=_speak)
             turn_seconds = time.monotonic() - turn_started
 
             # Check if the transfer_call tool fired during this turn
@@ -377,7 +400,8 @@ async def llm_websocket(
             payload: dict = {
                 "response_type": "response",
                 "response_id": response_id,
-                "content": response_text,
+                # Everything was already streamed sentence by sentence; this closing event carries the flags
+                "content": "" if streamed["any"] else response_text,
                 "content_complete": True,
                 "end_call": end_call,
             }
@@ -392,7 +416,8 @@ async def llm_websocket(
                 logger.info("Dropping stale response | call_id=%s response_id=%s", call_id, response_id)
             else:
                 await _send(payload)
-                logger.info("Turn | call_id=%s response_id=%d end_call=%s took=%.1fs", call_id, response_id, end_call, turn_seconds)
+                logger.info("Turn | call_id=%s response_id=%d end_call=%s took=%.1fs first_speech=%s", call_id, response_id, end_call, turn_seconds,
+                            f"{streamed['first_s']:.1f}s" if streamed["first_s"] is not None else "n/a")
             # Persist after every turn: leads/bookings become visible immediately, a crash
             # doesn't lose the call, and reconnecting WebSockets see the current state.
             await db.commit()

@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     demo_contractor_id: str = ""       # UUID of the demo Contractor row
     demo_daily_call_cap: int = 50      # max demo calls per day
     demo_max_call_mins: int = 3        # max 3 min per demo call
-    claude_model: str = "claude-sonnet-4-6"
+    claude_model: str = "claude-sonnet-5-5"  # ~0.8s to first token vs 1.5s for 4.6; haiku-4-5 is faster still but weaker at tool use
     claude_max_tokens: int = 1024
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""

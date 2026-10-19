@@ -20,6 +20,55 @@ logger = logging.getLogger(__name__)
 MAX_TOOL_ITERATIONS = 8
 
 
+def opening_greeting_text(company_name: str, agent_name: str) -> str:
+    return (f"Thanks for calling {company_name}, this is {agent_name}, an AI assistant. "
+            "This call may be recorded. How can I help you today?")
+
+
+def opening_history(greeting: str) -> list[dict]:
+    return [
+        {"role": "user", "content": "[The phone call has just connected.]"},
+        {"role": "assistant", "content": [{"type": "text", "text": greeting}]},
+    ]
+
+
+_ABBREVIATIONS = {"st", "ave", "dr", "mr", "mrs", "ms", "no", "rd", "blvd", "apt", "unit", "a.m", "p.m", "vs", "etc", "inc", "ltd"}
+
+
+class SentenceChunker:
+    """Splits streamed model text into speakable sentences so the first one can be spoken while the rest is still being written."""
+
+    def __init__(self, first_min: int = 18, min_len: int = 40) -> None:
+        self.buf = ""
+        self.sent = 0
+        self.first_min, self.min_len = first_min, min_len
+
+    def feed(self, delta: str) -> list[str]:
+        self.buf += delta
+        out: list[str] = []
+        while True:
+            m = None
+            for cand in re.finditer(r"[.!?]+[\"')\]]*\s+", self.buf):
+                head = self.buf[: cand.start()]
+                last = re.findall(r"[A-Za-z.]+$", head)
+                token = (last[0] if last else "").lower().rstrip(".")
+                if token in _ABBREVIATIONS or len(token) == 1:   # "123 Test St. NW", "T5J 1A1.", "Apt. 4"
+                    continue
+                need = self.first_min if self.sent == 0 else self.min_len
+                if cand.end() >= need:
+                    m = cand
+                    break
+            if not m:
+                return out
+            out.append(self.buf[: m.end()].strip())
+            self.buf = self.buf[m.end():]
+            self.sent += 1
+
+    def flush(self) -> str:
+        tail, self.buf = self.buf.strip(), ""
+        return tail
+
+
 class ClaudeAgent:
     """Stateful conversation engine for one call session."""
 
@@ -65,12 +114,8 @@ class ClaudeAgent:
         recorded (required in many jurisdictions), then hands over. Costs no Claude call and no latency.
         The line is saved as the first assistant turn so the model knows it has already greeted the caller.
         """
-        greeting = (f"Thanks for calling {company_name}, this is {agent_name}, an AI assistant. "
-                    "This call may be recorded. How can I help you today?")
-        self.call_session.conversation_history = [
-            {"role": "user", "content": "[The phone call has just connected.]"},
-            {"role": "assistant", "content": [{"type": "text", "text": greeting}]},
-        ]
+        greeting = opening_greeting_text(company_name, agent_name)
+        self.call_session.conversation_history = opening_history(greeting)
         await self.db.flush()
         return greeting
 
@@ -82,7 +127,7 @@ class ClaudeAgent:
                 return m["content"]
         return ""
 
-    async def process_turn(self, user_message: str) -> str:
+    async def process_turn(self, user_message: str, on_text=None) -> str:
         """
         Process one conversation turn and return the agent's spoken response.
 
@@ -94,7 +139,11 @@ class ClaudeAgent:
         3. Run the agentic tool loop until no tool_use blocks remain.
         4. Persist updated history to CallSession.
         5. Return the final text for Retell to speak.
+
+        With on_text (an async callable), the reply is streamed: each finished sentence is passed to it as soon as it
+        exists, so the caller hears the first sentence while the model is still writing the rest and while tools run.
         """
+        self._spoken_this_turn = False
         messages: list[dict] = list(self.call_session.conversation_history)
 
         # The Messages API requires the conversation to end with a non-empty user turn.
@@ -108,7 +157,7 @@ class ClaudeAgent:
 
         iteration = 0
         while iteration < MAX_TOOL_ITERATIONS:
-            response = await self._call_claude(messages)
+            response = await (self._call_claude_streaming(messages, on_text) if on_text else self._call_claude(messages))
             has_tool_calls = any(block.type == "tool_use" for block in response.content)
 
             if has_tool_calls:
@@ -143,6 +192,10 @@ class ClaudeAgent:
                 text_response = transfer_line(lang)
             else:
                 text_response = repeat_line(lang)
+            if on_text:
+                await self._emit(on_text, text_response)   # never leave dead air after a tools-only turn
+        elif on_text and not self._spoken_this_turn:
+            await self._emit(on_text, text_response)
 
         # Append final assistant turn — use full content list to preserve tool blocks
         # and avoid sending empty string content which the API rejects
@@ -154,6 +207,58 @@ class ClaudeAgent:
         await self.db.flush()
 
         return text_response
+
+    def _tools(self) -> list:
+        tools = list(TRADEFLOW_TOOLS)
+        if settings.emergency_triage:
+            tools.append(get_urgency_tool_schema())
+        if settings.safety_coaching:
+            from app.tools.deliver_coaching import get_deliver_coaching_tool_schema
+            tools.append(get_deliver_coaching_tool_schema())
+        if settings.commercial_intake:
+            from app.tools.commercial_intake_tool import get_collect_commercial_intake_tool_schema
+            tools.append(get_collect_commercial_intake_tool_schema())
+        return tools
+
+    async def _emit(self, on_text, text: str) -> None:
+        spoken = to_spoken_text(text)
+        if not spoken:
+            return
+        await on_text(spoken if not self._spoken_this_turn else " " + spoken)
+        self._spoken_this_turn = True
+
+    async def _call_claude_streaming(self, messages: list[dict], on_text) -> anthropic.types.Message:
+        """Like _call_claude, but hands every finished sentence to on_text while the reply is still being generated."""
+        delays = [1, 2, 4]
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate(delays, start=1):
+            started_speaking = self._spoken_this_turn
+            try:
+                chunker = SentenceChunker()
+                async with self._client.messages.stream(
+                    model=settings.claude_model,
+                    max_tokens=settings.claude_max_tokens,
+                    system=[{"type": "text", "text": self.system_prompt, "cache_control": {"type": "ephemeral"}}],
+                    tools=self._tools(),
+                    messages=_with_cache_marker(messages),
+                ) as stream:
+                    async for delta in stream.text_stream:
+                        for sentence in chunker.feed(delta):
+                            await self._emit(on_text, sentence)
+                    final = await stream.get_final_message()
+                tail = chunker.flush()
+                if tail:
+                    await self._emit(on_text, tail)
+                return final
+            except (anthropic.RateLimitError, anthropic.APIStatusError) as exc:
+                retryable = isinstance(exc, anthropic.RateLimitError) or getattr(exc, "status_code", 0) == 529
+                if not retryable or self._spoken_this_turn != started_speaking:
+                    raise   # a half-spoken reply can't be retried without repeating itself
+                last_exc = exc
+                logger.warning("Claude streaming error (attempt %d/3); retrying in %ds", attempt, delay)
+            if attempt < len(delays):
+                await asyncio.sleep(delay)
+        raise last_exc
 
     async def _call_claude(self, messages: list[dict]) -> anthropic.types.Message:
         """Send the current conversation to Claude and return the raw Message.
