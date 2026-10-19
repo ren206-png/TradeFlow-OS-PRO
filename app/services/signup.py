@@ -77,10 +77,11 @@ async def create_account(
     db: AsyncSession, *, business_name: str, email: str, password: str, phone: str,
     trades: list[str], service_areas: list[str], agent_name: str = "Alex",
     diagnostic_fee: float | None = 89.0, attribution: dict | None = None,
-    call_handling: str = "missed",
+    call_handling: str = "missed", transfer_urgent: bool = True,
 ) -> Contractor:
     """Create the contractor (committed). Caller has validated input and email uniqueness."""
     owner_phone = normalize_nanp(phone) or phone.strip()
+    transfer_number = normalize_nanp(phone) if transfer_urgent else None
     contractor = Contractor(
         name=business_name.strip(),
         agent_name=agent_name,
@@ -102,7 +103,8 @@ async def create_account(
         is_verified=False,
         plan="starter",
         calendar_provider="manual",
-        calendar_config={},
+        # urgent calls and callers who ask for a person are put through to the owner's mobile
+        calendar_config={"transfer_number": transfer_number} if transfer_number else {},
         sms_enabled=True,
         diagnostic_fee=diagnostic_fee,
         free_estimate=False,

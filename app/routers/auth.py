@@ -97,6 +97,7 @@ async def signup_post(
     phone: str = Form(...),
     service_area: str = Form(...),
     call_handling: str = Form("missed"),
+    transfer_urgent: str = Form("yes"),
     company_website: str = Form(""),
 ):
     if company_website:
@@ -135,7 +136,7 @@ status_code=400,
     contractor = await create_account(
         db, business_name=business_name, email=email, password=password, phone=phone,
         trades=[trade], service_areas=[service_area], attribution=attribution.read(request),
-        call_handling=call_handling,
+        call_handling=call_handling, transfer_urgent=(transfer_urgent != "no"),
     )
     contractor_id = str(contractor.id)
     logger.info("New signup: contractor=%s email=%s (awaiting email verification)", contractor.name, email)

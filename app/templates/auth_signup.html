@@ -108,6 +108,20 @@
           </div>
 
           <div class="sm:col-span-2">
+            <p class="block text-sm font-medium text-gray-700 mb-2">Urgent calls</p>
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer mb-2 hover:border-blue-300">
+              <input type="radio" name="transfer_urgent" value="yes" checked class="mt-1">
+              <span class="text-sm text-gray-700"><strong>Put emergencies through to my phone</strong> (recommended)<br>
+                <span class="text-xs text-gray-500">The AI books the job, then connects you live for emergencies like a burst pipe, and whenever a caller asks for a person.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300">
+              <input type="radio" name="transfer_urgent" value="no" class="mt-1">
+              <span class="text-sm text-gray-700"><strong>Just text me the details</strong><br>
+                <span class="text-xs text-gray-500">The AI handles every call itself and sends you a text.</span></span>
+            </label>
+          </div>
+
+          <div class="sm:col-span-2">
             <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password"
                    class="w-full px-3 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"

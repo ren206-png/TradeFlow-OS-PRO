@@ -158,3 +158,28 @@ def test_number_ready_email_follows_call_handling():
     from app.services.welcome import build_number_ready_email
     assert "missed calls" in build_number_ready_email("Acme", "+17805550100", "missed")[1]
     assert "every call" in build_number_ready_email("Acme", "+17805550100", "all")[1]
+
+
+@pytest.mark.asyncio
+async def test_urgent_transfer_goes_to_owner_mobile_by_default_and_can_be_off(db):
+    on = await signup.create_account(db, business_name="On", email="on@acme.ca", password="SecurePass1!",
+                                     phone="(780) 555-0111", trades=["Plumbing"], service_areas=["Edmonton"])
+    assert on.calendar_config == {"transfer_number": "+17805550111"}
+    off = await signup.create_account(db, business_name="Off", email="off@acme.ca", password="SecurePass1!",
+                                      phone="(780) 555-0112", trades=["Plumbing"], service_areas=["Edmonton"], transfer_urgent=False)
+    assert off.calendar_config == {}
+
+
+def test_prompt_mentions_owner_transfer_only_when_configured(contractor):
+    from app.prompts.builder import build_system_prompt
+    assert "OWNER TRANSFER IS ON" not in build_system_prompt(contractor)
+    contractor.calendar_config = {"transfer_number": "+17805550111"}
+    assert "OWNER TRANSFER IS ON" in build_system_prompt(contractor)
+
+
+def test_canned_lines_follow_the_callers_language():
+    from app.utils.language import closing_line, detect_language
+    assert detect_language("Hola, quisiera una cita") == "es" and "Gracias" in closing_line("es")
+    assert detect_language("Bonjour, j'ai une fuite") == "fr" and "Merci" in closing_line("fr")
+    assert detect_language("My faucet is leaking") == "en" and detect_language("") == "en"
+    assert detect_language("Gracias") == "es"

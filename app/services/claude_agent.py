@@ -7,6 +7,7 @@ import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.utils.language import closing_line, detect_language, repeat_line, transfer_line
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.prompts.builder import build_system_prompt, build_system_prompt_async
@@ -73,6 +74,14 @@ class ClaudeAgent:
         await self.db.flush()
         return greeting
 
+    @staticmethod
+    def _last_caller_text(messages: list[dict]) -> str:
+        """The caller's most recent words (plain-text user turns only), used to pick the language of canned lines."""
+        for m in reversed(messages):
+            if m.get("role") == "user" and isinstance(m.get("content"), str) and not m["content"].startswith("["):
+                return m["content"]
+        return ""
+
     async def process_turn(self, user_message: str) -> str:
         """
         Process one conversation turn and return the agent's spoken response.
@@ -127,12 +136,13 @@ class ClaudeAgent:
                 ):
                     transferring = True
                     break
+            lang = detect_language(self._last_caller_text(messages))
             if self._tool_context.get("end_call"):
-                text_response = "Thank you for calling. Have a great day!"
+                text_response = closing_line(lang)
             elif transferring:
-                text_response = "Let me connect you with someone now."
+                text_response = transfer_line(lang)
             else:
-                text_response = "Sorry, could you say that one more time?"
+                text_response = repeat_line(lang)
 
         # Append final assistant turn — use full content list to preserve tool blocks
         # and avoid sending empty string content which the API rejects

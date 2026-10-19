@@ -138,7 +138,8 @@ TRADEFLOW_TOOLS = [
         "name": "end_call",
         "description": (
             "Hang up after the conversation is finished. Call this in the same turn as your final goodbye, "
-            "once the caller has nothing else to ask. Never keep talking after the caller says goodbye."
+            "once the caller has nothing else to ask. Say the goodbye in the language the caller is speaking. "
+            "Never keep talking after the caller says goodbye."
         ),
         "input_schema": {"type": "object", "properties": {}},
     },

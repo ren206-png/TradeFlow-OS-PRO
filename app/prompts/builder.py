@@ -14,6 +14,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+OWNER_TRANSFER_SECTION = """
+
+---
+
+## OWNER TRANSFER IS ON (important calls reach the owner live)
+
+This business owner wants urgent calls put through to them. After you have captured the details and booked
+the emergency slot, if the situation is an emergency (active flooding or a burst pipe, no heat in freezing
+weather, a gas, carbon monoxide or electrical danger, or the caller is panicking), tell the caller you are
+connecting them to the owner now and call `transfer_call` with `reason = "emergency_dispatch"` and
+`urgency = "immediate"` in that same turn. Also call `transfer_call` whenever the caller asks for a person.
+Routine, non-urgent calls stay with you: book them as usual and do not transfer.
+"""
+
+
 def build_system_prompt(contractor: Contractor, intake_section: str = "") -> str:
     """Build a personalized system prompt for a contractor by filling template variables."""
     required = {
@@ -54,6 +69,9 @@ def build_system_prompt(contractor: Contractor, intake_section: str = "") -> str
 
     if intake_section:
         base += f"\n\n{intake_section}"
+
+    if (contractor.calendar_config or {}).get("transfer_number"):
+        base += OWNER_TRANSFER_SECTION
 
     return apply_language_directive(base)
 
