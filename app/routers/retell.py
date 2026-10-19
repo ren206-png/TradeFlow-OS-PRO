@@ -320,6 +320,22 @@ async def llm_websocket(
                 state["agent"] = agent
                 _active_agents[call_id] = agent
 
+            if state.get("transfer_number"):
+                # The owner is being connected. A newer turn (the caller spoke while the transfer line was playing)
+                # must not talk over it or end the call: Retell acts on the latest response, so repeat the transfer.
+                from app.utils.language import detect_language, transfer_line
+                await _send({
+                    "response_type": "response",
+                    "response_id": response_id,
+                    "content": transfer_line(detect_language(user_message)),
+                    "content_complete": True,
+                    "end_call": False,
+                    "no_interruption_allowed": True,
+                    "transfer_number": state["transfer_number"],
+                })
+                logger.info("Transfer repeated for newer turn | call_id=%s response_id=%s", call_id, response_id)
+                return
+
             if not user_message and interaction_type == "reminder_required":
                 await _send({
                     "response_type": "response",
@@ -369,6 +385,7 @@ async def llm_websocket(
                 # Retell drops the transfer if the caller interrupts while this turn is being spoken
                 payload["no_interruption_allowed"] = True
                 payload["transfer_number"] = transfer_number
+                state["transfer_number"] = transfer_number
                 logger.info("Transfer initiated | call_id=%s to=%s", call_id, transfer_number)
 
             if response_id < state["latest_response_id"]:
