@@ -1,0 +1,48 @@
+/* TradeFlow portal shell: re-skins the Tailwind pages with the TradeFlow palette (see portal_base.html for the colour map). */
+:root {
+  --ink: #090e1a; --ink-2: #0f1729; --ink-3: #172238;
+  --paper: #f9f6f0; --cream: #f3eee4;
+  --on-light: #17203a; --on-light-dim: #5b6682;
+  --copper: #e4a85c; --copper-hi: #f4c98a; --copper-lo: #b9772f; --mint: #62e6c5;
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+html { -webkit-text-size-adjust: 100%; }
+body { font-family: var(--font-ui); color: var(--on-light); background: var(--paper); -webkit-font-smoothing: antialiased; }
+
+/* Top bar */
+.pt-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px;
+  background: rgba(9, 14, 26, 0.92); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); border-bottom: 1px solid rgba(255,255,255,0.08); color: #fff; }
+.pt-brand { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.pt-mark { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(145deg, var(--copper-hi), var(--copper-lo)); box-shadow: 0 6px 16px -6px rgba(228,168,92,0.7); }
+.pt-mark svg { width: 18px; height: 18px; }
+.pt-user { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pt-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; color: #c9d1e4; }
+.pt-out { font-size: 12.5px; color: var(--copper-hi); text-decoration: none; white-space: nowrap; }
+.pt-out:hover { color: #fff; }
+.pt-back { display: inline-flex; align-items: center; gap: 4px; color: var(--copper-hi); text-decoration: none; font-size: 14px; font-weight: 500; margin-right: 6px; }
+.pt-back:hover { color: #fff; }
+
+/* Bottom navigation */
+.pt-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; background: rgba(255,255,255,0.88); backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border-top: 1px solid rgba(23,32,58,0.1); box-shadow: 0 -12px 30px -18px rgba(9,14,26,0.35); padding-bottom: env(safe-area-inset-bottom); }
+.pt-nav a { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 0 11px; text-decoration: none; color: #7a849c; position: relative; transition: color 0.2s; }
+.pt-nav a.active { color: var(--on-light); }
+.pt-nav a.active::before { content: ""; position: absolute; top: 0; width: 28px; height: 3px; border-radius: 0 0 4px 4px; background: linear-gradient(90deg, var(--copper-hi), var(--copper-lo)); }
+.pt-nav svg { width: 22px; height: 22px; margin-bottom: 3px; }
+.pt-nav span { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Headings and numbers get the display face */
+main h1, main h2 { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.02em; }
+main h2.text-xl, main h1.text-xl { font-size: 1.6rem; line-height: 1.15; }
+
+/* Hero cards (the AI number) */
+.tf-hero-card { background: radial-gradient(420px 220px at 100% 0%, rgba(228,168,92,0.28), transparent 60%), linear-gradient(145deg, #121c34, #090e1a 70%) !important; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 24px 50px -24px rgba(9,14,26,0.7) !important; }
+
+/* Softer cards and inputs across the old pages */
+main .shadow-sm { box-shadow: 0 1px 2px rgba(23,32,58,0.04), 0 18px 34px -24px rgba(23,32,58,0.22); }
+main input[type="text"], main input[type="tel"], main input[type="email"], main input[type="number"], main input[type="password"], main select, main textarea {
+  border-radius: 12px; }
+main input:focus, main select:focus, main textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(228,168,92,0.28); border-color: var(--copper) !important; }
+main a.bg-blue-600, main button.bg-blue-600, main .bg-blue-700 { background-image: linear-gradient(180deg, #e9b46c, #cf913f); color: #1c1204; }
+main a.bg-blue-600:hover, main button.bg-blue-600:hover { filter: brightness(1.06); }

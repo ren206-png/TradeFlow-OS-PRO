@@ -10,7 +10,7 @@
 
 <!-- Section A: Your AI Phone Number -->
 {% if contractor and contractor.provisioning_status == 'active' and contractor.phone_number %}
-<div class="mb-6 rounded-2xl overflow-hidden shadow-sm" style="background: linear-gradient(135deg, #1e40af 0%, #2563eb 60%, #3b82f6 100%);">
+<div class="mb-6 rounded-2xl overflow-hidden shadow-sm tf-hero-card">
   <div class="p-5 text-white">
     <p class="text-xs font-semibold uppercase tracking-widest opacity-80 mb-2">Your TradeFlow AI Number</p>
     <div class="flex items-center justify-between gap-3">
@@ -25,7 +25,7 @@
 
     <!-- Forwarding instructions inside the card -->
     <div class="mt-4 pt-4 border-t border-white border-opacity-20">
-      <p class="text-xs font-semibold uppercase tracking-widest opacity-80 mb-3">How to forward missed calls to this number</p>
+      <p class="text-xs font-semibold uppercase tracking-widest opacity-80 mb-3">{% if contractor.call_handling == 'all' %}How to send every call to this number{% else %}How to forward missed calls to this number{% endif %}</p>
       <div class="space-y-2.5">
 
         <div class="flex items-start gap-3">
@@ -52,7 +52,7 @@
         <div class="flex items-start gap-3">
           <div class="shrink-0 w-6 h-6 rounded-full bg-white bg-opacity-20 flex items-center justify-center text-xs font-bold mt-0.5">4</div>
           <p class="text-sm opacity-90 leading-relaxed">
-            Done! When you miss a call, it automatically forwards to your TradeFlow AI number above and the AI answers for you.
+            {% if contractor.call_handling == 'all' %}Done! Every call now goes straight to your TradeFlow AI number above, and the AI answers and texts you the details.{% else %}Done! When you miss a call, it automatically forwards to your TradeFlow AI number above and the AI answers for you.{% endif %}
           </p>
         </div>
 
@@ -61,7 +61,7 @@
       <div class="mt-4 bg-white bg-opacity-10 rounded-xl px-4 py-3 flex items-center gap-2">
         <span class="text-lg">💡</span>
         <p class="text-xs opacity-90 leading-relaxed">
-          <strong class="font-semibold">Tip:</strong> This only activates when you don't answer — your regular calls still ring your phone first. The AI is your backup.
+          <strong class="font-semibold">Tip:</strong> {% if contractor.call_handling == 'all' %}With this option your phone won't ring for calls; the AI takes them all and puts urgent ones through to you. You can switch to "only when I miss it" in Settings.{% else %}This only activates when you don't answer — your regular calls still ring your phone first. The AI is your backup. If a test call reaches your carrier's voicemail instead, ask them to turn voicemail off for the line.{% endif %}
         </p>
       </div>
     </div>
