@@ -59,6 +59,7 @@ async def onboarding_submit(
     phone_number: str = Form(""),
     # Step 2 — Services
     service_areas: Optional[str] = Form(None),
+    call_handling: str = Form("missed"),
     company_website: str = Form(""),
 ) -> HTMLResponse:
     if company_website:
@@ -130,6 +131,7 @@ status_code=422,
         db, business_name=company_name, email=email, password=password, phone=phone_number,
         trades=selected_trades, service_areas=areas, agent_name=agent_name.strip(), diagnostic_fee=None,
         attribution=attribution.read(request),
+        call_handling=call_handling,
     )
     fire_signup_side_effects(
         contractor, ", ".join(selected_trades) if selected_trades else "General", phone_number.strip())

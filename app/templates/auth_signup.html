@@ -91,6 +91,22 @@
                    placeholder="e.g. Calgary, T2N">
           </div>
 
+
+          <div class="sm:col-span-2">
+            <p class="block text-sm font-medium text-gray-700 mb-2">When should the AI answer your calls?</p>
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer mb-2 hover:border-blue-300">
+              <input type="radio" name="call_handling" value="missed" checked class="mt-1">
+              <span class="text-sm text-gray-700"><strong>Only when I miss the call</strong> (recommended)<br>
+                <span class="text-xs text-gray-500">Your phone rings first. If you don't pick up, the AI takes over.</span></span>
+            </label>
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300">
+              <input type="radio" name="call_handling" value="all" class="mt-1">
+              <span class="text-sm text-gray-700"><strong>Every call</strong><br>
+                <span class="text-xs text-gray-500">The AI answers every call and texts you the details. Your phone won't ring.</span></span>
+            </label>
+            <p class="text-xs text-gray-400 mt-1">You can change this any time in Settings.</p>
+          </div>
+
           <div class="sm:col-span-2">
             <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password"

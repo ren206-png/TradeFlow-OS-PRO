@@ -74,10 +74,12 @@ async def send_welcome_email(email: str, business_name: str, verify_url: str = "
     return ok
 
 
-def build_number_ready_email(business_name: str, phone_number: str) -> tuple[str, str, str]:
+def build_number_ready_email(business_name: str, phone_number: str, call_handling: str = "missed") -> tuple[str, str, str]:
     from app.utils.phone import format_display
     name = html.escape(business_name or "there")
     shown = html.escape(format_display(phone_number))
+    forward_step = ("Send all your calls to it, so the AI answers every call." if call_handling == "all"
+                    else "Forward your missed calls to it, so the AI answers when you can't.")
     subject = "Your TradeFlow AI number is ready"
     body = f"""<p>Hi {name},</p>
 <p>Your AI receptionist is live. Your dedicated number is:</p>
@@ -85,7 +87,7 @@ def build_number_ready_email(business_name: str, phone_number: str) -> tuple[str
 <p><strong>Three steps to your first booked job:</strong></p>
 <ol>
   <li><strong>Call your AI number yourself</strong> to hear exactly what your customers will hear.</li>
-  <li><strong>Forward your business line to it</strong> after hours (or all the time). The Setup page in your portal has the steps for your carrier.</li>
+  <li><strong>{forward_step}</strong> The Setup page in your portal has the exact code for your carrier.</li>
   <li><strong>Add your booking link and Google review link</strong> in Settings so the assistant can send them to customers.</li>
 </ol>
 {_button(PORTAL_URL, "Open my portal")}"""
@@ -94,10 +96,10 @@ def build_number_ready_email(business_name: str, phone_number: str) -> tuple[str
     return subject, _wrap("Your AI number is ready", body), text
 
 
-async def send_number_ready_email(email: str, business_name: str, phone_number: str) -> bool:
+async def send_number_ready_email(email: str, business_name: str, phone_number: str, call_handling: str = "missed") -> bool:
     if not email:
         return False
-    subject, html_body, text = build_number_ready_email(business_name, phone_number)
+    subject, html_body, text = build_number_ready_email(business_name, phone_number, call_handling)
     ok = await asyncio.to_thread(_send_email, email, subject, html_body, text)
     logger.info("number-ready email %s | to=%s", "sent" if ok else "not sent", email)
     return ok

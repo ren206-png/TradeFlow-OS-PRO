@@ -549,12 +549,15 @@ async def portal_settings_update(
     diagnostic_fee: Optional[str] = Form(None),
     free_estimate: Optional[str] = Form(None),
     sms_enabled: Optional[str] = Form(None),
+    call_handling: Optional[str] = Form(None),
     contractor: Contractor = Depends(require_contractor),
     db: AsyncSession = Depends(get_db),
 ):
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
 
+    if call_handling in ("missed", "all"):
+        contractor.call_handling = call_handling
     if name and name.strip():
         contractor.name = name.strip()
     # phone_number is the AI line callers dial and drives call routing; it is never user-editable.

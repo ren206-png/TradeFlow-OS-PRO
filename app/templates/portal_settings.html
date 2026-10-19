@@ -50,6 +50,14 @@
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">When should the AI answer?</label>
+          <select name="call_handling" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="missed" {% if (contractor.call_handling or 'missed') == 'missed' %}selected{% endif %}>Only when I miss the call (recommended)</option>
+            <option value="all" {% if contractor.call_handling == 'all' %}selected{% endif %}>Every call</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">After changing this, open the Setup page for the matching forwarding code.</p>
+        </div>
+        <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Transfer urgent calls to</label>
           <input type="tel" name="transfer_number" value="{{ (contractor.calendar_config or {}).get('transfer_number', '') }}" placeholder="(403) 555-0123"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">

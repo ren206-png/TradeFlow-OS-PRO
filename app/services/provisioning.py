@@ -208,7 +208,8 @@ async def provision_contractor(contractor, db: AsyncSession, *, reuse_agent: boo
 
     if contractor.email:
         from app.services.welcome import send_number_ready_email
-        asyncio.create_task(send_number_ready_email(contractor.email, contractor.name, phone_number))
+        asyncio.create_task(send_number_ready_email(
+            contractor.email, contractor.name, phone_number, getattr(contractor, "call_handling", "missed") or "missed"))
     return {"success": True, "agent_id": agent_id, "phone_number": phone_number}
 
 

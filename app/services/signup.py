@@ -24,6 +24,8 @@ from app.utils.timefmt import DEFAULT_TZ, timezone_for_phone
 
 logger = logging.getLogger(__name__)
 
+CALL_HANDLING_CHOICES = ("missed", "all")
+DEFAULT_CALL_HANDLING = "missed"
 VERIFY_SALT = "email-verify"
 VERIFY_MAX_AGE = 7 * 24 * 3600
 VERIFY_BASE_URL = "https://tradesflowos.com/auth/verify-email"
@@ -75,6 +77,7 @@ async def create_account(
     db: AsyncSession, *, business_name: str, email: str, password: str, phone: str,
     trades: list[str], service_areas: list[str], agent_name: str = "Alex",
     diagnostic_fee: float | None = 89.0, attribution: dict | None = None,
+    call_handling: str = "missed",
 ) -> Contractor:
     """Create the contractor (committed). Caller has validated input and email uniqueness."""
     owner_phone = normalize_nanp(phone) or phone.strip()
@@ -94,6 +97,7 @@ async def create_account(
         subscription_status="trial",
         trial_ends_at=datetime.now(tz=timezone.utc) + timedelta(days=TRIAL_DAYS),
         attribution=attribution,
+        call_handling=call_handling if call_handling in CALL_HANDLING_CHOICES else DEFAULT_CALL_HANDLING,
         is_active=True,
         is_verified=False,
         plan="starter",

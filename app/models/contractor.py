@@ -27,6 +27,8 @@ class Contractor(Base):
     provisioned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     provisioning_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     provisioning_error: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # How the owner forwards calls to the AI line: 'missed' (only when they don't answer) or 'all'
+    call_handling: Mapped[str] = mapped_column(String(12), nullable=False, default="missed", server_default="missed")
     # Ad attribution at signup: utm_source/medium/campaign/content, ttclid, referrer
     attribution: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     api_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)

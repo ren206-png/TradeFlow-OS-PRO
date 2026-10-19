@@ -140,3 +140,21 @@ async def test_opening_greeting_discloses_ai_and_recording(db, contractor):
     text = await agent.opening_greeting("ABC Plumbing Ltd", "Alex")
     assert "AI" in text and "may be recorded" in text and "ABC Plumbing Ltd" in text
     assert session.conversation_history[-1]["role"] == "assistant"
+
+
+@pytest.mark.asyncio
+async def test_call_handling_defaults_to_missed_and_accepts_all(db):
+    a = await _account(db, email="a@acme.ca")
+    assert a.call_handling == "missed"
+    b = await signup.create_account(db, business_name="B", email="b@acme.ca", password="SecurePass1!",
+                                    phone="7805550101", trades=["Plumbing"], service_areas=["Edmonton"], call_handling="all")
+    assert b.call_handling == "all"
+    c = await signup.create_account(db, business_name="C", email="c@acme.ca", password="SecurePass1!",
+                                    phone="7805550102", trades=["Plumbing"], service_areas=["Edmonton"], call_handling="nonsense")
+    assert c.call_handling == "missed"
+
+
+def test_number_ready_email_follows_call_handling():
+    from app.services.welcome import build_number_ready_email
+    assert "missed calls" in build_number_ready_email("Acme", "+17805550100", "missed")[1]
+    assert "every call" in build_number_ready_email("Acme", "+17805550100", "all")[1]
