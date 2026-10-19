@@ -191,7 +191,7 @@ section { position: relative; }
 .portrait .cap { position: absolute; left: 22px; right: 22px; bottom: 22px; padding: 14px 16px; border-radius: 16px; background: rgba(9,14,26,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.14); color: #fff; font-size: 14px; }
 .portrait .cap small { display: block; color: var(--text-dim); font-size: 12.5px; }
 .quote { font-family: var(--font-display); font-size: clamp(26px, 2.8vw, 38px); line-height: 1.25; letter-spacing: -0.015em; color: var(--on-light); margin: 0 0 28px; }
-.quote::before { content: "“"; display: block; font-size: 90px; line-height: 0.6; color: var(--copper); margin-bottom: 12px; }
+.quote::before { content: "“"; display: block; height: 0.5em; font-size: 84px; line-height: 1; color: var(--copper); margin: 0 0 6px -4px; }
 .founder .meta { color: var(--on-light-dim); font-size: 15px; }
 .founder .meta strong { color: var(--on-light); font-weight: 600; }
 
