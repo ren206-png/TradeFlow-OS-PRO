@@ -1,5 +1,7 @@
 from __future__ import annotations
 import asyncio
+import logging
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -55,8 +57,10 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
     call_session = context["call_session"]
     contractor = context["contractor"]
 
+    _t0 = time.monotonic()
     # Resolve existing lead or create new
     lead = await resolve_call_lead(db, call_session)
+    _t_resolve = time.monotonic() - _t0
 
     if lead is None:
         lead = Lead(
@@ -133,7 +137,9 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
 
     is_new_lead = call_session.lead_id is None
 
+    _t1 = time.monotonic()
     await db.flush()
+    _t_flush = time.monotonic() - _t1
 
     # Fire-and-forget: notify contractor of new lead
     if _is_urgent(lead):
@@ -167,4 +173,7 @@ async def create_lead_record(tool_input: dict, context: dict) -> dict:
     if call_session.lead_id is None:
         call_session.lead_id = lead.id
 
+    _total = time.monotonic() - _t0
+    if _total > 0.4:   # latency watch: what part of saving a lead is slow?
+        logging.getLogger(__name__).info("create_lead_record slow | total=%.2fs resolve=%.2fs flush=%.2fs", _total, _t_resolve, _t_flush)
     return {"success": True, "lead_id": str(lead.id)}

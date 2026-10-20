@@ -159,6 +159,27 @@ async def llm_websocket(
         call_session = await _get_or_create_call_session(call_id, contractor.id, db)
         _marks["session"] = time.monotonic() - _t0
 
+        # Greet right away, before the demo-cap and plan-limit checks, the consent record, intake templates, the membership
+        # lookup and building the model's prompt. Those used to run first and delayed the opening line by 1 to 3 seconds.
+        # If a check then fails, the caller hears the greeting followed by the limit message.
+        greeted = False
+        if not call_session.conversation_history:
+            from app.services.claude_agent import opening_greeting_text, opening_history
+            _greeting = opening_greeting_text(contractor.name, contractor.agent_name or "Alex")
+            call_session.conversation_history = opening_history(_greeting)
+            await websocket.send_text(json.dumps({
+                "response_type": "response",
+                "response_id": 0,
+                "content": _greeting,
+                "content_complete": True,
+                "end_call": False,
+            }))
+            await db.commit()   # saved right after it is spoken, not before
+            greeted = True
+            _marks["greeting"] = time.monotonic() - _t0
+            logger.info("Greeting sent | call_id=%s contractor=%s timings=%s", call_id, contractor.name,
+                        {k: round(v, 2) for k, v in _marks.items()})
+
         # Demo tenant — enforce daily cap before anything else
         from app.services.demo import check_demo_daily_cap, is_demo_call
         if is_demo_call(str(contractor.id)):
@@ -221,26 +242,6 @@ async def llm_websocket(
             _plan_limits = _PLAN_LIMITS.get(contractor.plan or "starter", _PLAN_LIMITS["starter"])
             _max_call_mins = _plan_limits.get("max_call_mins", 10)
         call_session.max_duration_seconds = _max_call_mins * 60
-
-        # Greet right away. Everything below (consent record, intake templates, membership lookup, building the model's
-        # prompt) used to run first and delayed the opening line by 1 to 3 seconds; none of it is needed to say hello.
-        greeted = False
-        if not call_session.conversation_history:
-            from app.services.claude_agent import opening_greeting_text, opening_history
-            _greeting = opening_greeting_text(contractor.name, contractor.agent_name or "Alex")
-            call_session.conversation_history = opening_history(_greeting)
-            await db.commit()
-            await websocket.send_text(json.dumps({
-                "response_type": "response",
-                "response_id": 0,
-                "content": _greeting,
-                "content_complete": True,
-                "end_call": False,
-            }))
-            greeted = True
-            _marks["greeting"] = time.monotonic() - _t0
-            logger.info("Greeting sent | call_id=%s contractor=%s timings=%s", call_id, contractor.name,
-                        {k: round(v, 2) for k, v in _marks.items()})
 
         # Record implied SMS consent for the customer (the dialed party on outbound calls)
         customer_number = to_number if call_info.get("direction") == "outbound" else from_number
