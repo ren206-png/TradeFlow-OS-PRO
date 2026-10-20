@@ -21,8 +21,9 @@ MAX_TOOL_ITERATIONS = 8
 
 
 def opening_greeting_text(company_name: str, agent_name: str) -> str:
-    return (f"Thanks for calling {company_name}, this is {agent_name}, an AI assistant. "
-            "This call may be recorded. How can I help you today?")
+    # Honest about what it is (an AI) and that the call may be recorded, but led with what the caller gets.
+    return (f"Thanks for calling {company_name}. You've reached {agent_name}, our AI assistant, and I can get you "
+            "booked right away. This call may be recorded. What can I help you with?")
 
 
 def opening_history(greeting: str) -> list[dict]:

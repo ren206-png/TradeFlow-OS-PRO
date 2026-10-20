@@ -143,6 +143,8 @@ async def llm_websocket(
             return False
 
     async def _handle_call_details(data: dict) -> None:
+        _t0 = time.monotonic()
+        _marks: dict[str, float] = {}
         agent = state["agent"]
         call_info: dict = data.get("call", {})
         to_number: str = call_info.get("to_number", "")
@@ -151,9 +153,11 @@ async def llm_websocket(
         # Outbound calls (callbacks, recovery) dial the customer; the tenant's number is the caller ID.
         tenant_number = from_number if call_info.get("direction") == "outbound" else to_number
         contractor = await _get_contractor_by_phone(tenant_number, db)
+        _marks["contractor"] = time.monotonic() - _t0
 
         # Retell reconnects with the same call_id (auto_reconnect); reuse the session row.
         call_session = await _get_or_create_call_session(call_id, contractor.id, db)
+        _marks["session"] = time.monotonic() - _t0
 
         # Demo tenant — enforce daily cap before anything else
         from app.services.demo import check_demo_daily_cap, is_demo_call
@@ -234,7 +238,9 @@ async def llm_websocket(
                 "end_call": False,
             }))
             greeted = True
-            logger.info("Greeting sent | call_id=%s contractor=%s", call_id, contractor.name)
+            _marks["greeting"] = time.monotonic() - _t0
+            logger.info("Greeting sent | call_id=%s contractor=%s timings=%s", call_id, contractor.name,
+                        {k: round(v, 2) for k, v in _marks.items()})
 
         # Record implied SMS consent for the customer (the dialed party on outbound calls)
         customer_number = to_number if call_info.get("direction") == "outbound" else from_number
