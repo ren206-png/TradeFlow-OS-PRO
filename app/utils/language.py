@@ -30,6 +30,18 @@ _REPEAT = {
 }
 
 
+_FILLERS = {
+    "en": ["One moment.", "Let me check that for you.", "Just a second."],
+    "es": ["Un momento.", "Déjeme revisar eso.", "Solo un segundo."],
+    "fr": ["Un instant.", "Je vérifie ça pour vous.", "Une seconde."],
+}
+
+
+def filler_line(lang: str, n: int = 0) -> str:
+    lines = _FILLERS.get(lang, _FILLERS["en"])
+    return lines[n % len(lines)]
+
+
 def detect_language(text: str | None) -> str:
     """'en', 'es' or 'fr'. Defaults to English unless the text clearly looks Spanish or French."""
     words = re.findall(r"[\wÀ-ÿ'’-]+", (text or "").lower().replace("’", "'"))

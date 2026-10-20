@@ -2,12 +2,13 @@ import asyncio
 import json
 import re
 import logging
+import time
 
 import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.utils.language import closing_line, detect_language, repeat_line, transfer_line
+from app.utils.language import closing_line, detect_language, filler_line, repeat_line, transfer_line
 from app.models.call import CallSession
 from app.models.contractor import Contractor
 from app.prompts.builder import build_system_prompt, build_system_prompt_async
@@ -33,6 +34,7 @@ def opening_history(greeting: str) -> list[dict]:
     ]
 
 
+_SLOW_TOOLS = {"check_availability", "book_appointment"}
 _ABBREVIATIONS = {"st", "ave", "dr", "mr", "mrs", "ms", "no", "rd", "blvd", "apt", "unit", "a.m", "p.m", "vs", "etc", "inc", "ltd"}
 
 
@@ -119,6 +121,16 @@ class ClaudeAgent:
         self.call_session.conversation_history = opening_history(greeting)
         await self.db.flush()
         return greeting
+
+    async def flush_after_turn(self) -> None:
+        """Run work a tool deferred until the caller has already heard the reply (e.g. the confirmation text)."""
+        pending = self._tool_context.get("after_turn") or []
+        self._tool_context["after_turn"] = []
+        for action in pending:
+            try:
+                await action()
+            except Exception as exc:
+                logger.warning("Deferred post-turn action failed: %s", exc)
 
     @staticmethod
     def _last_caller_text(messages: list[dict]) -> str:
@@ -221,6 +233,15 @@ class ClaudeAgent:
             tools.append(get_collect_commercial_intake_tool_schema())
         return tools
 
+    async def _speak_filler(self, on_text, messages: list[dict]) -> None:
+        """A brief 'one moment' while a slow step runs. Capped per call so it never turns into a verbal tic."""
+        used = getattr(self, "_fillers_used", 0)
+        if used >= 3:
+            return
+        self._fillers_used = used + 1
+        lang = detect_language(self._last_caller_text(messages))
+        await self._emit(on_text, filler_line(lang, used))
+
     async def _emit(self, on_text, text: str) -> None:
         spoken = to_spoken_text(text)
         if not spoken:
@@ -243,9 +264,13 @@ class ClaudeAgent:
                     tools=self._tools(),
                     messages=_with_cache_marker(messages),
                 ) as stream:
-                    async for delta in stream.text_stream:
-                        for sentence in chunker.feed(delta):
-                            await self._emit(on_text, sentence)
+                    async for event in stream:
+                        if event.type == "text":
+                            for sentence in chunker.feed(event.text):
+                                await self._emit(on_text, sentence)
+                        elif event.type == "content_block_start" and getattr(event.content_block, "type", "") == "tool_use":
+                            if event.content_block.name in _SLOW_TOOLS and not self._spoken_this_turn and not chunker.buf.strip():
+                                await self._speak_filler(on_text, messages)   # cover the wait instead of leaving silence
                     final = await stream.get_final_message()
                 tail = chunker.flush()
                 if tail:
@@ -319,7 +344,9 @@ class ClaudeAgent:
                 continue
 
             logger.info("Executing tool: %s | input: %s", block.name, block.input)
+            _t = time.monotonic()
             result = await execute_tool(block.name, block.input, self._tool_context)
+            logger.info("Tool finished | name=%s took=%.2fs", block.name, time.monotonic() - _t)
 
             tool_results.append(
                 {

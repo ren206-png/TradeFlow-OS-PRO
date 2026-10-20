@@ -226,6 +226,7 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
              patch("app.services.scheduler.schedule_review_request", lambda *a, **k: None, create=True):
             agent = ClaudeAgent(contractor=contractor, call_session=session, db=db)
             agent._tool_context["caller_phone"] = CALLER_PHONE  # caller ID, as on a real call
+            agent._tool_context["defer_post_actions"] = True    # as on a live call: texts go out after the reply
             await agent.initialise_async_prompt()
             res.transcript.append(("agent", await agent.opening_greeting(contractor.name, contractor.agent_name or "Alex")))
 
@@ -245,6 +246,7 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
                     streamed.append(chunk)
 
                 reply = await agent.process_turn(said, on_text=_collect)   # the same streaming path production uses
+                await agent.flush_after_turn()
                 if not reply.strip():
                     res.empty_replies += 1
                 res.transcript.append(("agent", reply))

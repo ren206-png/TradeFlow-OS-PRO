@@ -138,18 +138,20 @@ async def book_appointment(tool_input: dict, context: dict) -> dict:
     # Trigger SMS confirmation to customer
     if contractor.sms_enabled and phone:
         from app.tools.send_sms import send_sms
-        await send_sms(
-            {
-                "to_number": phone,
-                "message_type": "booking_confirmation",
-                "name": caller_name,
-                "trade": trade,
-                "date_str": appointment_time.strftime("%B %-d, %Y") if appointment_time else "",
-                "time_str": appointment_time.strftime("%-I:%M %p") if appointment_time else "",
-                "address": service_address,
-            },
-            context,
-        )
+        sms_input = {
+            "to_number": phone,
+            "message_type": "booking_confirmation",
+            "name": caller_name,
+            "trade": trade,
+            "date_str": appointment_time.strftime("%B %-d, %Y") if appointment_time else "",
+            "time_str": appointment_time.strftime("%-I:%M %p") if appointment_time else "",
+            "address": service_address,
+        }
+        if context.get("defer_post_actions"):
+            # On a live call the confirmation text goes out right after the caller hears the reply, not before it
+            context.setdefault("after_turn", []).append(lambda: send_sms(sms_input, context))
+        else:
+            await send_sms(sms_input, context)
 
     return {
         "success": True,

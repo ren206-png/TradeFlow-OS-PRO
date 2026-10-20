@@ -291,6 +291,7 @@ async def llm_websocket(
             intake_section=intake_section,
         )
         agent._tool_context["caller_phone"] = normalize_nanp(customer_number) if customer_number else None
+        agent._tool_context["defer_post_actions"] = True
         # Attach membership context for downstream tools
         if _membership_context:
             agent._tool_context["membership"] = _membership_context
@@ -424,6 +425,7 @@ async def llm_websocket(
                 await _send(payload)
                 logger.info("Turn | call_id=%s response_id=%d end_call=%s took=%.1fs first_speech=%s", call_id, response_id, end_call, turn_seconds,
                             f"{streamed['first_s']:.1f}s" if streamed["first_s"] is not None else "n/a")
+            await agent.flush_after_turn()   # confirmation texts etc. go out after the caller has heard the reply
             # Persist after every turn: leads/bookings become visible immediately, a crash
             # doesn't lose the call, and reconnecting WebSockets see the current state.
             await db.commit()
