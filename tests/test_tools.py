@@ -288,3 +288,15 @@ async def test_invalid_spoken_number_falls_back_to_caller_id(db):
     await db.flush()
     await db.refresh(lead)
     assert lead.phone == "+17805550142"
+
+
+def test_only_real_emergencies_alert_the_owner_mid_call():
+    # Regression (daily simulation, 2026-10-19): a routine job scored "High" and texted the owner at creation,
+    # then texted again at booking.
+    from types import SimpleNamespace
+    from app.tools.create_lead import _is_urgent
+    routine = SimpleNamespace(priority_level="High", emergency_level="standard", life_safety_risk=False)
+    assert _is_urgent(routine) is False
+    assert _is_urgent(SimpleNamespace(priority_level="Critical", emergency_level="standard", life_safety_risk=False)) is True
+    assert _is_urgent(SimpleNamespace(priority_level="Medium", emergency_level="emergency", life_safety_risk=False)) is True
+    assert _is_urgent(SimpleNamespace(priority_level="Low", emergency_level="", life_safety_risk=True)) is True

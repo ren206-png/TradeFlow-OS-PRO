@@ -15,7 +15,9 @@ from app.utils.phone import normalize_nanp
 def _is_urgent(lead: Lead) -> bool:
     emergency = str(lead.emergency_level or "").lower()
     return (
-        str(lead.priority_level or "").lower() in {"critical", "high", "urgent", "emergency"}
+        # "high" is just a sales-score bucket (a good-looking routine job can land there); only true emergencies
+        # alert the owner mid-call, otherwise a routine booking texted the owner twice.
+        str(lead.priority_level or "").lower() in {"critical", "urgent", "emergency"}
         or bool(lead.life_safety_risk)
         or (emergency not in {"", "none", "low", "standard"})
     )
