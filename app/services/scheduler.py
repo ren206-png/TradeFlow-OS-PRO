@@ -912,32 +912,16 @@ async def _provisioning_retry_job() -> None:
 
 
 async def _trial_reminder_job() -> None:
-    """Email owners whose unpaid trial ends within 3 days (once each)."""
-    from datetime import datetime, timedelta, timezone
-    from sqlalchemy import select
+    """Daily lifecycle emails: day-1 forwarding help, week-one stats, trial ending / expired (once each)."""
     from app.database import async_session_factory
-    from app.models.contractor import Contractor
-    from app.services.billing import trial_days_left
-    from app.services.welcome import send_trial_ending_email
-    now = datetime.now(tz=timezone.utc)
+    from app.services.lifecycle_emails import run_lifecycle_emails
     try:
         async with async_session_factory() as db:
-            rows = (await db.execute(select(Contractor).where(
-                Contractor.trial_ends_at.isnot(None),
-                Contractor.trial_ends_at > now,
-                Contractor.trial_ends_at <= now + timedelta(days=3),
-                Contractor.trial_reminder_sent_at.is_(None),
-                Contractor.email.isnot(None),
-            ))).scalars().all()
-            for c in rows:
-                days = trial_days_left(c)
-                if days is None:  # already subscribed
-                    continue
-                if await send_trial_ending_email(c.email, c.name, days):
-                    c.trial_reminder_sent_at = now
-            await db.commit()
+            sent = await run_lifecycle_emails(db)
+        if any(sent.values()):
+            logger.info("Lifecycle emails sent: %s", sent)
     except Exception as exc:
-        logger.error("Trial reminder job failed: %s", exc)
+        logger.error("Lifecycle email job failed: %s", exc)
 
 
 _JOB_FUNCS = {f.__name__: f for f in (

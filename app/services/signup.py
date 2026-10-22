@@ -116,7 +116,7 @@ async def create_account(
 
 
 def fire_signup_side_effects(contractor: Contractor, trade: str, phone: str) -> None:
-    """Welcome email with the verify link, plus the Mailchimp subscription (fire-and-forget)."""
+    """Welcome email with the verify link (fire-and-forget)."""
     from app.services.welcome import send_welcome_email
     asyncio.create_task(send_welcome_email(contractor.email, contractor.name,
                                            verify_url(str(contractor.id), contractor.email)))
@@ -138,11 +138,6 @@ async def confirm_email(db: AsyncSession, token: str) -> Contractor | None:
         contractor.email_verified_at = datetime.now(tz=timezone.utc)
         contractor.is_verified = True
         await db.commit()
-        # Drip sequence starts only for confirmed, real addresses (keeps bots out of the audience)
-        from app.services.mailchimp import subscribe_contractor
-        asyncio.create_task(subscribe_contractor(
-            email=contractor.email, first_name=contractor.name,
-            trade=", ".join(contractor.trades or []) or "General", phone=contractor.owner_phone or "", plan="starter"))
     if contractor.provisioning_status in ("awaiting_verification", "queued", "failed"):
         from app.services.provisioning import provision_contractor_by_id
         asyncio.create_task(provision_contractor_by_id(str(contractor.id)))

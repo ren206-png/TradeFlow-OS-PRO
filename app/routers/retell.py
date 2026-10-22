@@ -659,6 +659,14 @@ async def retell_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         await _ensure_partial_lead(call_id, call_info, db)
         await _finalise_session(call_id, call_info, db)
         await _schedule_post_call_jobs(call_id, db)
+        _cid = (call_info.get("metadata") or {}).get("contractor_id")
+        if not _cid and call_info.get("to_number"):
+            _row = (await db.execute(select(Contractor.id).where(Contractor.phone_number == call_info["to_number"]))).first()
+            _cid = str(_row[0]) if _row else None
+        if _cid:
+            import asyncio as _asyncio_fc
+            from app.services.lifecycle_emails import maybe_send_first_call_email
+            _asyncio_fc.create_task(maybe_send_first_call_email(_cid, call_id))
 
         # Missed call recovery SMS — fire if AI didn't really answer
         call_status: str = call_info.get("call_status", "")

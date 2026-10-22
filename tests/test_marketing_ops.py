@@ -1,4 +1,4 @@
-"""TikTok pixel, ad attribution, Mailchimp-after-verification, email volume warning, 500 alerts."""
+"""TikTok pixel, ad attribution, email volume warning, 500 alerts."""
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -31,21 +31,6 @@ def test_attribution_roundtrip_ignores_junk():
     assert attribution.read(Req()) == {"utm_source": "tiktok"}
     Req.cookies = {attribution.COOKIE: "not json"}
     assert attribution.read(Req()) is None
-
-
-@pytest.mark.asyncio
-async def test_mailchimp_subscribes_only_after_email_confirmed(db):
-    c = await signup.create_account(db, business_name="Mc Plumbing", email="mc@acme.ca", password="SecurePass1!",
-                                    phone="7805550100", trades=["Plumbing"], service_areas=["Edmonton"],
-                                    attribution={"utm_source": "tiktok"})
-    assert c.attribution == {"utm_source": "tiktok"}
-    sub = AsyncMock()
-    with patch("app.services.mailchimp.subscribe_contractor", sub), \
-         patch("app.services.signup.asyncio.create_task", lambda coro: coro.close()):
-        signup.fire_signup_side_effects(c, "Plumbing", "7805550100")
-        sub.assert_not_called()
-        await signup.confirm_email(db, signup.make_verify_token(str(c.id), c.email))
-        assert sub.call_count == 1
 
 
 def test_email_volume_warning_fires_once(monkeypatch):

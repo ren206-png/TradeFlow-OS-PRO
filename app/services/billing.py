@@ -111,12 +111,6 @@ class BillingService:
             contractor.name, plan, subscription_id,
         )
 
-        # Update Mailchimp plan tag (fire-and-forget)
-        if contractor.email:
-            import asyncio as _asyncio
-            from app.services.mailchimp import update_plan_tag as _mc_plan
-            _asyncio.create_task(_mc_plan(email=contractor.email, new_plan=plan))
-
         return subscription_id
 
     async def cancel_subscription(self, contractor) -> None:
@@ -245,6 +239,10 @@ class BillingService:
             if contractor:
                 contractor.subscription_status = "past_due"
                 await db.commit()
+                if (data_obj.get("attempt_count") or 1) <= 1 and contractor.email:  # Stripe retries; email once
+                    import asyncio as _asyncio
+                    from app.services.lifecycle_emails import send_payment_failed_email
+                    _asyncio.create_task(send_payment_failed_email(contractor.email, contractor.name))
 
         elif event_type == "customer.subscription.deleted":
             customer_id = data_obj.get("customer")

@@ -16,7 +16,6 @@
         ("retell", "Retell AI", "Voice call handling"),
         ("telnyx", "Telnyx", "SMS follow-ups"),
         ("stripe", "Stripe", "Billing & subscriptions"),
-        ("mailchimp", "Mailchimp", "Email drip automation"),
         ("anthropic", "Anthropic (Claude)", "AI lead scoring"),
       ] %}
       {% for key, label, desc in integrations %}
@@ -54,9 +53,6 @@
         ("STRIPE_WEBHOOK_SECRET", "Stripe Dashboard → Webhooks", configured.get("stripe")),
         ("STRIPE_STARTER_PRICE_ID", "Stripe Dashboard → Products → Starter Plan", configured.get("stripe")),
         ("STRIPE_PRO_PRICE_ID", "Stripe Dashboard → Products → Pro Plan", configured.get("stripe")),
-        ("MAILCHIMP_API_KEY", "Mailchimp → Account → API Keys", configured.get("mailchimp")),
-        ("MAILCHIMP_SERVER_PREFIX", "e.g. us12 (from API key suffix)", configured.get("mailchimp")),
-        ("MAILCHIMP_LIST_ID", "Mailchimp → Audience → Settings → Audience ID", configured.get("mailchimp")),
         ("ANTHROPIC_API_KEY", "console.anthropic.com → API Keys", configured.get("anthropic")),
         ("SECRET_KEY", "Random 32+ char string for session signing", True),
       ] %}
@@ -89,10 +85,6 @@
       <a href="https://dashboard.stripe.com" target="_blank"
          class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
         💳 Stripe Dashboard
-      </a>
-      <a href="https://login.mailchimp.com" target="_blank"
-         class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">
-        🐵 Mailchimp
       </a>
       <a href="https://portal.telnyx.com" target="_blank"
          class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium px-4 py-3 rounded-lg transition">

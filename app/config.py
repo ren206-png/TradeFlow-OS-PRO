@@ -90,10 +90,6 @@ class Settings(BaseSettings):
     resend_from: str = "TradeFlow <hello@tradesflowos.com>"  # must be on a domain verified in Resend
     resend_reply_to: str = ""
 
-    # Mailchimp — optional, drip emails disabled if empty
-    mailchimp_api_key: str = ""
-    mailchimp_server_prefix: str = ""   # e.g. "us1", "us14"
-    mailchimp_list_id: str = ""         # Audience ID
 
     # ── Feature flags ──────────────────────────────────────────────────────────
     # Toggle via Railway env vars (TRUST_V2=true, MOBILE_HERO_V2=true, etc.)

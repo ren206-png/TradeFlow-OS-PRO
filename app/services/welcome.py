@@ -23,6 +23,7 @@ def _wrap(title: str, body_html: str) -> str:
   <h1 style="font-size:22px;margin:0 0 16px">{title}</h1>
   {body_html}
   <p style="margin-top:28px;color:#6b7280;font-size:13px">Questions? Just reply to this email and a real person will get back to you.<br>— The TradeFlow team</p>
+  <p style="margin-top:12px;color:#9ca3af;font-size:12px">You are receiving this because you have a TradeFlow account. TradeFlow OS, Alberta, Canada.</p>
 </div>"""
 
 
@@ -32,7 +33,7 @@ def _button(url: str, label: str) -> str:
 
 
 def build_welcome_email(business_name: str, verify_url: str = "") -> tuple[str, str, str]:
-    """Confirm-your-email message (the Mailchimp drip does the welcoming; the number-ready email does the onboarding)."""
+    """Confirm-your-email message (the number-ready email does the onboarding)."""
     name = html.escape(business_name or "there")
     subject = "Confirm your email to activate your TradeFlow AI number"
     button = _button(verify_url, "Confirm my email") if verify_url else ""

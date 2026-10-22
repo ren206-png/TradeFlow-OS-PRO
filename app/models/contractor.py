@@ -51,6 +51,8 @@ class Contractor(Base):
     sms_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     minutes_this_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     trial_reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Comma-separated keys of the lifecycle emails already sent (app/services/lifecycle_emails.py)
+    lifecycle_sent: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
     billing_period_start: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     plan: Mapped[str] = mapped_column(String(30), nullable=False, default="starter")
     email: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
