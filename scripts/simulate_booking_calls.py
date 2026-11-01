@@ -17,6 +17,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Callable
@@ -32,6 +33,7 @@ from sqlalchemy import select  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
 import app.main  # noqa: E402,F401  (registers every model on Base.metadata)
+from app.config import settings  # noqa: E402
 from app.database import Base  # noqa: E402
 from app.models.call import CallSession  # noqa: E402
 from app.models.contractor import Contractor  # noqa: E402
@@ -63,6 +65,7 @@ class Result:
     transfer_to: str | None = None
     ended_by: str = ""
     empty_replies: int = 0
+    first_speech: list[float] = field(default_factory=list)   # seconds from the caller's words to the AI's first sentence
 
     @property
     def lead(self):
@@ -94,7 +97,10 @@ SCENARIOS = [
             ("agent hangs up after the goodbye", lambda r: r.ended_by in ("agent", "caller")
                 and not any("standing by" in t.lower() or "next call" in t.lower() for who, t in r.transcript if who == "agent")),
             ("reads details back to the caller", lambda r: any(
-                "right?" in t.lower() or "correct?" in t.lower() or "is that" in t.lower()
+                any(p in t.lower() for p in ("right?", "correct?", "is that", "that right", "sound right",
+                                             "did i get", "let me confirm", "let me read", "to confirm", "i have you"))
+                or ("?" in t and sum(ch.isdigit() for ch in t) + len([w for w in t.lower().split() if w.strip(",.?") in
+                    ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")]) >= 7)
                 for who, t in r.transcript if who == "agent")),
         ],
     ),
@@ -241,8 +247,11 @@ async def run_scenario(sc: Scenario, client: anthropic.AsyncAnthropic) -> Result
                     res.ended_by = "safety"
                     break
                 streamed: list[str] = []
+                _turn_start = time.monotonic()
 
                 async def _collect(chunk: str) -> None:
+                    if not streamed:
+                        res.first_speech.append(time.monotonic() - _turn_start)
                     streamed.append(chunk)
 
                 reply = await agent.process_turn(said, on_text=_collect)   # the same streaming path production uses
@@ -283,6 +292,7 @@ async def main(args) -> int:
     client = anthropic.AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     scenarios = [s for s in SCENARIOS if not args.only or s.name in args.only]
     report, failures = [], 0
+    all_first_speech: list[list[float]] = []
     for sc in scenarios:
         print(f"\n=== {sc.name} ===")
         try:
@@ -292,6 +302,7 @@ async def main(args) -> int:
             failures += len(sc.checks)
             report.append({"scenario": sc.name, "error": str(exc)})
             continue
+        all_first_speech.append(res.first_speech)
         for who, text in res.transcript:
             print(f"  {who:>6}: {text}")
         print(f"  ended by: {res.ended_by} | transfer: {res.transfer_to} | texts: {len(res.sms)} | emails: {len(res.emails)} | empty replies: {res.empty_replies}")
@@ -313,6 +324,10 @@ async def main(args) -> int:
         with open(args.report, "w") as f:
             json.dump(report, f, indent=2, default=str)
     total = sum(len(s.checks) for s in scenarios)
+    lat = sorted(x for r in all_first_speech for x in r)
+    if lat:
+        print(f"\nmodel={settings.claude_model} first-sentence latency: n={len(lat)} median={lat[len(lat)//2]:.2f}s "
+              f"p90={lat[max(int(len(lat)*0.9)-1, 0)]:.2f}s max={lat[-1]:.2f}s")
     print(f"\n{total - failures}/{total} checks passed")
     return 1 if failures else 0
 
