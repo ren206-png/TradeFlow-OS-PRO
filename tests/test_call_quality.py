@@ -230,3 +230,22 @@ async def test_owner_is_alerted_once_per_lead_and_booking_replaces_the_new_lead_
         await notifications.notify_appointment_booked(contractor, booked)
         await notifications.notify_new_lead(contractor, booked)      # booking already alerted the owner
     assert sent == ["new_lead", "appointment_booked"]
+
+
+_URGENCY_ONLY = [{"role": "assistant", "content": [{"type": "tool_use", "name": "classify_urgency", "input": {}}]}]
+
+
+def test_premature_end_call_from_the_model_is_ignored():
+    # Regression (daily simulation, 2026-11-04): the model called end_call right after classifying urgency and
+    # hung up on a caller mid-question. No lead saved and no goodbye from the caller means the call stays open.
+    from app.routers.retell import _end_call_allowed
+    assert not _end_call_allowed(_agent(None, _URGENCY_ONLY), "No, it's just dripping from the spout itself.")
+    assert not _end_call_allowed(_agent(None, []), "Hi, I have a leaking tap")
+
+
+def test_end_call_honoured_at_a_natural_end():
+    from app.routers.retell import _end_call_allowed
+    assert _end_call_allowed(_agent(None, _URGENCY_ONLY), "Okay, thanks, bye")          # caller says goodbye
+    assert _end_call_allowed(_agent(None, _URGENCY_ONLY), "Sorry, wrong number")         # caller declines
+    assert _end_call_allowed(_agent("x", _BOOKED), "Great, see you then")               # booked
+    assert _end_call_allowed(_agent("x", _CALLBACK), "Sounds good")                      # lead saved

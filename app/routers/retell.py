@@ -395,9 +395,15 @@ async def llm_websocket(
 
             # Check if the transfer_call tool fired during this turn
             transfer_number = _pending_transfers.pop(call_id, None)
+            model_ended = bool(agent._tool_context.pop("end_call", False))
+            if model_ended and not _end_call_allowed(agent, user_message):
+                # The model sometimes calls end_call mid-conversation (daily test, 2026-11-04: it hung up right after
+                # "is it only dripping from the spout?"). With no lead saved and no goodbye from the caller, keep the call open.
+                logger.warning("Ignored premature end_call | call_id=%s", call_id)
+                model_ended = False
             end_call = (
                 _should_end_call(agent)
-                or bool(agent._tool_context.pop("end_call", False))
+                or model_ended
                 or _caller_said_goodbye(user_message, agent)
             )
             if transfer_number:
@@ -1232,6 +1238,25 @@ def _caller_said_goodbye(user_message: str, agent: ClaudeAgent) -> bool:
 
 
 _WRAPPED_STATUSES = ("booked", "callback_required", "callback", "transferred")
+
+_DECLINE = re.compile(r"\b(wrong number|never ?mind|not interested|no thanks|stop calling|remove me|hang up)\b", re.IGNORECASE)
+_BUSINESS_TOOLS = ("create_lead_record", "book_appointment", "transfer_call", "send_sms")
+
+
+def _end_call_allowed(agent: ClaudeAgent, user_message: str) -> bool:
+    """
+    An end_call from the model is honoured only when the call has reached a natural end: the caller said goodbye or
+    declined, or the business is already done (lead saved, appointment booked, transfer or text sent).
+    """
+    if _GOODBYE.search(user_message or "") or _DECLINE.search(user_message or ""):
+        return True
+    for msg in agent.call_session.conversation_history:
+        content = msg.get("content")
+        if isinstance(content, list) and any(
+            isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in _BUSINESS_TOOLS for b in content
+        ):
+            return True
+    return False
 
 
 def _booking_wrapped_up(agent: ClaudeAgent) -> bool:
