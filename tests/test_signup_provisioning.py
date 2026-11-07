@@ -184,3 +184,15 @@ def test_canned_lines_follow_the_callers_language():
     assert detect_language("Bonjour, j'ai une fuite") == "fr" and "Merci" in closing_line("fr")
     assert detect_language("My faucet is leaking") == "en" and detect_language("") == "en"
     assert detect_language("Gracias") == "es"
+
+
+@pytest.mark.asyncio
+async def test_new_account_gets_default_feature_switches(db):
+    from app.services import signup
+    from app.services.feature_flags import is_enabled
+    c = await signup.create_account(db, business_name="Flags Plumbing", email="flags@acme.ca", password="SecurePass1!",
+                                    phone="7805550100", trades=["Plumbing"], service_areas=["Edmonton"])
+    for key in signup.DEFAULT_ON_FLAGS:
+        assert await is_enabled(str(c.id), key, db), key
+    assert not await is_enabled(str(c.id), "reactivation_campaigns", db)   # marketing stays opt-in
+    assert not await is_enabled(str(c.id), "estimate_followup", db)

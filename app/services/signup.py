@@ -110,9 +110,26 @@ async def create_account(
         free_estimate=False,
     )
     db.add(contractor)
+    await db.flush()
+    # Feature switches are per account and default to OFF when no row exists, so a new account would get none
+    # of the features the existing accounts have. Turn on the customer-facing ones; marketing campaigns
+    # (reactivation, estimate drip) text the contractor's past customers and stay opt-in.
+    from app.models.feature_flag import FeatureFlag
+    for key in DEFAULT_ON_FLAGS:
+        db.add(FeatureFlag(tenant_id=str(contractor.id), flag_key=key, enabled=True))
     await db.commit()
     await db.refresh(contractor)
     return contractor
+
+
+DEFAULT_ON_FLAGS = (
+    "missed_call_textback",    # text the caller when a call is missed
+    "appointment_lifecycle",   # booking confirmation + reminder texts
+    "outbound_gateway",        # consent ledger + quiet hours for outgoing texts
+    "owner_dashboard_v2",      # ROI / call analytics pages in the portal
+    "lead_source_ingest",
+    "webform_callback",
+)
 
 
 def fire_signup_side_effects(contractor: Contractor, trade: str, phone: str) -> None:

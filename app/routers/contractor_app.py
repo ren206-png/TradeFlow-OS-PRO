@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -149,8 +150,12 @@ async def lead_detail(lead_id: str, request: Request, db: AsyncSession = Depends
     except _AuthError as err:
         return err.response
 
+    try:
+        lead_uuid = uuid.UUID(lead_id)
+    except ValueError:
+        return HTMLResponse(content="<h1>Lead not found</h1>", status_code=404)
     result = await db.execute(
-        select(Lead).where(Lead.id == lead_id, Lead.contractor_id == contractor.id)
+        select(Lead).where(Lead.id == lead_uuid, Lead.contractor_id == contractor.id)
     )
     lead = result.scalar_one_or_none()
     if lead is None:

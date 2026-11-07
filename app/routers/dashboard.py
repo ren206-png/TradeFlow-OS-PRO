@@ -5,6 +5,7 @@ import hmac
 import logging
 import secrets
 import time
+import uuid
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -293,7 +294,11 @@ async def lead_detail_page(
     _: None = Depends(verify_admin),
     db: AsyncSession = Depends(get_db),
 ) -> HTMLResponse:
-    result = await db.execute(select(Lead).where(Lead.id == lead_id))
+    try:
+        lead_uuid = uuid.UUID(lead_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    result = await db.execute(select(Lead).where(Lead.id == lead_uuid))
     lead = result.scalar_one_or_none()
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found")
