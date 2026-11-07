@@ -82,8 +82,11 @@ async def create_checkout(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Create a Stripe Checkout Session for the chosen plan. Returns {checkout_url}."""
-    body = await request.json()
-    plan: str = body.get("plan", "starter")
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Expected a JSON body like {\"plan\": \"starter\"}")
+    plan: str = (body or {}).get("plan", "starter") if isinstance(body, dict) else "starter"
 
     if plan not in PLAN_LIMITS:
         raise HTTPException(status_code=400, detail=f"Unknown plan: {plan!r}")

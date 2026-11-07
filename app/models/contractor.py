@@ -109,7 +109,7 @@ class Contractor(Base):
     reset_token: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     reset_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    leads: Mapped[list[Lead]] = relationship("Lead", back_populates="contractor", lazy="select")
+    leads: Mapped[list[Lead]] = relationship("Lead", back_populates="contractor", lazy="select", passive_deletes=True)
     call_sessions: Mapped[list[CallSession]] = relationship(
-        "CallSession", back_populates="contractor", lazy="select"
+        "CallSession", back_populates="contractor", lazy="select", passive_deletes=True
     )

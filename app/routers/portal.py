@@ -340,8 +340,12 @@ async def portal_lead_update(
     if contractor is None:
         return RedirectResponse(url="/auth/login", status_code=302)
 
+    try:
+        lead_uuid = uuid.UUID(lead_id)
+    except ValueError:
+        return RedirectResponse(url="/portal/leads", status_code=302)
     result = await db.execute(
-        select(Lead).where(Lead.id == lead_id, Lead.contractor_id == contractor.id)
+        select(Lead).where(Lead.id == lead_uuid, Lead.contractor_id == contractor.id)
     )
     lead = result.scalar_one_or_none()
     if lead is None:
